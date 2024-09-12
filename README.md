@@ -13,4 +13,4 @@ The npm package can be found with: [context-man](https://www.npmjs.com/package/c
 
 ## GitHub
 
-Contribute in GitHub: [koodikulma-fi/context-man.git](https://github.com/koodikulma-fi/context-man.git)
+Contribute in GitHub: [koodikulma-fi/context-man.git](https://github.com/koodikulma-fi/ContextMan.git)

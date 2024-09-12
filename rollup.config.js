@@ -3,7 +3,6 @@
 
 import dts from 'rollup-plugin-dts';
 import del from 'rollup-plugin-delete';
-import copy from 'rollup-plugin-copy';
 import { terser } from 'rollup-plugin-terser'; // See terser options here: https://github.com/terser/terser#minify-options
 
 
@@ -21,7 +20,7 @@ export default [
     {
         input: 'dist/dts/index.d.ts',
         output: {
-          file: 'dist/ContextMan.d.ts',
+          file: 'dist/DataSignals.d.ts',
           format: 'es',
         },
         plugins: [
@@ -36,7 +35,7 @@ export default [
     {
         input: 'dist/index.js',
         output: {
-            file: 'dist/ContextMan.mjs',
+            file: 'dist/DataSignals.mjs',
             format: 'es',
         },
         plugins: [
@@ -47,7 +46,6 @@ export default [
                     module: true,
                     toplevel: true,
                     unsafe_arrows: true,
-                    drop_debugger: true
                     // drop_console: !devMode,
                     // drop_debugger: !devMode
                 },
@@ -62,7 +60,7 @@ export default [
     {
         input: 'dist/index.js',
         output: {
-            file: 'dist/ContextMan.js',
+            file: 'dist/DataSignals.js',
             format: 'cjs',
             exports: "auto"
         },
@@ -74,7 +72,6 @@ export default [
                     // toplevel: true,
                     module: true,
                     unsafe_arrows: true,
-                    drop_debugger: true
                     // drop_console: !devMode,
                     // drop_debugger: !devMode
                 },
@@ -84,15 +81,13 @@ export default [
     },
 
 
-    // - Copy & delete - //
+    // - Delete - //
 
-    // Copy for direct es module use (cannot use .mjs, instead the d.ts and .js must have same path).
+    // Delete the extras.
     {
-        input: 'dist/ContextMan.mjs',
+        input: 'dist/DataSignals.mjs',
         plugins: [
-            copy({ targets: [ { src: 'dist/ContextMan.d.ts', dest: 'dist', rename: 'ContextMan.module.d.ts' } ] }),
-            copy({ targets: [ { src: 'dist/ContextMan.mjs', dest: 'dist', rename: 'ContextMan.module.js' } ] }),
-            del({ targets: ['dist/classes*', 'dist/index.js', 'dist/types.js'], hook: 'buildEnd' })
+            del({ targets: ['dist/classes*', 'dist/library*', 'dist/index.js', 'dist/types.js'], hook: 'buildEnd' })
         ]
     },
 

@@ -3,7 +3,8 @@
 // - Imports - //
 
 // Library.
-import { ClassType, GetJoinedDataKeysFrom, NodeJSTimeout } from "../types";
+import { ClassType, GetJoinedDataKeysFrom, NodeJSTimeout } from "../library/typing";
+import { callWithTimeout } from "../library/library";
 // Classes.
 import { SignalListener, SignalsRecord } from "./SignalMan";
 import { DataSignalMan } from "./DataSignalMan";
@@ -15,78 +16,62 @@ import { ContextAPI } from "./ContextAPI";
 
 export type ContextSettings = {
     /** Timeout for refreshing for this particular context.
-     * - The timeout is used for both: data refresh and (normal) actions.
+     * - The timeout is used for data refreshing, but also tied to actions called with syncing (like "delay" or "pre-delay").
+     *      * Note that "pre-delay" refers to resolving this refreshTimeout, while "delay" is resolved after it once all the related contextAPIs have refreshed.
      * - If null, then synchronous - defaults to 0ms.
      * - Note that if you use null, the updates will run synchronously.
-     *   .. It's not recommended to use it, because you'd have to make sure you always use it in that sense.
-     *   .. For example, the component you called from might have already unmounted on the next line (especially if host is fully synchronous, too). */
+     *      * It's not recommended for normal usage, because you'd have to make sure you always use it in that sense.
+     *      * For example, on the next code line (after say, setting data in context) the context have already updated and triggered refreshes all around the app. Maybe instance you called from has alredy unmounted.
+     */
     refreshTimeout: number | null;
 };
-
-
-// - Helpers - // 
-
-/** Generic helper for classes with timer and method to call to execute rendering with a very specific logic.
- * - Returns the value that should be assigned as the stored timer (either existing one, new one or null). */
-export function callWithTimeout<Obj extends object, Timer extends number | NodeJSTimeout>(obj: Obj, callback: (this: Obj) => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null {
-    // Clear old timer if was given a specific forceTimeout (and had a timer).
-    if (currentTimer !== null && forceTimeout !== undefined) {
-        clearTimeout(currentTimer as any); // To support both sides: NodeJS and browser.
-        currentTimer = null;
-    }
-    // Execute immediately.
-    const timeout = forceTimeout === undefined ? defaultTimeout : forceTimeout;
-    if (timeout === null)
-        callback.call(obj);
-    // Or setup a timer - unless already has a timer to be reused.
-    else if (currentTimer === null)
-        currentTimer = setTimeout(() => callback.call(obj), timeout) as any;
-    // Return the timer.
-    return currentTimer;
-}
 
 
 // - Class - //
 
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
- * - It provides direct listening but is also designed to work with ContextAPI instances.
+ * - Contexts provide data listening and signalling features.
+ * - Contexts are useful in complex applications and often shared non-locally (or down the tree) in app structure to provide common data and intercommunication channels.
+ *      * For example, you might have several different contexts in your app, and then interconnect them together (if needed).
+ * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
+ *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them.
+ *      * In this usage, the "pre-delay" signals are tied to the Context's own refresh, while "delay" happens after all the related contextAPIs have also refreshed (= after their afterRefresh promise has resolved).
  */
-export class Context<Data = any, Signals extends SignalsRecord = any> extends DataSignalMan<Data, Signals> {
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = any> extends DataSignalMan<Data, Signals> {
 
 
-    // - Static - //
-
-    ["constructor"]: ContextType<Data, Signals>;
-    
-    
     // - Members - //
 
+    // Typing.
+    /** This is only provided for typing related technical reasons (so that can access signals typing easier externally). There's no actual _Signals member on the javascript side. */
+    _Signals?: Signals;
+    ["constructor"]: ContextType<Data, Signals>;
+    
     // Settings.
     public settings: ContextSettings;
 
+    // Connected.
     /** The keys are the ContextAPIs this context is attached to with a name, and the values are the names (typically only one). They are used for refresh related purposes. */
     public contextAPIs: Map<ContextAPI, string[]>;
 
-    /** Temporary internal timer marker. */
-    refreshTimer: number | NodeJSTimeout | null;
-    /** Temporary internal callbacks that will be called when the update cycle is done. */
-    private _afterUpdate?: Array<() => void>;
-    /** Temporary internal callbacks that will be called after the update cycle and the related host "render" refresh have been flushed. */
-    private _afterRender?: Array<() => void>;
+    // Internal.
+    /** Temporary internal timer marker for refreshing. */
+    private _refreshTimer: number | NodeJSTimeout | null;
+    /** Temporary internal callbacks that will be called when the update cycle is done - at the moment of "pre-delay" cycle (after refreshTimeout). */
+    private _afterPre?: Array<() => void>;
+    /** Temporary internal callbacks that will be called after the update cycle and the related external refreshes (by contextAPIs) have been flushed - at the moment of "delay" cycle. */
+    private _afterPost?: Array<() => void>;
 
 
     // - Construct - //
 
-    constructor(data: any, settings?: Partial<ContextSettings> | null | undefined) {
+    constructor(data: Data, settings?: Partial<ContextSettings> | null | undefined) {
         // Base.
         super(data);
         // Public settings.
         this.contextAPIs =  new Map();
-        this.settings = Context.getDefaultSettings();
-        this.refreshTimer = null;
-        // Just for typing - to avoid warning about not having set _Signals.
-        this._Signals = undefined as unknown as Signals;
-        delete (this as any)._Signals;
+        this.settings = this.constructor.getDefaultSettings();
+        this._refreshTimer = null;
         // Update settings.
         if (settings)
             this.modifySettings(settings);
@@ -107,23 +92,18 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
             }
         }
         return allListeners[0] && allListeners;
-
-        // If has many listeners, remove any duplicates here.
-        // .. We do this because components might have overridden with the same name as they have a host connection.
-        // .. In that case, would have direct (from component.contextAPI) and indirect listener here (from host.contextAPI).
-        // return allListeners[0] ? allListeners[1] ? [...new Set(allListeners)] : allListeners : null;
     }
 
 
     // - DataSignalMan-like methods. - //
 
     // Overridden.
-    /** This returns a promise that is resolved when the context is refreshed, or after all the hosts have refreshed. */
+    /** This returns a promise that is resolved when the context is refreshed, or after all the related contextAPIs have refreshed (based on their afterRefresh promise). */
     public afterRefresh(fullDelay: boolean = false, forceTimeout?: number | null): Promise<void> {
         // Add to delayed.
         return new Promise<void>(async (resolve) => {
             // Prepare.
-            const delayType = fullDelay ? "_afterRender" : "_afterUpdate";
+            const delayType = fullDelay ? "_afterPost" : "_afterPre";
             if (!this[delayType])
                 this[delayType] = [];
             // Add timer.
@@ -135,7 +115,8 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
     
     // Overridden to handle data refreshes.
     /** Trigger refresh of the context and optionally add data keys.
-     * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed). */
+     * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
+     */
     public refreshData<DataKey extends GetJoinedDataKeysFrom<Data & {}>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     public refreshData(dataKeys: string | string[] | boolean | null, forceTimeout?: number | null): void {
         // Add keys.
@@ -145,8 +126,14 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
         this.triggerRefresh(forceTimeout);
     }
 
+    /** Trigger a refresh in the context. Refreshes all pending after a timeout. */
     public triggerRefresh(forceTimeout?: number | null): void {
-        this.refreshTimer = callWithTimeout(this, this.refreshPending, this.refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
+        this._refreshTimer = callWithTimeout(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
+    }
+
+    /** Check whether is waiting to be refreshed. */
+    public isWaitingForRefresh(): boolean {
+        return this._refreshTimer !== null;
     }
 
     
@@ -154,28 +141,29 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
 
     /** This refreshes the context immediately.
      * - This is assumed to be called only by the .refresh function above.
-     * - So it will mark the timer as cleared, without using clearTimeout for it. */
+     * - So it will mark the timer as cleared, without using clearTimeout for it.
+     */
     private refreshPending(): void {
         // Get.
         const refreshKeys = this.dataKeysPending;
-        let afterUpdate = this._afterUpdate;
-        let afterRender = this._afterRender;
+        let afterPre = this._afterPre;
+        let afterPost = this._afterPost;
         // Clear.
-        this.refreshTimer = null;
+        this._refreshTimer = null;
         this.dataKeysPending = null;
-        delete this._afterUpdate;
-        delete this._afterRender;
+        delete this._afterPre;
+        delete this._afterPost;
         // Call signals on delayed listeners.
-        if (afterUpdate) {
-            for (const callback of afterUpdate)
+        if (afterPre) {
+            for (const callback of afterPre)
                 callback();
         }
         // Call data listeners.
         if (refreshKeys) {
             // Call direct.
-            for (const [callback, needs] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
                 if (refreshKeys === true || refreshKeys.some(dataKey => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                    callback(...needs.map(need => this.getInData(need as never)));
+                    callback(...this.getDataArgsBy(needs as any, fallbackArgs));
             }
             // Call on related contextAPIs.
             // .. Only call the ones not colliding with our direct, or call all.
@@ -184,8 +172,8 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
                     contextAPI.callDataListenersFor(ctxNames, refreshKeys) :
                     contextAPI.callDataBy(refreshKeys === true ? ctxNames : ctxNames.map(ctxName => refreshKeys.map(key => ctxName + "." + key)).reduce((a, c) => a.concat(c)) as any);
         }
-        // Trigger updates for contextAPIs and wait after they've rendered.
-        if (afterRender) {
+        // Trigger updates for contextAPIs and wait after they've flushed.
+        if (afterPost) {
             (async () => {
                 // Add a await refresh listener on all connected contextAPIs.
                 // .. Note that we don't specify (anymore as of v3.1) which contextAPIs actually were refreshed in relation to the actions and pending data.
@@ -195,8 +183,8 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
                     toWait.push(contextAPI.afterRefresh(true));
                 // Wait.
                 await Promise.all(toWait);
-                // Resolve all afterRender awaiters.
-                for (const callback of afterRender)
+                // Resolve all afterPost awaiters.
+                for (const callback of afterPost)
                     callback();
             })();
         }
@@ -205,47 +193,24 @@ export class Context<Data = any, Signals extends SignalsRecord = any> extends Da
 
     // - Settings - //
 
-    // Common basis. There's currently (anymore) 1 setting.
+    // Common basis.
     /** Update settings with a dictionary. If any value is `undefined` then uses the default setting. */
     public modifySettings(settings: Partial<ContextSettings>): void {
-        const defaults = Context.getDefaultSettings();
+        const defaults = (this.constructor as typeof Context).getDefaultSettings();
         for (const name in settings)
-            settings[name] = settings[name] === undefined ? defaults[name] : settings[name];
+            this.settings[name] = settings[name] === undefined ? defaults[name] : settings[name];
     }
 
     
     // - Static - //
     
+    /** Extendable static default settings getter. */
     public static getDefaultSettings(): ContextSettings {
         return { refreshTimeout: 0 };
     }
 
-
-    // - Typing - //
-
-    /** This is only provided for typing related technical reasons. There's no actual _Signals member on the javascript side.
-     * - Note. Due to complex typing (related to ContextAPI having multiple contexts), we need to have it without undefined (_Signals? is not okay).
-     */
-    _Signals: Signals;
-
 }
 
-export type ContextType<Data = any, Signals extends SignalsRecord = SignalsRecord> = ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> & { }
-
-
-// - Creation helpers - //
-
-/** Create a new context. */
-export const newContext = <Data = any, Signals extends SignalsRecord = SignalsRecord>(data?: Data, settings?: Partial<ContextSettings>): Context<Data, Signals> =>
-    new Context<Data, Signals>(data, settings);
-
-/** Create multiple named contexts by giving data. */
-export const newContexts = <
-    Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name]> },
-    AllData extends { [Name in keyof Contexts & string]: Contexts[Name]["data"] } = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }
->(contextsData: AllData, settings?: Partial<ContextSettings>): Contexts => {
-    const contexts: Record<string, Context> = {};
-    for (const name in contextsData)
-        contexts[name] = newContext(contextsData[name], settings);
-    return contexts as Contexts;
-};
+export type ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> = ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> & {
+    getDefaultSettings(): ContextSettings;
+}

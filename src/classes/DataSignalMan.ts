@@ -3,7 +3,7 @@
 // - Imports - //
 
 // Library.
-import { ClassType, ClassMixer } from "../types";
+import { ClassType, ClassMixer } from "../library/typing";
 // Classes.
 import { SignalMan, SignalsRecord, _SignalManMixin } from "./SignalMan";
 import { DataMan, _DataManMixin } from "./DataMan";
@@ -12,7 +12,7 @@ import { DataMan, _DataManMixin } from "./DataMan";
 // - Mixin - //
 
 /** Only for local use. Mixes followingly: `_DataManMixin( _SignalManMixin( Base ) )`. */
-export function _DataSignalManMixin<Data = any, Signals extends SignalsRecord = {}>(Base: ClassType) {
+export function _DataSignalManMixin(Base: ClassType) {
 
     // A bit surprisingly, using this way of typing (combined with the DataSignalManMixin definition below), everything works perfectly.
     // .. The only caveat is that within here, we don't have the base class available. (Luckily we don't need it, as there's no overlap.)
@@ -31,6 +31,8 @@ export const DataSignalManMixin = _DataSignalManMixin as unknown as ClassMixer<C
 
 // - Class - //
 
-export interface DataSignalManType<Data = any, Signals extends SignalsRecord = {}> extends ClassType<DataSignalMan<Data, Signals>> { }
-export class DataSignalMan<Data = any, Signals extends SignalsRecord = {}> extends (_DataSignalManMixin(Object) as ClassType) { }
-export interface DataSignalMan<Data = any, Signals extends SignalsRecord = {}> extends DataMan<Data>, SignalMan<Signals> { }
+export interface DataSignalManType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends ClassType<DataSignalMan<Data, Signals>> { }
+export class DataSignalMan<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends (_DataSignalManMixin(Object) as ClassType) { }
+export interface DataSignalMan<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends DataMan<Data>, SignalMan<Signals> {
+    ["constructor"]: DataSignalManType<Data, Signals>;
+}

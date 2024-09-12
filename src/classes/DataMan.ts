@@ -2,8 +2,8 @@
 
 // - Imports - //
 
-// Library.
-import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer } from "../types";
+// Typing.
+import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer, PropTypeDictionary } from "../library/typing";
 
 
 // - Helper types - //
@@ -16,7 +16,7 @@ export type DataListenerFunc = (...args: any[]) => any | void;
 // 
 // This can be used as a basis for providing data listening and refreshing features.
 
-export function _DataManMixin<Data = any>(Base: ClassType) {
+export function _DataManMixin<Data extends Record<string, any> = {}>(Base: ClassType) {
 
     return class _DataMan extends Base {
 
@@ -25,22 +25,25 @@ export function _DataManMixin<Data = any>(Base: ClassType) {
 
         // Data & contents.
         public readonly data: Data;
-        /** External data listeners - called after the contextual components. The keys are data listener callbacks, and values are the data needs. */
-        public dataListeners: Map<DataListenerFunc, string[]>;
+        /** External data listeners.
+         * - These are called after the data refreshes, though might be tied to update cycles at an external layer - eg. to refresh the whole app in sync.
+         * - The keys are data listener callbacks, and values are: `[fallbackArgs, ...dataNeeds]`.
+         */
+        public dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | undefined, ...dataNeeds: string[]]>;
         /** The pending data keys - for internal refreshing uses. */
         dataKeysPending: string[] | true | null;
 
 
         // - Construct - //
 
-        constructor(data?: any, ...args: any[]) {
+        constructor(...args: {} extends Data ? any[] : [Data, ...any[]]) {
             // Base.
-            super(...args);
+            super(...args.slice(1));
             // Listeners.
             this.dataListeners = new Map();
             this.dataKeysPending = null;
             // Data.
-            this.data = data;
+            this.data = args[0] || {} as Data;
         }
 
 
@@ -51,13 +54,15 @@ export function _DataManMixin<Data = any>(Base: ClassType) {
             let iOffset = 1;
             const nArgs = args.length;
             const callImmediately = typeof args[nArgs - iOffset] === "boolean" && args[nArgs - iOffset++];
+            const isDictionary = typeof args[0] === "object";
+            const fallbackArgs: any[] | undefined = isDictionary ? Object.values(args[0] as Record<string, any>) as string[] : Array.isArray(args[nArgs - iOffset]) ? args[nArgs - iOffset++]?.slice() : undefined;
+            const dataNeeds = isDictionary ? Object.keys(args[0]) : args.slice(0, nArgs - iOffset);
             const callback: DataListenerFunc = args[nArgs - iOffset];
-            const dataNeeds = args.slice(0, nArgs - iOffset);
             // Add / Override.
-            this.dataListeners.set(callback, dataNeeds);
+            this.dataListeners.set(callback, [fallbackArgs, ...dataNeeds]);
             // Call.
             if (callImmediately)
-                callback(...dataNeeds.map(need => this.getInData(need)));
+                callback(...this.getDataArgsBy(dataNeeds, fallbackArgs));
         }
 
         /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
@@ -96,9 +101,9 @@ export function _DataManMixin<Data = any>(Base: ClassType) {
             return data === undefined ? fallback : data;
         }
 
-        public setData(data: Data, extend: boolean = false, refresh: boolean = true, ...timeArgs: any[]): void {
+        public setData(data: Data, extend: boolean = true, refresh: boolean = true, ...timeArgs: any[]): void {
             // Set data and refresh. Note that we modify a readonly value here.
-            (this.data as any) = extend && this.data ? { ...this.data as object, ...data as object } as Data : data;
+            (this.data as any) = extend !== false ? { ...this.data, ...data } as Data : data;
             // Refresh or just add keys.
             refresh ? this.refreshData(true, ...timeArgs) : this.addRefreshKeys(true);
         }
@@ -160,12 +165,8 @@ export function _DataManMixin<Data = any>(Base: ClassType) {
             const refreshKeys = this.dataKeysPending;
             this.dataKeysPending = null;
             // Call each.
-            if (refreshKeys) {
-                for (const [callback, needs] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
-                    if (refreshKeys === true || refreshKeys.some(dataKey => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                        callback(...needs.map(need => this.getInData(need)));
-                }
-            }
+            if (refreshKeys)
+                this.callDataBy(refreshKeys as any);
         }
         
         /** Note that this only adds the refresh keys but will not refresh. */
@@ -192,6 +193,27 @@ export function _DataManMixin<Data = any>(Base: ClassType) {
             }
         }
 
+
+        // - Helpers - //
+
+        /** Helper to build data arguments with fallbacks.
+         * - For example: `getDataArgsBy(["common.user.name", "view.darkMode"])`.
+         * - Used internally but can be used for manual purposes.
+         */
+        public getDataArgsBy(needs: GetJoinedDataKeysFrom<Data>[], fallbackArgs?: any[]): any[] {
+            return fallbackArgs ? needs.map((need, i) => this.getInData(need, fallbackArgs[i])) : needs.map((need, i) => this.getInData(need));
+        }
+        /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
+         * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.
+         */
+        public callDataBy(refreshKeys: true | GetJoinedDataKeysFrom<Data>[] = true): void {
+            // Loop each callback, and call if needs to.
+            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+                if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
+                    callback(...this.getDataArgsBy(needs as GetJoinedDataKeysFrom<Data>[], fallbackArgs));
+            }
+        }
+
     }
 }
 
@@ -206,27 +228,48 @@ export const DataManMixin = _DataManMixin as unknown as ClassMixer<ClassType<Dat
 
 // - Class - //
 
-export interface DataManType<Data = any> extends ClassType<DataMan<Data>> { }
-export class DataMan<Data = any> extends _DataManMixin(Object) { }
-/** This provides data setting and listening features with dotted strings.
+export interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> { }
+export class DataMan<Data extends Record<string, any> = {}> extends _DataManMixin(Object) {
+    
+    // Allow without data if data is set to {}, then we can fall it back automatically.
+    constructor(...args: {} extends Data ? any[] : [Data, ...any[]]);
+    constructor(...args: any[]) {
+        super(...args);
+    }
+
+}
+/** DataMan provides data setting and listening features with dotted strings.
  * - Example to create: `const dataMan = new DataMan({ ...initData });`
  * - Example for listening: `dataMan.listenToData("some.data.key", "another", (some, other) => { ... })`
  * - Example for setting data: `dataMan.setInData("some.data.key", somedata)`
  */
-export interface DataMan<Data = any> {
-
+export interface DataMan<Data extends Record<string, any> = {}> {
+    
 
     // - Members - //
 
+    // Typing.
+    ["constructor"]: DataManType<Data>;
+
     // Data & contents.
     readonly data: Data;
-    /** External data listeners - called after the contextual components. The keys are data listener callbacks, and values are the data needs. */
-    dataListeners: Map<DataListenerFunc, string[]>;
+    /** External data listeners.
+     * - These are called after the data refreshes, though might be tied to update cycles at an external layer - to refresh the whole app in sync.
+     * - The keys are data listener callbacks, and values are: `[fallbackArgs, ...dataNeeds]`.
+     */
+    dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | undefined, ...needs: string[]]>;
     /** The pending data keys - for internal refreshing uses. */
     dataKeysPending: string[] | true | null;
 
 
     // - Data listening - //
+
+    // Using dictionary.
+    /** Listen to data using a dictionary whose keys are data keys and values fallbacks. If you want to strictly define the types in the dictionary add `as const` after its definition. */
+    listenToData<
+        Keys extends GetJoinedDataKeysFrom<Data>,
+        Fallbacks extends Partial<Record<Keys, any>>
+    >(fallbackDictionary: Fallbacks, callback: (values: PropTypeDictionary<Data, Fallbacks>) => void, callImmediately?: boolean): void;
 
     // Using pre-suggested keys and no fallback (it's not really needed as we are the direct owners of the data).
     /** This allows to listen to data by defining specific needs which in turn become the listener arguments.
@@ -235,53 +278,58 @@ export interface DataMan<Data = any> {
      * - To remove the listener use `unlistenToData(callback)`.
      */
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>) => void,
-    >(dataKey: Key1, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0]) => void,
+    >(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>, val3: PropType<Data, Key3, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
         Key4 extends Keys,
-        Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null],
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>, val3: PropType<Data, Key3, never>, val4: PropType<Data, Key4, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
         Key4 extends Keys,
         Key5 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>, val3: PropType<Data, Key3, never>, val4: PropType<Data, Key4, never>, val5: PropType<Data, Key5, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
         Key4 extends Keys,
         Key5 extends Keys,
         Key6 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>, val3: PropType<Data, Key3, never>, val4: PropType<Data, Key4, never>, val5: PropType<Data, Key5, never>, val6: PropType<Data, Key6, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -289,10 +337,11 @@ export interface DataMan<Data = any> {
         Key5 extends Keys,
         Key6 extends Keys,
         Key7 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>, val3: PropType<Data, Key3, never>, val4: PropType<Data, Key4, never>, val5: PropType<Data, Key5, never>, val6: PropType<Data, Key6, never>, val7: PropType<Data, Key7, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any, fall7?: any ],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5], val7: PropType<Data, Key7, never> | Fallback[6]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data & {}>,
+        Keys extends GetJoinedDataKeysFrom<Data>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -301,8 +350,9 @@ export interface DataMan<Data = any> {
         Key6 extends Keys,
         Key7 extends Keys,
         Key8 extends Keys,
-        Callback extends (val1: PropType<Data, Key1, never>, val2: PropType<Data, Key2, never>, val3: PropType<Data, Key3, never>, val4: PropType<Data, Key4, never>, val5: PropType<Data, Key5, never>, val6: PropType<Data, Key6, never>, val7: PropType<Data, Key7, never>, val8: PropType<Data, Key8, never>) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, callImmediately?: boolean): void;
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any, fall7?: any, fall8?: any ],
+        Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5], val7: PropType<Data, Key7, never> | Fallback[6], val8: PropType<Data, Key8, never> | Fallback[7]) => void,
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
 
     /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
     unlistenToData(callback: DataListenerFunc): boolean;
@@ -311,176 +361,29 @@ export interface DataMan<Data = any> {
     // - Get and set data - //
 
     /** Get the whole data (directly).
-     * - If you want to use refreshes and such as designed, don't modify the data directly (do it via setData or setInData) - or then call .refreshData accordingly. */
+     * - If you want to use refreshes and such as designed, don't modify the data directly (do it via setData or setInData) - or then call .refreshData accordingly.
+     */
     getData(): Data;
     /** Get a portion within the data using dotted string to point the location. For example: "themes.selected". */
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data & {}>>(dataKey: DataKey, fallback?: PropType<Data, DataKey, never>): PropType<Data, DataKey>;
-    /** Set the data and refresh.
-     * - Note that the extend functionality should only be used for dictionary objects. */
-    setData(data: Data, extend?: boolean | false, refresh?: boolean, forceTimeout?: number | null): void;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): PropType<Data, DataKey> | Fallback;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKey: DataKey, fallback?: never | undefined): PropType<Data, DataKey>;
+    /** Set the data and refresh. By default extends the data (only replaces if extend is set to false), and triggers a refresh. */
+    setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
     setData(data: Partial<Data>, extend?: boolean | true, refresh?: boolean, forceTimeout?: number | null): void;
-    /** Set or extend in nested data, and refresh with the key.
-     * - Note that the extend functionality should only be used for dictionary objects. */
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data & {}>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data & {}>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
+    /** Set or extend in nested data, and refresh with the key. (And by default trigger a refresh.)
+     * - Note that the extend functionality should only be used for dictionary objects. Defaults to false, since the sub data is not statically known at DataMan level.
+     */
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
 
     /** This refreshes both: data & pending signals.
      * - If refreshKeys defined, will add them - otherwise only refreshes pending.
-     * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals. */
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data & {}>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data & {}>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+     * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
+     */
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
     
     /** Note that this only adds the refresh keys but will not refresh. */
     addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
 
 }
-
-
-// - Backup typing - //
-// 
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0]) => void,
-// >(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Key3 extends CheckDataByKey<Key3, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Key3 extends CheckDataByKey<Key3, Data>,
-//     Key4 extends CheckDataByKey<Key4, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Key3 extends CheckDataByKey<Key3, Data>,
-//     Key4 extends CheckDataByKey<Key4, Data>,
-//     Key5 extends CheckDataByKey<Key5, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Key3 extends CheckDataByKey<Key3, Data>,
-//     Key4 extends CheckDataByKey<Key4, Data>,
-//     Key5 extends CheckDataByKey<Key5, Data>,
-//     Key6 extends CheckDataByKey<Key6, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null, fall6?: PropType<Data, Key6, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Key3 extends CheckDataByKey<Key3, Data>,
-//     Key4 extends CheckDataByKey<Key4, Data>,
-//     Key5 extends CheckDataByKey<Key5, Data>,
-//     Key6 extends CheckDataByKey<Key6, Data>,
-//     Key7 extends CheckDataByKey<Key7, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null, fall6?: PropType<Data, Key6, never> | null, fall7?: PropType<Data, Key7, never> | null ],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5], val7: PropType<Data, Key7, never> | Fallback[6]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Key1 extends CheckDataByKey<Key1, Data>,
-//     Key2 extends CheckDataByKey<Key2, Data>,
-//     Key3 extends CheckDataByKey<Key3, Data>,
-//     Key4 extends CheckDataByKey<Key4, Data>,
-//     Key5 extends CheckDataByKey<Key5, Data>,
-//     Key6 extends CheckDataByKey<Key6, Data>,
-//     Key7 extends CheckDataByKey<Key7, Data>,
-//     Key8 extends CheckDataByKey<Key8, Data>,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null, fall6?: PropType<Data, Key6, never> | null, fall7?: PropType<Data, Key7, never> | null, fall8?: PropType<Data, Key8, never> | null ],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5], val7: PropType<Data, Key7, never> | Fallback[6], val8: PropType<Data, Key8, never> | Fallback[7]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-
-// // Alternative. Using pre-suggested keys for better typing experience.
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0]) => void,
-// >(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Key3 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Key3 extends Keys,
-//     Key4 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Key3 extends Keys,
-//     Key4 extends Keys,
-//     Key5 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Key3 extends Keys,
-//     Key4 extends Keys,
-//     Key5 extends Keys,
-//     Key6 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null, fall6?: PropType<Data, Key6, never> | null],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Key3 extends Keys,
-//     Key4 extends Keys,
-//     Key5 extends Keys,
-//     Key6 extends Keys,
-//     Key7 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null, fall6?: PropType<Data, Key6, never> | null, fall7?: PropType<Data, Key7, never> | null ],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5], val7: PropType<Data, Key7, never> | Fallback[6]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-// listenToData<
-//     Keys extends GetJoinedDataKeysFrom<Data & {}>,
-//     Key1 extends Keys,
-//     Key2 extends Keys,
-//     Key3 extends Keys,
-//     Key4 extends Keys,
-//     Key5 extends Keys,
-//     Key6 extends Keys,
-//     Key7 extends Keys,
-//     Key8 extends Keys,
-//     Fallback extends [ fall1?: PropType<Data, Key1, never> | null, fall2?: PropType<Data, Key2, never> | null, fall3?: PropType<Data, Key3, never> | null, fall4?: PropType<Data, Key4, never> | null, fall5?: PropType<Data, Key5, never> | null, fall6?: PropType<Data, Key6, never> | null, fall7?: PropType<Data, Key7, never> | null, fall8?: PropType<Data, Key8, never> | null ],
-//     Callback extends (val1: PropType<Data, Key1, never> | Fallback[0], val2: PropType<Data, Key2, never> | Fallback[1], val3: PropType<Data, Key3, never> | Fallback[2], val4: PropType<Data, Key4, never> | Fallback[3], val5: PropType<Data, Key5, never> | Fallback[4], val6: PropType<Data, Key6, never> | Fallback[5], val7: PropType<Data, Key7, never> | Fallback[6], val8: PropType<Data, Key8, never> | Fallback[7]) => void,
-// >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;

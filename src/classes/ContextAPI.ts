@@ -11,11 +11,12 @@ import {
     FirstSplit,
     SecondSplit,
     GetJoinedDataKeysFrom,
-} from "../types";
+    ClassType,
+} from "../library/typing";
 // Classes.
 import { SignalSendAsReturn, SignalListenerFunc, SignalsRecord, SignalBoy, SignalListener } from "./SignalMan";
 import { DataListenerFunc } from "./DataMan";
-import { Context, newContext, newContexts } from "./Context";
+import { Context } from "./Context";
 
 
 // - Helper types - //
@@ -29,19 +30,22 @@ export type GetJoinedSignalKeysFromContexts<Contexts extends ContextsAllType> = 
 
 // Local helper types.
 export type MergeSignalsFromContexts<Ctxs extends ContextsAllType> = {
-    [Key in string & GetJoinedSignalKeysFromContexts<Ctxs>]: [Ctxs[FirstSplit<Key, ".">]["_Signals"][SecondSplit<Key, ".">]] extends [SignalListenerFunc] ? Ctxs[FirstSplit<Key, ".">]["_Signals"][SecondSplit<Key, ".">] : never;
-    // [Key in string & GetJoinedSignalKeysFromContexts<Ctxs>]: Ctxs[FirstSplit<Key, ".">]["_Signals"][SecondSplit<Key, ".">]; 
+    [Key in string & GetJoinedSignalKeysFromContexts<Ctxs>]: [(Ctxs[FirstSplit<Key, ".">]["_Signals"] & {})[SecondSplit<Key, ".">]] extends [SignalListenerFunc] ? (Ctxs[FirstSplit<Key, ".">]["_Signals"] & {})[SecondSplit<Key, ".">] : never;
+    // [Key in string & GetJoinedSignalKeysFromContexts<Ctxs>]: (Ctxs[FirstSplit<Key, ".">]["_Signals"] & {})[SecondSplit<Key, ".">]; 
     // <-- This shorter one is not enough for the compiled module.d.ts. Does not satisfy SignalsRecord otherwise.
 };
 
 // These work by using the given data key location types.
-type GetDataByContextString<Key extends string, Contexts extends ContextsAllType> = GetDataByContextKeys<SplitOnce<Key, ".">, Contexts>;
-type GetDataByContextKeys<CtxKeys extends string[], Contexts extends ContextsAllType> = 
+export type GetDataByContextString<Key extends string, Contexts extends ContextsAllType> = GetDataByContextKeys<SplitOnce<Key, ".">, Contexts>;
+export type GetDataByContextKeys<CtxKeys extends string[], Contexts extends ContextsAllType> = 
     [CtxKeys[0]] extends [keyof Contexts] ? 
         [CtxKeys[1]] extends [string] ?
             PropType<Contexts[CtxKeys[0]]["data"], CtxKeys[1], never>
         : Contexts[CtxKeys[0]]["data"]
     : never;
+export type GetDataByContextDictionary<Fallbacks extends Record<string, any>, Contexts extends ContextsAllType> = {
+    [Key in keyof Fallbacks & string]: Key extends `${infer ContextName}.${infer DataKey}` ? PropType<(Contexts[ContextName] & {})["data"], DataKey, Fallbacks[Key]> | Fallbacks[Key] : never;
+};
 
 
 // - Helpers - //
@@ -59,6 +63,8 @@ export function buildRecordable<T extends string = any>(types: RecordableType<T>
 
 // - Class - //
 
+/** Class type of ContextAPI. */
+export interface ContextAPIType<Contexts extends ContextsAllType = {}, CtxSignals extends SignalsRecord = MergeSignalsFromContexts<Contexts>> extends ClassType<ContextAPI<Contexts, CtxSignals>> { }
 /** ContextAPI looks like it has full SignalMan and DataMan capabilities but only extends SignalBoy internally.
  * - It has all the same methods, but does not have .data member and data listening can have a fallback array.
  * - All data keys and signal names should start with "contextName.", for example: "settings.theme" data key or "navigation.onFocus" signal.
@@ -68,12 +74,16 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
 
     // - Members - //
 
-    /** Data needs mapping using the callback as the key and value contains the data needs. The data needs are also used as to get the argument values for the callback. */
-    public dataListeners: Map<DataListenerFunc, [ needs: string[], fallbackArgs?: any[] ]>;
+    // Typing.
+    ["constructor"]: ContextAPIType<Contexts, CtxSignals>;
+
+    /** Data needs mapping using the callback as the key and value contains: `[ fallbackArgs, ...needs ]`. The data needs are also used as to get the argument values for the callback. */
+    public dataListeners: Map<DataListenerFunc, [ fallbackArgs: any[] | undefined, ...needs: string[]]>;
     /** All the contexts assigned to us.
      * - They also have a link back to us by context.contextAPIs, with this as the key and context names as the values. 
      * - Note that can also set `null` value here - for purposefully excluding an inherited context (when using one contextAPI to inherit contexts from another).
-     *      * But `undefined` will never be found in here - if gives to the setContext, it means deleting the entry from the record. */
+     *      * But `undefined` will never be found in here - if gives to the setContext, it means deleting the entry from the record.
+     */
     public contexts: Partial<Record<string, Context<any, SignalsRecord> | null>>;
 
 
@@ -88,11 +98,12 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
 
     // - Overrideable - //
 
-    /** This triggers a refresh and returns a promise that is resolved when the update / render cycle is completed.
+    /** This triggers a refresh and returns a promise that is resolved when the update cycle is completed.
      * - If there's nothing pending, then will resolve immediately. 
      * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      * - Note that this method is overrideable. On the basic implementation it resolves immediately.
-     *      * However, on the Host.contextAPI it's tied to the Host's update / render cycle - and serves as the bridge for syncing (to implement "delay" signals). */
+     *      * However, on an external layer, it might be tied to an update cycle - to provide the bridge for syncing the "delay" signals.
+     */
      public afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
      public afterRefresh(_fullDelay: boolean = false, _forceTimeout?: number | null): Promise<void> {
         return new Promise<void>(async (resolve) => resolve());
@@ -106,15 +117,15 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         CtxSignalName extends string & keyof CtxSignals,
         CtxName extends keyof Contexts & FirstSplit<CtxSignalName, ".">,
         SignalName extends string & SecondSplit<CtxSignalName, ".">,
-    >(ctxSignalName: CtxSignalName, ...args: Parameters<Contexts[CtxName]["_Signals"][SignalName]>): void {
+    >(ctxSignalName: CtxSignalName, ...args: Parameters<(Contexts[CtxName]["_Signals"] & {})[SignalName]>): void {
         const [ctxName, signalName] = ctxSignalName.split(".", 2);
         return this.getContext(ctxName)?.sendSignal(signalName, ...args);
     }
     
     /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
      * - "delay": Delays sending the signal. To also collect returned values must include "await".
-     *      * Note that this delays the process to sync with the Context's refresh cycle and further after all the related host's have finished their "render" cycle.
-     * - "pre-delay": Like "delay", syncs to the Context's refresh cycle, but calls then on that cycle - without waiting the host's to have rendered.
+     *      * Note that this delays the process to sync with the Context's refresh cycle, and waits until all related contextAPIs have refreshed. (In an external layer, often further tied to other update cycles, like rendering.)
+     * - "pre-delay": Like "delay", syncs to the Context's refresh cycle, but calls then on that cycle - without waiting external flush (from other contextAPIs connected to the same context network).
      * - "await": Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
      *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`, as there's no promise to capture the timed out returns.
      * - "multi": This is the default mode: returns an array of values ignoring any `undefined`.
@@ -152,116 +163,37 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
 
     // - Listen to data - //
 
-    /** This allows to listen to contextual data by defining specific needs which in turn become the listener arguments.
-     * - The needs are defined as dotted strings in which the first word is the contextName: eg. `settings.user` refers to context named `settings` and it has `user` data.
-     * - The needs are transferred to callback arguments. For example, if we have contexts named "settings" and "themes", we could do something like:
-     *      * `listenToData("settings.user.allowEdit", "themes.darkMode", (allowEdit, darkMode) => { ... });`
-     * - By calling this, we both assign a listener but also set data needs.
-     *      *  The listener will be fired on data changes. If puts last argument to `true`, will be fired once immediately - or when mounts if not yet mounted.
-     *      *  The data needs are used to detect when the callback needs to be fired again. Will only be fired if the data in the portion (or including it) has been set.
-     * - Normally, using ContextAPI you never need to remove the listeners (they'll be disconnected upon unmounting). But you can use `unlistenToData(callback)` to do so manually as well.
-     * - You can also input fallbackArgs after the callback, to provide for the cases where context is missing.
-     */
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0]) => void,
-    // >(dataKey1: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Key3 extends CheckDataByContextString<Key3, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null  ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Key3 extends CheckDataByContextString<Key3, Contexts>,
-    //     Key4 extends CheckDataByContextString<Key4, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null  ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Key3 extends CheckDataByContextString<Key3, Contexts>,
-    //     Key4 extends CheckDataByContextString<Key4, Contexts>,
-    //     Key5 extends CheckDataByContextString<Key5, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null  ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Key3 extends CheckDataByContextString<Key3, Contexts>,
-    //     Key4 extends CheckDataByContextString<Key4, Contexts>,
-    //     Key5 extends CheckDataByContextString<Key5, Contexts>,
-    //     Key6 extends CheckDataByContextString<Key6, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null, fall6?: GetDataByContextString<Key6, Contexts> | null ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Key3 extends CheckDataByContextString<Key3, Contexts>,
-    //     Key4 extends CheckDataByContextString<Key4, Contexts>,
-    //     Key5 extends CheckDataByContextString<Key5, Contexts>,
-    //     Key6 extends CheckDataByContextString<Key6, Contexts>,
-    //     Key7 extends CheckDataByContextString<Key7, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null, fall6?: GetDataByContextString<Key6, Contexts> | null, fall7?: GetDataByContextString<Key7, Contexts> | null ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5], val7: GetDataByContextString<Key7, Contexts> | Fallback[6]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    // public listenToData<
-    //     Key1 extends CheckDataByContextString<Key1, Contexts>,
-    //     Key2 extends CheckDataByContextString<Key2, Contexts>,
-    //     Key3 extends CheckDataByContextString<Key3, Contexts>,
-    //     Key4 extends CheckDataByContextString<Key4, Contexts>,
-    //     Key5 extends CheckDataByContextString<Key5, Contexts>,
-    //     Key6 extends CheckDataByContextString<Key6, Contexts>,
-    //     Key7 extends CheckDataByContextString<Key7, Contexts>,
-    //     Key8 extends CheckDataByContextString<Key8, Contexts>,
-    //     Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null, fall6?: GetDataByContextString<Key6, Contexts> | null, fall7?: GetDataByContextString<Key7, Contexts> | null, fall8?: GetDataByContextString<Key8, Contexts> | null ],
-    //     Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5], val7: GetDataByContextString<Key7, Contexts> | Fallback[6], val8: GetDataByContextString<Key8, Contexts> | Fallback[7]) => void,
-    //     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
- 
-    // Alternative. Using pre-suggested keys for better typing experience.
+    // Using pre-suggested keys for better typing experience.
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null ],
+        Fallback extends [ fall1?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0]) => void,
     >(dataKey1: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
         Key2 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null ],
+        Fallback extends [ fall1?: any, fall2?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null  ],
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
         Key4 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null  ],
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
@@ -269,9 +201,9 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         Key3 extends Keys,
         Key4 extends Keys,
         Key5 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null  ],
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
@@ -280,9 +212,9 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         Key4 extends Keys,
         Key5 extends Keys,
         Key6 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null, fall6?: GetDataByContextString<Key6, Contexts> | null ],
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
@@ -292,9 +224,9 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         Key5 extends Keys,
         Key6 extends Keys,
         Key7 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null, fall6?: GetDataByContextString<Key6, Contexts> | null, fall7?: GetDataByContextString<Key7, Contexts> | null ],
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any, fall7?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5], val7: GetDataByContextString<Key7, Contexts> | Fallback[6]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     public listenToData<
         Keys extends GetJoinedDataKeysFromContexts<Contexts>,
         Key1 extends Keys,
@@ -305,20 +237,29 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         Key6 extends Keys,
         Key7 extends Keys,
         Key8 extends Keys,
-        Fallback extends [ fall1?: GetDataByContextString<Key1, Contexts> | null, fall2?: GetDataByContextString<Key2, Contexts> | null, fall3?: GetDataByContextString<Key3, Contexts> | null, fall4?: GetDataByContextString<Key4, Contexts> | null, fall5?: GetDataByContextString<Key5, Contexts> | null, fall6?: GetDataByContextString<Key6, Contexts> | null, fall7?: GetDataByContextString<Key7, Contexts> | null, fall8?: GetDataByContextString<Key8, Contexts> | null ],
+        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any, fall7?: any, fall8?: any ],
         Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5], val7: GetDataByContextString<Key7, Contexts> | Fallback[6], val8: GetDataByContextString<Key8, Contexts> | Fallback[7]) => void,
-        >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+
+    // Using dictionary.
+    /** Listen to data using a dictionary whose keys are dotted data keys and values fallback for each. If wanting to strictly define the types in the dictionary, add `as const` after its definition. */
+    public listenToData<
+        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
+        Fallbacks extends Partial<Record<Keys, any>>
+    >(fallbackDictionary: Fallbacks, callback: (values: GetDataByContextDictionary<Fallbacks, Contexts>) => void, callImmediately?: boolean): void;
+
+    // Actual JS implementation.
     public listenToData(...args: any[]): void {
         // Parse.
         let iOffset = 1;
         const nArgs = args.length;
         const callImmediately = typeof args[nArgs - iOffset] === "boolean" && args[nArgs - iOffset++];
-        const fallbackArgs: any[] | undefined = Array.isArray(args[nArgs - iOffset]) && args[nArgs - iOffset++] || undefined;
+        const isDictionary = typeof args[0] === "object";
+        const fallbackArgs: any[] | undefined = isDictionary ? Object.values(args[0] as Record<string, any>) as string[] : Array.isArray(args[nArgs - iOffset]) && args[nArgs - iOffset++]?.slice() || undefined;
+        const dataNeeds = isDictionary ? Object.keys(args[0]) : args.slice(0, nArgs - iOffset);
         const callback: DataListenerFunc = args[nArgs - iOffset];
-        const dataNeeds = args.slice(0, nArgs - iOffset);
         // Set needs.
-        this.dataListeners.set(callback, [dataNeeds, fallbackArgs ]);
+        this.dataListeners.set(callback, [fallbackArgs, ...dataNeeds]);
         // Call.
         if (callImmediately)
             callback(...this.getDataArgsBy(dataNeeds, fallbackArgs));
@@ -341,7 +282,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
      * - If the context exists uses the getInData method from the context, otherwise returns undefined or the fallback. (The fallback is also used if the data key not found in context data.)
      */
     public getInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
-    public getInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>, FallbackData extends SubData>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData;
+    public getInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
     public getInData(ctxDataKey: string, fallback: any = undefined): any {
         const ctxName = ctxDataKey.split(".", 1)[0];
         const context = this.getContext(ctxName);
@@ -424,10 +365,10 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
 
     /** This creates a new context - presumably to be attached with .contexts prop.
      * - If overrideWithName given, then calls setContext automatically with the given name. */
-    public newContext<CtxData = any, CtxSignals extends SignalsRecord = {}>(data: CtxData, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
+    public newContext<CtxData extends Record<string, any> = {}, CtxSignals extends SignalsRecord = {}>(data: CtxData, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
     public newContext<Name extends keyof Contexts & string>(data: Contexts[Name]["data"], overrideWithName: Name, refreshIfOverriden?: boolean): Contexts[Name];
     public newContext(data: any, overrideWithName?: string, refreshIfOverriden: boolean = true): Context {
-        const context = newContext(data);
+        const context = new Context(data);
         if (overrideWithName)
             this.setContext(overrideWithName, context as any, refreshIfOverriden);
         return context;
@@ -435,14 +376,17 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
 
     /** Same as newContext but for multiple contexts all at once.
      * - If overrideForSelf set to true, will call setContexts after to attach the contexts here. */
-    public newContexts<Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name]> }, AllData extends { [Name in keyof Contexts & string]: Contexts[Name]["data"] } = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }>(allData: AllData, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Contexts;
+    public newContexts<Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name] & {}> }, AllData extends Record<keyof Contexts & string, Record<string, any>> = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }>(allData: AllData, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Contexts;
     public newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<Record<Name, Contexts[Name]["data"]>>;
     public newContexts(allData: any, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Record<string, Context> {
-        const contexts = newContexts(allData);
+        const contexts: Record<string, Context> = {};
+        for (const name in allData)
+            contexts[name] = new Context(allData[name]);
         if (overrideForSelf)
             this.setContexts(contexts as any, refreshIfOverriden);
         return contexts;
     }
+
     /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
@@ -478,6 +422,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
             this.callDataListenersFor ? this.callDataListenersFor([name]) : this.callDataBy([name] as never);
         return true;
     }
+
     /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
@@ -514,7 +459,8 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
      */
     public callDataBy(ctxDataKeys: true | GetJoinedDataKeysFromContexts<Contexts>[] = true): void {
         // Loop each callback, and call if needs to.
-        for (const [callback, [needs, fallbackArgs]] of this.dataListeners.entries())// Note that we use .entries() to take a copy of the situation.
+        // .. Note. The logic is the same as in DataMan class in the respective method.
+        for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries())// Note that we use .entries() to take a copy of the situation.
             if (ctxDataKeys === true || ctxDataKeys.some((ctxDataKey: string) => needs.some(need => need === ctxDataKey || need.startsWith(ctxDataKey + ".") || ctxDataKey.startsWith(need + "."))))
                 callback(...this.getDataArgsBy(needs, fallbackArgs));
     }

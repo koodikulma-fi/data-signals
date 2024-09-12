@@ -2,8 +2,8 @@
 
 // - Imports - //
 
-// Library.
-import { ClassType, ClassMixer, Awaited } from "../types";
+// Typing.
+import { ClassType, ClassMixer, Awaited } from "../library/typing";
 
 
 // - Types - //
@@ -14,16 +14,13 @@ export enum SignalManFlags {
     OneShot = 1 << 0,
     /** If enabled, calls the listener after a 0ms timeout. Note that this makes the callback's return value always be ignored from the return flow. */
     Deferred = 1 << 1,
-    // /** If enabled, then should return an array of values - as if one callback actually included many callbacks. */
-    // Multi = 1 << 2,
     // Shortcuts.
     None = 0,
-    All = OneShot | Deferred, // | Multi,
+    All = OneShot | Deferred,
 }
 export type SignalListenerFunc = (...args: any[]) => any | void;
 export type SignalListener<Callback extends SignalListenerFunc = SignalListenerFunc> = [ callback: Callback, extraArgs: any[] | null, flags: SignalManFlags, groupId: any | null | undefined, origListeners?: SignalListener[] ];
 export type SignalsRecord = Record<string, SignalListenerFunc>;
-// export type SignalsBook<Signals extends SignalsRecord = {}> = {[ Name in string & keyof Signals]: Array<SignalListener<Signals[Name]>> };
 
 export type SignalSendAsReturn<
     // Input.
@@ -38,10 +35,11 @@ export type SignalSendAsReturn<
 
 // - Helpers - //
 
-/** Call a bunch of listeners and handle SignalManFlags mode.
- * - Will remove from given listeners array if OneShot flag is used.
+/** Calls a bunch of listeners and handles SignalManFlags mode.
+ * - If OneShot flag used, removes from given listeners array.
  * - If Deferred flag is used, calls the listener after 0ms timeout.
- * - Does not collect return values. Just for emitting out without hassle. */
+ * - Does not collect return values. Just for emitting out without hassle.
+ */
 export function callListeners(listeners: SignalListener[], args?: any[] | null): void {
     // Loop each.
     for (const listener of listeners.slice()) {
@@ -63,7 +61,7 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
     }
 }
 
-/** This emits the signal and collects the answers given by each listener ignoring `undefined` as an answer.
+/** Emits the signal and collects the answers given by each listener ignoring `undefined` as an answer.
  * - By default, returns a list of answers. To return the last one, include "last" in the modes array.
  * - To stop at the first accepted answer use "first" mode or "first-true" mode.
  * - Always skips `undefined` as an answer. To skip `null` too use "no-null" mode, or any falsifiable with `no-false`.
@@ -102,7 +100,7 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
             else
                 answers.push(answer);
             // Stop at first acceptable. Don't call further.
-            if (stopFirst && (answer || !modes.includes("first-true")))
+            if (stopFirst && (answer || !modes!.includes("first-true")))
                 break;
         }
     }
@@ -111,9 +109,9 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
 }
 
 
-// - Mixins - //
+// - SignalBoy mixin (without sending features) - //
 
-export function _SignalBoyMixin<Signals extends SignalsRecord = {}>(Base: ClassType) {
+export function _SignalBoyMixin(Base: ClassType) {
 
     return class _SignalBoy extends Base {
 
@@ -209,6 +207,17 @@ export function _SignalBoyMixin<Signals extends SignalsRecord = {}>(Base: ClassT
     }
 }
 
+/** There are two ways you can use this:
+ * 1. Call this to give basic SignalBoy features with types for Props and such being empty.
+ *      * `class MyMix extends SignalBoyMixin(MyBase) {}`
+ * 2. If you want to type the signals (as you very likely do), use this simple trick instead:
+ *      * `class MyMix extends (SignalBoyMixin as ClassMixer<typeof SignalBoy<{ someSignal: () => void; }>>)(MyBase) {}`
+ */
+export const SignalBoyMixin = _SignalBoyMixin as ClassMixer<SignalManType>;
+
+
+// - SignalMan mixin (with sending features) - //
+
 export function _SignalManMixin(Base: ClassType) {
 
     return class _SignalMan extends _SignalBoyMixin(Base) {
@@ -288,14 +297,6 @@ export function _SignalManMixin(Base: ClassType) {
     }
 }
 
-// /** There are two ways you can use this:
-//  * 1. Call this to give basic SignalBoy features with types for Props and such being empty.
-//  *      * `class MyMix extends SignalBoyMixin(MyBase) {}`
-//  * 2. If you want to type the signals (as you very likely do), use this simple trick instead:
-//  *      * `class MyMix extends (SignalBoyMixin as ClassMixer<typeof SignalBoy<{ someSignal: () => void; }>>)(MyBase) {}`
-//  */
-// export const SignalBoyMixin = _SignalBoyMixin as ClassMixer<SignalManType>;
-
 /** There are two ways you can use this:
  * 1. Call this to give basic SignalMan features with types for Props and such being empty.
  *      * `class MyMix extends SignalManMixin(MyBase) {}`
@@ -305,12 +306,16 @@ export function _SignalManMixin(Base: ClassType) {
 export const SignalManMixin = _SignalManMixin as ClassMixer<SignalManType>;
 
 
-// - SignalBoy class (without sending features) - //
+// - SignalBoy class & interface (without sending features) - //
 
+export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> { }
 /** This is like SignalMan but only provides listening: the sendSignal, sendSignalAs and afterRefresh methods are deleted (for clarity of purpose). */
 export class SignalBoy<Signals extends SignalsRecord = {}> extends (_SignalBoyMixin(Object) as ClassType) { }
 export interface SignalBoy<Signals extends SignalsRecord = {}> { 
     
+    // Constructor type.
+    ["constructor"]: SignalBoyType<Signals>;
+
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
     signals: Record<string, Array<SignalListener>>;
 
@@ -326,19 +331,22 @@ export interface SignalBoy<Signals extends SignalsRecord = {}> {
 }
 
 
-// - SignalMan class (with sending features) - //
+// - SignalMan class & interface (with sending features) - //
 
 export interface SignalManType<Signals extends SignalsRecord = {}> extends ClassType<SignalMan<Signals>> { }
 export class SignalMan<Signals extends SignalsRecord = {}> extends (_SignalManMixin(Object) as ClassType) { }
 export interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signals> {
-    
+
+    // Constructor type.
+    ["constructor"]: SignalManType<Signals>;
+
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
     /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
      * - "delay": Delays sending the signal. To also collect returned values must include "await".
      *      * Note that this delays the start of the process. So if new listeners are attached right after, they'll receive the signal.
-     *      * The stand alone SignalMan simply uses setTimeout with 1ms delay. (On Components, Hosts and Contexts it's delayed to the "render" cycle of the host(s).)
-     * - "pre-delay": This is like "delay" but uses 0ms timeout on the standalone SignalMan. (On Components, Hosts and Contexts it's delayed to their update cycle.)
+     *      * The stand alone SignalMan simply uses setTimeout with 1ms delay. (But an external layer might tie it to its own timing processes, eg. to sync rendering.)
+     * - "pre-delay": This is like "delay" but uses 0ms timeout on the standalone SignalMan. (Typically this is arranged so that delays locally, but not pending external delays.)
      * - "await": Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
      *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`, as there's no promise to capture the timed out returns.
      * - "multi": Can be used to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
