@@ -1,3 +1,4 @@
+/// <reference types="node" />
 type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
 type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
 type Dictionary<V = any> = Record<string, V>;
@@ -380,10 +381,10 @@ declare function _SignalManMixin(Base: ClassType): {
  * 2. If you want to type the signals (as you very likely do), use this simple trick instead:
  *      * `class MyMix extends (SignalManMixin as ClassMixer<typeof SignalMan<{ someSignal: () => void; }>>)(MyBase) {}`
  */
-declare const SignalManMixin: ClassMixer<SignalManType>;
+declare const SignalManMixin: ClassMixer<SignalManType<{}>>;
 interface SignalManType<Signals extends SignalsRecord = {}> extends ClassType<SignalMan<Signals>> {
 }
-declare const SignalMan_base: ClassType;
+declare const SignalMan_base: ClassType<{}, any[]>;
 declare class SignalMan<Signals extends SignalsRecord = {}> extends SignalMan_base {
 }
 interface SignalMan<Signals extends SignalsRecord = {}> {
@@ -435,10 +436,10 @@ type DataListenerFunc = (...args: any[]) => any | void;
  * 2. If you want to define the Data and Signals types, you can use this trick instead:
  *      * `class MyMix extends (DataBoyMixin as ClassMixer<DataBoyType<Data, Signals>>)(MyBase) {}`
  */
-declare const DataBoyMixin: ClassMixer<ClassType<DataBoy>>;
+declare const DataBoyMixin: ClassMixer<ClassType<DataBoy<{}>, any[]>>;
 interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
 }
-declare const DataBoy_base: ClassType;
+declare const DataBoy_base: ClassType<{}, any[]>;
 /** This is like DataMan but only provides data listening, not actual data. */
 declare class DataBoy<Data extends Record<string, any> = {}> extends DataBoy_base {
 }
@@ -498,17 +499,17 @@ declare function _DataManMixin<Data extends Record<string, any> = {}>(Base: Clas
         addRefreshKeys(refreshKeys: string | string[] | boolean): void;
         constructor: DataBoyType<{}>;
         dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | undefined, ...needs: string[]]>;
-        listenToData<Keys extends never, Fallbacks extends Partial<Record<Keys, any>>>(fallbackDictionary: Fallbacks, callback: (values: PropTypeDictionary<{}, Fallbacks>) => void, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0]) => void, Fallback extends [any] = [PropType<{}, Key1, never>]>(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1]) => void, Fallback extends [any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>]>(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1], val3: PropType<{}, Key3, never> | Fallback[2]) => void, Fallback extends [any?, any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>, PropType<{}, Key3, never>]>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1], val3: PropType<{}, Key3, never> | Fallback[2], val4: PropType<{}, Key4, never> | Fallback[3]) => void, Fallback extends [any?, any?, any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>, PropType<{}, Key3, never>, PropType<{}, Key4, never>]>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Key5 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1], val3: PropType<{}, Key3, never> | Fallback[2], val4: PropType<{}, Key4, never> | Fallback[3], val5: PropType<{}, Key5, never> | Fallback[4]) => void, Fallback extends [any?, any?, any?, any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>, PropType<{}, Key3, never>, PropType<{}, Key4, never>, PropType<{}, Key5, never>]>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Key5 extends Keys, Key6 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1], val3: PropType<{}, Key3, never> | Fallback[2], val4: PropType<{}, Key4, never> | Fallback[3], val5: PropType<{}, Key5, never> | Fallback[4], val6: PropType<{}, Key6, never> | Fallback[5]) => void, Fallback extends [any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>, PropType<{}, Key3, never>, PropType<{}, Key4, never>, PropType<{}, Key5, never>, PropType<{}, Key6, never>]>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Key5 extends Keys, Key6 extends Keys, Key7 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1], val3: PropType<{}, Key3, never> | Fallback[2], val4: PropType<{}, Key4, never> | Fallback[3], val5: PropType<{}, Key5, never> | Fallback[4], val6: PropType<{}, Key6, never> | Fallback[5], val7: PropType<{}, Key7, never> | Fallback[6]) => void, Fallback extends [any?, any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>, PropType<{}, Key3, never>, PropType<{}, Key4, never>, PropType<{}, Key5, never>, PropType<{}, Key6, never>, PropType<{}, Key7, never>]>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
-        listenToData<Keys extends never, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Key5 extends Keys, Key6 extends Keys, Key7 extends Keys, Key8 extends Keys, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0], val2: PropType<{}, Key2, never> | Fallback[1], val3: PropType<{}, Key3, never> | Fallback[2], val4: PropType<{}, Key4, never> | Fallback[3], val5: PropType<{}, Key5, never> | Fallback[4], val6: PropType<{}, Key6, never> | Fallback[5], val7: PropType<{}, Key7, never> | Fallback[6], val8: PropType<{}, Key8, never> | Fallback[7]) => void, Fallback extends [any?, any?, any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1, never>, PropType<{}, Key2, never>, PropType<{}, Key3, never>, PropType<{}, Key4, never>, PropType<{}, Key5, never>, PropType<{}, Key6, never>, PropType<{}, Key7, never>, PropType<{}, Key8, never>]>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean): void;
+        listenToData<Keys extends never, Fallbacks extends Partial<Record<Keys, any>>>(fallbackDictionary: Fallbacks, callback: (values: PropTypeDictionary<{}, Fallbacks>) => void, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_1 extends never, Key1 extends Keys_1, Callback extends (val1: PropType<{}, Key1, never> | Fallback[0]) => void, Fallback extends [any] = [PropType<{}, Key1, never>]>(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_2 extends never, Key1_1 extends Keys_2, Key2 extends Keys_2, Callback_1 extends (val1: PropType<{}, Key1_1, never> | Fallback_1[0], val2: PropType<{}, Key2, never> | Fallback_1[1]) => void, Fallback_1 extends [any?, any?] = [PropType<{}, Key1_1, never>, PropType<{}, Key2, never>]>(dataKey1: Key1_1, dataKey2: Key2, callback: Callback_1, fallbackArgs?: Fallback_1 | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_3 extends never, Key1_2 extends Keys_3, Key2_1 extends Keys_3, Key3 extends Keys_3, Callback_2 extends (val1: PropType<{}, Key1_2, never> | Fallback_2[0], val2: PropType<{}, Key2_1, never> | Fallback_2[1], val3: PropType<{}, Key3, never> | Fallback_2[2]) => void, Fallback_2 extends [any?, any?, any?] = [PropType<{}, Key1_2, never>, PropType<{}, Key2_1, never>, PropType<{}, Key3, never>]>(dataKey1: Key1_2, dataKey2: Key2_1, dataKey3: Key3, callback: Callback_2, fallbackArgs?: Fallback_2 | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_4 extends never, Key1_3 extends Keys_4, Key2_2 extends Keys_4, Key3_1 extends Keys_4, Key4 extends Keys_4, Callback_3 extends (val1: PropType<{}, Key1_3, never> | Fallback_3[0], val2: PropType<{}, Key2_2, never> | Fallback_3[1], val3: PropType<{}, Key3_1, never> | Fallback_3[2], val4: PropType<{}, Key4, never> | Fallback_3[3]) => void, Fallback_3 extends [any?, any?, any?, any?] = [PropType<{}, Key1_3, never>, PropType<{}, Key2_2, never>, PropType<{}, Key3_1, never>, PropType<{}, Key4, never>]>(dataKey1: Key1_3, dataKey2: Key2_2, dataKey3: Key3_1, dataKey4: Key4, callback: Callback_3, fallbackArgs?: Fallback_3 | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_5 extends never, Key1_4 extends Keys_5, Key2_3 extends Keys_5, Key3_2 extends Keys_5, Key4_1 extends Keys_5, Key5 extends Keys_5, Callback_4 extends (val1: PropType<{}, Key1_4, never> | Fallback_4[0], val2: PropType<{}, Key2_3, never> | Fallback_4[1], val3: PropType<{}, Key3_2, never> | Fallback_4[2], val4: PropType<{}, Key4_1, never> | Fallback_4[3], val5: PropType<{}, Key5, never> | Fallback_4[4]) => void, Fallback_4 extends [any?, any?, any?, any?, any?] = [PropType<{}, Key1_4, never>, PropType<{}, Key2_3, never>, PropType<{}, Key3_2, never>, PropType<{}, Key4_1, never>, PropType<{}, Key5, never>]>(dataKey1: Key1_4, dataKey2: Key2_3, dataKey3: Key3_2, dataKey4: Key4_1, dataKey5: Key5, callback: Callback_4, fallbackArgs?: Fallback_4 | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_6 extends never, Key1_5 extends Keys_6, Key2_4 extends Keys_6, Key3_3 extends Keys_6, Key4_2 extends Keys_6, Key5_1 extends Keys_6, Key6 extends Keys_6, Callback_5 extends (val1: PropType<{}, Key1_5, never> | Fallback_5[0], val2: PropType<{}, Key2_4, never> | Fallback_5[1], val3: PropType<{}, Key3_3, never> | Fallback_5[2], val4: PropType<{}, Key4_2, never> | Fallback_5[3], val5: PropType<{}, Key5_1, never> | Fallback_5[4], val6: PropType<{}, Key6, never> | Fallback_5[5]) => void, Fallback_5 extends [any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1_5, never>, PropType<{}, Key2_4, never>, PropType<{}, Key3_3, never>, PropType<{}, Key4_2, never>, PropType<{}, Key5_1, never>, PropType<{}, Key6, never>]>(dataKey1: Key1_5, dataKey2: Key2_4, dataKey3: Key3_3, dataKey4: Key4_2, dataKey5: Key5_1, dataKey6: Key6, callback: Callback_5, fallbackArgs?: Fallback_5 | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_7 extends never, Key1_6 extends Keys_7, Key2_5 extends Keys_7, Key3_4 extends Keys_7, Key4_3 extends Keys_7, Key5_2 extends Keys_7, Key6_1 extends Keys_7, Key7 extends Keys_7, Callback_6 extends (val1: PropType<{}, Key1_6, never> | Fallback_6[0], val2: PropType<{}, Key2_5, never> | Fallback_6[1], val3: PropType<{}, Key3_4, never> | Fallback_6[2], val4: PropType<{}, Key4_3, never> | Fallback_6[3], val5: PropType<{}, Key5_2, never> | Fallback_6[4], val6: PropType<{}, Key6_1, never> | Fallback_6[5], val7: PropType<{}, Key7, never> | Fallback_6[6]) => void, Fallback_6 extends [any?, any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1_6, never>, PropType<{}, Key2_5, never>, PropType<{}, Key3_4, never>, PropType<{}, Key4_3, never>, PropType<{}, Key5_2, never>, PropType<{}, Key6_1, never>, PropType<{}, Key7, never>]>(dataKey1: Key1_6, dataKey2: Key2_5, dataKey3: Key3_4, dataKey4: Key4_3, dataKey5: Key5_2, dataKey6: Key6_1, dataKey7: Key6_1, callback: Callback_6, fallbackArgs?: Fallback_6 | null | undefined, callImmediately?: boolean | undefined): void;
+        listenToData<Keys_8 extends never, Key1_7 extends Keys_8, Key2_6 extends Keys_8, Key3_5 extends Keys_8, Key4_4 extends Keys_8, Key5_3 extends Keys_8, Key6_2 extends Keys_8, Key7_1 extends Keys_8, Key8 extends Keys_8, Callback_7 extends (val1: PropType<{}, Key1_7, never> | Fallback_7[0], val2: PropType<{}, Key2_6, never> | Fallback_7[1], val3: PropType<{}, Key3_5, never> | Fallback_7[2], val4: PropType<{}, Key4_4, never> | Fallback_7[3], val5: PropType<{}, Key5_3, never> | Fallback_7[4], val6: PropType<{}, Key6_2, never> | Fallback_7[5], val7: PropType<{}, Key7_1, never> | Fallback_7[6], val8: PropType<{}, Key8, never> | Fallback_7[7]) => void, Fallback_7 extends [any?, any?, any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1_7, never>, PropType<{}, Key2_6, never>, PropType<{}, Key3_5, never>, PropType<{}, Key4_4, never>, PropType<{}, Key5_3, never>, PropType<{}, Key6_2, never>, PropType<{}, Key7_1, never>, PropType<{}, Key8, never>]>(dataKey1: Key1_7, dataKey2: Key2_6, dataKey3: Key3_5, dataKey4: Key4_4, dataKey5: Key5_3, dataKey6: Key6_2, dataKey7: Key6_2, dataKey8: Key8, callback: Callback_7, fallbackArgs?: Fallback_7 | null | undefined, callImmediately?: boolean | undefined): void;
         unlistenToData(callback: DataListenerFunc): boolean;
-        getDataArgsBy(needs: never[], fallbackArgs?: any[]): any[];
+        getDataArgsBy(needs: never[], fallbackArgs?: any[] | undefined): any[];
         callDataBy(refreshKeys?: true | never[] | undefined): void;
     };
 };
@@ -518,10 +519,10 @@ declare function _DataManMixin<Data extends Record<string, any> = {}>(Base: Clas
  * 2. If you want to define the Data and Signals types, you can use this trick instead:
  *      * `class MyMix extends (DataManMixin as ClassMixer<DataManType<Data, Signals>>)(MyBase) {}`
  */
-declare const DataManMixin: ClassMixer<ClassType<DataMan>>;
+declare const DataManMixin: ClassMixer<ClassType<DataMan<{}>, any[]>>;
 interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> {
 }
-declare const DataMan_base: ClassType;
+declare const DataMan_base: ClassType<{}, any[]>;
 declare class DataMan<Data extends Record<string, any> = {}> extends DataMan_base {
     constructor(...args: {} extends Data ? any[] : [Data, ...any[]]);
 }
@@ -566,10 +567,10 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
  * 2. If you want to define the Data and Signals types, you can use this trick instead:
  *      * `class MyMix extends (SignalDataBoyMixin as ClassMixer<SignalDataBoyType<Data, Signals>>)(MyBase) {}`
  */
-declare const SignalDataBoyMixin: ClassMixer<ClassType<DataBoy & SignalMan>>;
+declare const SignalDataBoyMixin: ClassMixer<ClassType<DataBoy<{}> & SignalMan<{}>, any[]>>;
 interface SignalDataBoyType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends ClassType<SignalDataBoy<Data, Signals>> {
 }
-declare const SignalDataBoy_base: ClassType;
+declare const SignalDataBoy_base: ClassType<{}, any[]>;
 declare class SignalDataBoy<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataBoy_base {
 }
 interface SignalDataBoy<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends DataBoy<Data>, SignalMan<Signals> {
@@ -582,10 +583,10 @@ interface SignalDataBoy<Data extends Record<string, any> = {}, Signals extends S
  * 2. If you want to define the Data and Signals types, you can use this trick instead:
  *      * `class MyMix extends (SignalDataManMixin as ClassMixer<SignalDataManType<Data, Signals>>)(MyBase) {}`
  */
-declare const SignalDataManMixin: ClassMixer<ClassType<DataMan & SignalMan>>;
+declare const SignalDataManMixin: ClassMixer<ClassType<DataMan<{}> & SignalMan<{}>, any[]>>;
 interface SignalDataManType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends ClassType<SignalDataMan<Data, Signals>> {
 }
-declare const SignalDataMan_base: ClassType;
+declare const SignalDataMan_base: ClassType<{}, any[]>;
 declare class SignalDataMan<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan_base {
 }
 interface SignalDataMan<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends DataMan<Data>, SignalMan<Signals> {
