@@ -20,7 +20,7 @@ export default [
     {
         input: 'dist/dts/index.d.ts',
         output: {
-          file: 'dist/DataSignals.d.ts',
+          file: 'dist/data-signals.d.ts',
           format: 'es',
         },
         plugins: [
@@ -35,7 +35,7 @@ export default [
     {
         input: 'dist/index.js',
         output: {
-            file: 'dist/DataSignals.mjs',
+            file: 'dist/data-signals.mjs',
             format: 'es',
         },
         plugins: [
@@ -60,7 +60,7 @@ export default [
     {
         input: 'dist/index.js',
         output: {
-            file: 'dist/DataSignals.js',
+            file: 'dist/data-signals.js',
             format: 'cjs',
             exports: "auto"
         },
@@ -85,7 +85,7 @@ export default [
 
     // Delete the extras.
     {
-        input: 'dist/DataSignals.mjs',
+        input: 'dist/data-signals.mjs',
         plugins: [
             del({ targets: ['dist/classes*', 'dist/library*', 'dist/index.js', 'dist/types.js'], hook: 'buildEnd' })
         ]

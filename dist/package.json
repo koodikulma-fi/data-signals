@@ -17,21 +17,21 @@
     "ts",
     "library"
   ],
-  "homepage": "https://github.com/koodikulma-fi/DataSignals",
+  "homepage": "https://github.com/koodikulma-fi/data-signals",
   "author": "Mikael Saurén",
   "license": "MIT",
   "private": false,
   "repository": {
     "type": "git",
-    "url": "git+https://github.com/koodikulma-fi/DataSignals.git"
+    "url": "git+https://github.com/koodikulma-fi/data-signals.git"
   },
-  "module": "./DataSignals.mjs",
-  "main": "./DataSignals.js",
-  "types": "./DataSignals.d.ts",
+  "module": "./data-signals.mjs",
+  "main": "./data-signals.js",
+  "types": "./data-signals.d.ts",
   "exports": {
     ".": {
-      "import": "./DataSignals.mjs",
-      "require": "./DataSignals.js"
+      "import": "./data-signals.mjs",
+      "require": "./data-signals.js"
     },
     "./package.json": "./package.json"
   }

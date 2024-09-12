@@ -9,8 +9,8 @@ See docs, examples and more at: [mixdomjs.org](https://mixdomjs.org)
 
 ## NPM
 
-The npm package can be found with: [context-man](https://www.npmjs.com/package/context-man)
+The npm package can be found with: [data-signals](https://www.npmjs.com/package/data-signals)
 
 ## GitHub
 
-Contribute in GitHub: [koodikulma-fi/context-man.git](https://github.com/koodikulma-fi/ContextMan.git)
+Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodikulma-fi/data-signals.git)
