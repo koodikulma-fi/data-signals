@@ -8,7 +8,7 @@ import { ClassType, ClassMixer, Awaited } from "../library/typing";
 
 // - Types - //
 
-export enum SignalManFlags {
+export enum SignalListenerFlags {
     // Modes.
     /** If enabled, removes the listener once it has been fired once. */
     OneShot = 1 << 0,
@@ -19,9 +19,8 @@ export enum SignalManFlags {
     All = OneShot | Deferred,
 }
 export type SignalListenerFunc = (...args: any[]) => any | void;
-export type SignalListener<Callback extends SignalListenerFunc = SignalListenerFunc> = [ callback: Callback, extraArgs: any[] | null, flags: SignalManFlags, groupId: any | null | undefined, origListeners?: SignalListener[] ];
+export type SignalListener<Callback extends SignalListenerFunc = SignalListenerFunc> = [ callback: Callback, extraArgs: any[] | null, flags: SignalListenerFlags, groupId: any | null | undefined, origListeners?: SignalListener[] ];
 export type SignalsRecord = Record<string, SignalListenerFunc>;
-
 export type SignalSendAsReturn<
     // Input.
     OrigReturnVal,
@@ -35,7 +34,7 @@ export type SignalSendAsReturn<
 
 // - Helpers - //
 
-/** Calls a bunch of listeners and handles SignalManFlags mode.
+/** Calls a bunch of listeners and handles SignalListenerFlags mode.
  * - If OneShot flag used, removes from given listeners array.
  * - If Deferred flag is used, calls the listener after 0ms timeout.
  * - Does not collect return values. Just for emitting out without hassle.
@@ -44,8 +43,8 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
     // Loop each.
     for (const listener of listeners.slice()) {
         // One shot.
-        const flags: SignalManFlags = listener[2] || 0;
-        if (flags & SignalManFlags.OneShot) {
+        const flags: SignalListenerFlags = listener[2] || 0;
+        if (flags & SignalListenerFlags.OneShot) {
             // Remove distantly.
             const distListeners = listener[4] || listeners;
             const iThis = distListeners.indexOf(listener);
@@ -53,7 +52,7 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
                 distListeners.splice(iThis, 1);
         }
         // Deferred.
-        if (flags & SignalManFlags.Deferred)
+        if (flags & SignalListenerFlags.Deferred)
             setTimeout(() => listener[0](...(listener[1] && args ? [...args, ...listener[1]] : args || listener[1] || [])), 0);
         // Immediate.
         else
@@ -76,8 +75,8 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
     // Loop each.
     for (const listener of listeners.slice()) {
         // One shot.
-        const flags: SignalManFlags = listener[2] || 0;
-        if (flags & SignalManFlags.OneShot) {
+        const flags: SignalListenerFlags = listener[2] || 0;
+        if (flags & SignalListenerFlags.OneShot) {
             // Remove distantly.
             const distListeners = listener[4] || listeners;
             const iThis = distListeners.indexOf(listener);
@@ -85,7 +84,7 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
                 distListeners.splice(iThis, 1);
         }
         // Deferred - won't be part of return answer flow.
-        if (flags & SignalManFlags.Deferred)
+        if (flags & SignalListenerFlags.Deferred)
             setTimeout(() => listener[0](...(listener[1] && args ? [...args, ...listener[1]] : args || listener[1] || [])), 0);
         // Call and collect answer.
         else {
@@ -109,19 +108,16 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
 }
 
 
-// - SignalBoy mixin (without sending features) - //
+// - Mixin - //
 
-export function _SignalBoyMixin(Base: ClassType) {
+export function _SignalManMixin(Base: ClassType) {
 
-    return class _SignalBoy extends Base {
+    return class _SignalMan extends Base {
 
-
+        
         // - Members - //
 
         public signals: Record<string, Array<SignalListener>>;
-
-
-        // - Constructor - //
 
         constructor(...passArgs: any[]) {
             super(...passArgs);
@@ -129,12 +125,12 @@ export function _SignalBoyMixin(Base: ClassType) {
         }
 
 
-        // - Methods - //
+        // - Listening - //
 
-        listenTo(name: string, callback: SignalListenerFunc, extraArgs?: any[], flags: SignalManFlags = SignalManFlags.None, groupId?: any | null) {
+        public listenTo(name: string, callback: SignalListenerFunc, extraArgs?: any[], flags: SignalListenerFlags = SignalListenerFlags.None, groupId?: any | null) {
             // Prepare.
             let listeners = this.signals[name];
-            const listener: SignalListener = [callback, extraArgs || null, flags || SignalManFlags.None, groupId ?? null ];
+            const listener: SignalListener = [callback, extraArgs || null, flags || SignalListenerFlags.None, groupId ?? null ];
             // New entry.
             if (!listeners)
                 this.signals[name] = listeners = [ listener ];
@@ -147,14 +143,14 @@ export function _SignalBoyMixin(Base: ClassType) {
             // Add technical support for distant OneShots.
             // .. So if this listener info is passed around alone (without the parenting this.signals[name] array ref),
             // .. we can still remove it easily from its original array - by just storing that original array here.
-            if (listener[2] & SignalManFlags.OneShot)
+            if (listener[2] & SignalListenerFlags.OneShot)
                 listener.push(listeners);
             // Call.
             if (this.onListener)
                 this.onListener(name, listeners.indexOf(listener), true);
         }
 
-        unlistenTo(names?: string | string[] | null, callback?: SignalListenerFunc | null, groupId?: any | null) {
+        public unlistenTo(names?: string | string[] | null, callback?: SignalListenerFunc | null, groupId?: any | null) {
             // Prepare names.
             if (names == null)
                 names = Object.keys(this.signals);
@@ -185,7 +181,7 @@ export function _SignalBoyMixin(Base: ClassType) {
             }
         }
 
-        isListening(name?: string | null, callback?: (SignalListenerFunc) | null, groupId?: any | null) {
+        public isListening(name?: string | null, callback?: (SignalListenerFunc) | null, groupId?: any | null) {
             // Loop each by name.
             if (name == null)
                 return Object.keys(this.signals).some(name => this.isListening(name, callback, groupId));
@@ -202,30 +198,10 @@ export function _SignalBoyMixin(Base: ClassType) {
             return true;
         }
 
-        onListener?(name: string, index: number, wasAdded: boolean): void;
-        
-    }
-}
-
-/** There are two ways you can use this:
- * 1. Call this to give basic SignalBoy features with types for Props and such being empty.
- *      * `class MyMix extends SignalBoyMixin(MyBase) {}`
- * 2. If you want to type the signals (as you very likely do), use this simple trick instead:
- *      * `class MyMix extends (SignalBoyMixin as ClassMixer<typeof SignalBoy<{ someSignal: () => void; }>>)(MyBase) {}`
- */
-export const SignalBoyMixin = _SignalBoyMixin as ClassMixer<SignalManType>;
-
-
-// - SignalMan mixin (with sending features) - //
-
-export function _SignalManMixin(Base: ClassType) {
-
-    return class _SignalMan extends _SignalBoyMixin(Base) {
-
 
         // - Sending signals - //
 
-        sendSignal(name: string, ...args: any[]): any {
+        public sendSignal(name: string, ...args: any[]): any {
             const listeners = this.getListenersFor ? this.getListenersFor(name) : this.signals[name];
             if (listeners)
                 callListeners(listeners, args);
@@ -233,7 +209,7 @@ export function _SignalManMixin(Base: ClassType) {
 
         // Note. This method assumes modes won't be modified during the call (in case uses delay or await).
         // .. This method can be extended, so uses string | string[] basis for modes in here.
-        sendSignalAs(modes: string | string[], name: string, ...args: any[]): any {
+        public sendSignalAs(modes: string | string[], name: string, ...args: any[]): any {
             // Parse.
             const m = (typeof modes === "string" ? [ modes ] : modes) as Array<"" | "pre-delay" | "delay" | "await" | "multi" | "last" | "first" | "first-true" | "no-false" | "no-null">;
             const isDelayed = m.includes("delay") || m.includes("pre-delay");
@@ -288,16 +264,21 @@ export function _SignalManMixin(Base: ClassType) {
         }
 
         // Extendable handler.
-        afterRefresh(fullDelay: boolean = false): Promise<void> {
+        public afterRefresh(fullDelay: boolean = false): Promise<void> {
             return new Promise<void>(resolve => setTimeout(resolve, fullDelay ? 1 : 0));
         }
 
-        getListenersFor?(signalName: string): SignalListener[] | undefined;
+
+        // - Optional inner listeners (for extending classes) - //
+
+        public onListener?(name: string, index: number, wasAdded: boolean): void;
+        
+        public getListenersFor?(signalName: string): SignalListener[] | undefined;
     
     }
 }
 
-/** There are two ways you can use this:
+/** There are two ways you can use this mixin creator:
  * 1. Call this to give basic SignalMan features with types for Props and such being empty.
  *      * `class MyMix extends SignalManMixin(MyBase) {}`
  * 2. If you want to type the signals (as you very likely do), use this simple trick instead:
@@ -306,39 +287,27 @@ export function _SignalManMixin(Base: ClassType) {
 export const SignalManMixin = _SignalManMixin as ClassMixer<SignalManType>;
 
 
-// - SignalBoy class & interface (without sending features) - //
+// - Class - //
 
-export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> { }
-/** This is like SignalMan but only provides listening: the sendSignal, sendSignalAs and afterRefresh methods are deleted (for clarity of purpose). */
-export class SignalBoy<Signals extends SignalsRecord = {}> extends (_SignalBoyMixin(Object) as ClassType) { }
-export interface SignalBoy<Signals extends SignalsRecord = {}> { 
-    
+export interface SignalManType<Signals extends SignalsRecord = {}> extends ClassType<SignalMan<Signals>> { }
+export class SignalMan<Signals extends SignalsRecord = {}> extends (_SignalManMixin(Object) as ClassType) { }
+export interface SignalMan<Signals extends SignalsRecord = {}> {
+
     // Constructor type.
-    ["constructor"]: SignalBoyType<Signals>;
+    ["constructor"]: SignalManType<Signals>;
 
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
     signals: Record<string, Array<SignalListener>>;
 
     /** Assign a listener to a signal. You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
      * Also checks whether the callback was already attached to the signal, in which case overrides the info. */
-    listenTo<Name extends string & keyof Signals>(name: Name, callback: Signals[Name], extraArgs?: any[] | null, flags?: SignalManFlags | null, groupId?: any | null): void;
+    listenTo<Name extends string & keyof Signals>(name: Name, callback: Signals[Name], extraArgs?: any[] | null, flags?: SignalListenerFlags | null, groupId?: any | null): void;
     /** Clear listeners by names, callback and/or groupId. Each restricts the what is cleared. To remove a specific callback attached earlier, provide name and callback. */
     unlistenTo(names?: (string & keyof Signals) | Array<string & keyof Signals> | null, callback?: SignalListenerFunc | null, groupId?: any | null): void;
     /** Check if any listener exists by the given name, callback and/or groupId. */
     isListening<Name extends string & keyof Signals>(name?: Name | null, callback?: SignalListenerFunc | null, groupId?: any | null): boolean;
     /** Optional local callback handler to keep track of added / removed listeners. Called right after adding and right before removing. */
     onListener?(name: string & keyof Signals, index: number, wasAdded: boolean): void;
-}
-
-
-// - SignalMan class & interface (with sending features) - //
-
-export interface SignalManType<Signals extends SignalsRecord = {}> extends ClassType<SignalMan<Signals>> { }
-export class SignalMan<Signals extends SignalsRecord = {}> extends (_SignalManMixin(Object) as ClassType) { }
-export interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signals> {
-
-    // Constructor type.
-    ["constructor"]: SignalManType<Signals>;
 
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;

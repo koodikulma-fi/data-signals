@@ -1,6 +1,6 @@
-## ContextMan
+## DataSignals
 
-ContextMan is a set of a few classes meant for managing states in apps.
+`data-signals` is a set of few simple JS/TS classes, mixins and tools to help manage complex state and action flow in sync.
 
 ## Documentation
 

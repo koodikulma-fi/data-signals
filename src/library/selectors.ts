@@ -1,10 +1,8 @@
 
 // - Imports - //
 
-// Common.
+// Libraries.
 import { areEqual} from "./library";
-// Typing.
-import { ReturnTypes } from "./typing";
 
 
 // - Data selector depth (enum and type) - //
@@ -12,7 +10,8 @@ import { ReturnTypes } from "./typing";
 // Enums.
 /** For quick getting modes to depth for certain uses (Memo and DataPicker).
  * - Positive values can go however deep. Note that -1 means deep, but below -2 means will not check.
- * - Values are: "never" = -3, "always" = -2, "deep" = -1, "changed" = 0, "shallow" = 1, "double" = 2. */
+ * - Values are: "never" = -3, "always" = -2, "deep" = -1, "changed" = 0, "shallow" = 1, "double" = 2.
+ */
 export enum CompareDataDepthEnum {
     never = -3,
     always = -2,
@@ -35,6 +34,20 @@ export type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
 
 /** Type for a function whose job is to extract data from given arguments. */
 export type DataExtractor<P extends any[] = any[], R = any> = (...args: P) => R;
+
+/** Helper to collect up to 10 return types from an array of functions. */
+export type ReturnTypes<T extends any[] | readonly any[]> =
+    T[0] extends undefined ? [] : 
+    T[1] extends undefined ? [ReturnType<T[0]>] : 
+    T[2] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>] : 
+    T[3] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>] : 
+    T[4] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>] : 
+    T[5] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>] : 
+    T[6] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>] : 
+    T[7] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>] : 
+    T[8] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>] : 
+    T[9] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>, ReturnType<T[8]>] : 
+    [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>, ReturnType<T[8]>, ReturnType<T[9]>];
 
 /** This helps to create a fully typed data selector with multiple extractors (each outputting any value) as an array.
  * - It returns a callback that can be used for selecting (like in Redux).

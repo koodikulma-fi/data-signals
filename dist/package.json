@@ -25,12 +25,12 @@
     "type": "git",
     "url": "git+https://github.com/koodikulma-fi/data-signals.git"
   },
-  "module": "./data-signals.mjs",
+  "module": "./data-signals.module.js",
   "main": "./data-signals.js",
   "types": "./data-signals.d.ts",
   "exports": {
     ".": {
-      "import": "./data-signals.mjs",
+      "import": "./data-signals.module.js",
       "require": "./data-signals.js"
     },
     "./package.json": "./package.json"

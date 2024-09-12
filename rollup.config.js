@@ -35,7 +35,7 @@ export default [
     {
         input: 'dist/index.js',
         output: {
-            file: 'dist/data-signals.mjs',
+            file: 'dist/data-signals.module.js',
             format: 'es',
         },
         plugins: [
@@ -85,7 +85,7 @@ export default [
 
     // Delete the extras.
     {
-        input: 'dist/data-signals.mjs',
+        input: 'dist/data-signals.module.js',
         plugins: [
             del({ targets: ['dist/classes*', 'dist/library*', 'dist/index.js', 'dist/types.js'], hook: 'buildEnd' })
         ]

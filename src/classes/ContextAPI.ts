@@ -1,51 +1,26 @@
 
-
 // - Imports - //
 
-// Library.
-import {
-    PropType,
-    Dictionary,
-    RecordableType,
-    SplitOnce,
-    FirstSplit,
-    SecondSplit,
-    GetJoinedDataKeysFrom,
-    ClassType,
-} from "../library/typing";
 // Classes.
-import { SignalSendAsReturn, SignalListenerFunc, SignalsRecord, SignalBoy, SignalListener } from "./SignalMan";
-import { DataListenerFunc } from "./DataMan";
+import { SignalDataBoy } from "./SignalDataBoy";
 import { Context } from "./Context";
+// Typing.
+import { PropType, Dictionary, RecordableType, GetJoinedDataKeysFrom, ClassType } from "../library/typing";
+import { SignalsRecord, SignalSendAsReturn } from "./SignalMan";
 
 
 // - Helper types - //
 
+// All contexts.
 export type ContextsAllType = Record<string, Context<any, SignalsRecord>>;
 export type ContextsAllOrNullType<AllContexts extends ContextsAllType = {}> = { [Name in keyof AllContexts]: AllContexts[Name] | null; };
 
-// This works by iteration data down beforehands and can thus be used to offer suggestions for each data key.
-export type GetJoinedDataKeysFromContexts<Contexts extends ContextsAllType> = {[CtxName in string & keyof Contexts]: GetJoinedDataKeysFrom<Contexts[CtxName]["data"], CtxName>}[string & keyof Contexts];
-export type GetJoinedSignalKeysFromContexts<Contexts extends ContextsAllType> = {[CtxName in string & keyof Contexts]: keyof Contexts[CtxName]["_Signals"] extends string ? `${CtxName}.${keyof Contexts[CtxName]["_Signals"]}` : never; }[string & keyof Contexts];
+// Join contextual signal keys.
+export type GetJoinedSignalKeysFromContexts<Contexts extends ContextsAllType> = {[CtxName in string & keyof Contexts]: keyof (Contexts[CtxName]["_Signals"] & {}) extends string ? `${CtxName}.${keyof (Contexts[CtxName]["_Signals"] & {}) & string}` : never; }[string & keyof Contexts];
 
-// Local helper types.
-export type MergeSignalsFromContexts<Ctxs extends ContextsAllType> = {
-    [Key in string & GetJoinedSignalKeysFromContexts<Ctxs>]: [(Ctxs[FirstSplit<Key, ".">]["_Signals"] & {})[SecondSplit<Key, ".">]] extends [SignalListenerFunc] ? (Ctxs[FirstSplit<Key, ".">]["_Signals"] & {})[SecondSplit<Key, ".">] : never;
-    // [Key in string & GetJoinedSignalKeysFromContexts<Ctxs>]: (Ctxs[FirstSplit<Key, ".">]["_Signals"] & {})[SecondSplit<Key, ".">]; 
-    // <-- This shorter one is not enough for the compiled module.d.ts. Does not satisfy SignalsRecord otherwise.
-};
-
-// These work by using the given data key location types.
-export type GetDataByContextString<Key extends string, Contexts extends ContextsAllType> = GetDataByContextKeys<SplitOnce<Key, ".">, Contexts>;
-export type GetDataByContextKeys<CtxKeys extends string[], Contexts extends ContextsAllType> = 
-    [CtxKeys[0]] extends [keyof Contexts] ? 
-        [CtxKeys[1]] extends [string] ?
-            PropType<Contexts[CtxKeys[0]]["data"], CtxKeys[1], never>
-        : Contexts[CtxKeys[0]]["data"]
-    : never;
-export type GetDataByContextDictionary<Fallbacks extends Record<string, any>, Contexts extends ContextsAllType> = {
-    [Key in keyof Fallbacks & string]: Key extends `${infer ContextName}.${infer DataKey}` ? PropType<(Contexts[ContextName] & {})["data"], DataKey, Fallbacks[Key]> | Fallbacks[Key] : never;
-};
+// Read from contexts.
+export type GetSignalsFromContexts<Ctxs extends ContextsAllType> = { [CtxSignalName in GetJoinedSignalKeysFromContexts<Ctxs> & string]: CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? (Ctxs[CtxName]["_Signals"] & {})[SignalName] : never; };
+export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string & keyof Ctxs]: Ctxs[Key]["data"]; };
 
 
 // - Helpers - //
@@ -64,21 +39,19 @@ export function buildRecordable<T extends string = any>(types: RecordableType<T>
 // - Class - //
 
 /** Class type of ContextAPI. */
-export interface ContextAPIType<Contexts extends ContextsAllType = {}, CtxSignals extends SignalsRecord = MergeSignalsFromContexts<Contexts>> extends ClassType<ContextAPI<Contexts, CtxSignals>> { }
+export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassType<ContextAPI<Contexts>> { }
 /** ContextAPI looks like it has full SignalMan and DataMan capabilities but only extends SignalBoy internally.
  * - It has all the same methods, but does not have .data member and data listening can have a fallback array.
  * - All data keys and signal names should start with "contextName.", for example: "settings.theme" data key or "navigation.onFocus" signal.
  */
-export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extends SignalsRecord = MergeSignalsFromContexts<Contexts>> extends SignalBoy<CtxSignals> {
+export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDataBoy<GetDataFromContexts<Contexts>, GetSignalsFromContexts<Contexts>> {
     
 
     // - Members - //
 
     // Typing.
-    ["constructor"]: ContextAPIType<Contexts, CtxSignals>;
+    ["constructor"]: ContextAPIType<Contexts>;
 
-    /** Data needs mapping using the callback as the key and value contains: `[ fallbackArgs, ...needs ]`. The data needs are also used as to get the argument values for the callback. */
-    public dataListeners: Map<DataListenerFunc, [ fallbackArgs: any[] | undefined, ...needs: string[]]>;
     /** All the contexts assigned to us.
      * - They also have a link back to us by context.contextAPIs, with this as the key and context names as the values. 
      * - Note that can also set `null` value here - for purposefully excluding an inherited context (when using one contextAPI to inherit contexts from another).
@@ -112,16 +85,17 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
 
     // - Send signals - //
 
+    // Override to use contexts.
     /** Emit a signal. Does not return a value. Use `sendSignalAs(modes, ctxSignalName, ...args)` to refine the behaviour. */
     public sendSignal<
-        CtxSignalName extends string & keyof CtxSignals,
-        CtxName extends keyof Contexts & FirstSplit<CtxSignalName, ".">,
-        SignalName extends string & SecondSplit<CtxSignalName, ".">,
-    >(ctxSignalName: CtxSignalName, ...args: Parameters<(Contexts[CtxName]["_Signals"] & {})[SignalName]>): void {
+        CtxSignalName extends string & keyof GetSignalsFromContexts<Contexts>,
+        Names extends CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? [CtxName, SignalName] : [never, never],
+    >(ctxSignalName: CtxSignalName, ...args: Parameters<(Contexts[Names[0]]["_Signals"] & {})[Names[1]]>): void {
         const [ctxName, signalName] = ctxSignalName.split(".", 2);
         return this.getContext(ctxName)?.sendSignal(signalName, ...args);
     }
     
+    // Override to use contexts.
     /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
      * - "delay": Delays sending the signal. To also collect returned values must include "await".
      *      * Note that this delays the process to sync with the Context's refresh cycle, and waits until all related contextAPIs have refreshed. (In an external layer, often further tied to other update cycles, like rendering.)
@@ -140,8 +114,11 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
      * - Note that ContextAPI's sendSignal and sendSignalAs will use the contexts methods if found. If context not found immediately when called, then does nothing.
      */
     public sendSignalAs<
+        // Inferred.
+        CtxSignals extends GetSignalsFromContexts<Contexts>,
         CtxSignalName extends string & keyof CtxSignals,
         Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null",
+        // Local variables.
         HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false,
         HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false,
         HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false,
@@ -149,158 +126,47 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false,
         HasPreDelay extends boolean = Mode extends string[] ? Mode[number] extends "pre-delay" ? true : false : Mode extends "pre-delay" ? true : false,
         UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast,
-        UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay | HasPreDelay ? false : true
+        UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay | HasPreDelay ? false : true,
     >(modes: Mode | Mode[], ctxSignalName: CtxSignalName, ...args: Parameters<CtxSignals[CtxSignalName]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<CtxSignals[CtxSignalName]>, HasAwait, UseSingle> : undefined {
+        // Use context.
         const [ctxName, signalName] = ctxSignalName.split(".", 2);
         const ctx = this.getContext(ctxName);
         if (ctx)
             return ctx.sendSignalAs(modes, signalName, ...args) as any;
+        // Handle awaiting and empty value returns without context.
         const m: string[] = typeof modes === "string" ? [modes] : modes;
         const r = m.includes("last") || m.includes("first") || m.includes("first-true") ? undefined : [];
         return m.includes("await") ? new Promise(resolve => resolve(r)) as any : r as any;
     }
 
 
-    // - Listen to data - //
-
-    // Using pre-suggested keys for better typing experience.
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Fallback extends [ fall1?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0]) => void,
-    >(dataKey1: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Key3 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any, fall3?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Key3 extends Keys,
-        Key4 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Key3 extends Keys,
-        Key4 extends Keys,
-        Key5 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Key3 extends Keys,
-        Key4 extends Keys,
-        Key5 extends Keys,
-        Key6 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Key3 extends Keys,
-        Key4 extends Keys,
-        Key5 extends Keys,
-        Key6 extends Keys,
-        Key7 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any, fall7?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5], val7: GetDataByContextString<Key7, Contexts> | Fallback[6]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Key1 extends Keys,
-        Key2 extends Keys,
-        Key3 extends Keys,
-        Key4 extends Keys,
-        Key5 extends Keys,
-        Key6 extends Keys,
-        Key7 extends Keys,
-        Key8 extends Keys,
-        Fallback extends [ fall1?: any, fall2?: any, fall3?: any, fall4?: any, fall5?: any, fall6?: any, fall7?: any, fall8?: any ],
-        Callback extends (val1: GetDataByContextString<Key1, Contexts> | Fallback[0], val2: GetDataByContextString<Key2, Contexts> | Fallback[1], val3: GetDataByContextString<Key3, Contexts> | Fallback[2], val4: GetDataByContextString<Key4, Contexts> | Fallback[3], val5: GetDataByContextString<Key5, Contexts> | Fallback[4], val6: GetDataByContextString<Key6, Contexts> | Fallback[5], val7: GetDataByContextString<Key7, Contexts> | Fallback[6], val8: GetDataByContextString<Key8, Contexts> | Fallback[7]) => void,
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-
-    // Using dictionary.
-    /** Listen to data using a dictionary whose keys are dotted data keys and values fallback for each. If wanting to strictly define the types in the dictionary, add `as const` after its definition. */
-    public listenToData<
-        Keys extends GetJoinedDataKeysFromContexts<Contexts>,
-        Fallbacks extends Partial<Record<Keys, any>>
-    >(fallbackDictionary: Fallbacks, callback: (values: GetDataByContextDictionary<Fallbacks, Contexts>) => void, callImmediately?: boolean): void;
-
-    // Actual JS implementation.
-    public listenToData(...args: any[]): void {
-        // Parse.
-        let iOffset = 1;
-        const nArgs = args.length;
-        const callImmediately = typeof args[nArgs - iOffset] === "boolean" && args[nArgs - iOffset++];
-        const isDictionary = typeof args[0] === "object";
-        const fallbackArgs: any[] | undefined = isDictionary ? Object.values(args[0] as Record<string, any>) as string[] : Array.isArray(args[nArgs - iOffset]) && args[nArgs - iOffset++]?.slice() || undefined;
-        const dataNeeds = isDictionary ? Object.keys(args[0]) : args.slice(0, nArgs - iOffset);
-        const callback: DataListenerFunc = args[nArgs - iOffset];
-        // Set needs.
-        this.dataListeners.set(callback, [fallbackArgs, ...dataNeeds]);
-        // Call.
-        if (callImmediately)
-            callback(...this.getDataArgsBy(dataNeeds, fallbackArgs));
-    }
-
-    /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
-    public unlistenToData(callback: DataListenerFunc): boolean {
-        // Not found.
-        if (this.dataListeners.has(callback))
-            return false;
-        // Remove.
-        this.dataListeners.delete(callback);
-        return true;
-    }
-
-
     // - Handle data - //
 
+    // Extend.
     /** Get from contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
      * - If the context exists uses the getInData method from the context, otherwise returns undefined or the fallback. (The fallback is also used if the data key not found in context data.)
      */
-    public getInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
-    public getInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
+    public getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
+    public getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
     public getInData(ctxDataKey: string, fallback: any = undefined): any {
         const ctxName = ctxDataKey.split(".", 1)[0];
         const context = this.getContext(ctxName);
         return context ? context.getInData(ctxDataKey.slice(ctxName.length + 1), fallback) : fallback;
     }
 
+    // Extend.
     /** Set in contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
      * - Sets the data in the context, if context found, and triggers refresh (by default). If the sub data is an object, can also extend.
      * - Note that if the context is found, using this triggers the contextual data listeners (with default or forced timeout). */
-    public setInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Dictionary, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
-    public setInData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>, SubData extends GetDataByContextString<CtxDataKey, Contexts>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
+    public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Dictionary, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
+    public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
     public setInData(ctxDataKey: string, data: any, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void {
         const ctxName = ctxDataKey.split(".", 1)[0];
         this.getContext(ctxName)?.setInData(ctxDataKey.slice(ctxName.length + 1), data as never, extend, refresh, forceTimeout);
     }
 
     /** Manually trigger refresh without setting the data using a dotted key (or an array of them) with context name: eg. `"someCtxName.someData.someProp"`. */
-    public refreshData<CtxDataKey extends GetJoinedDataKeysFromContexts<Contexts>>(ctxDataKeys: CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
+    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>>(ctxDataKeys: CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
     public refreshData(ctxDataKeys: string | string[], forceTimeout?: number | null): void {
         // Prepare a temp dictionary.
         const contexts: Record<string, Context | null | undefined> = {};
@@ -363,8 +229,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         return contexts;
     }
 
-    /** This creates a new context - presumably to be attached with .contexts prop.
-     * - If overrideWithName given, then calls setContext automatically with the given name. */
+    /** Create a new context. If overrideWithName given, then calls setContext automatically with the given name. */
     public newContext<CtxData extends Record<string, any> = {}, CtxSignals extends SignalsRecord = {}>(data: CtxData, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
     public newContext<Name extends keyof Contexts & string>(data: Contexts[Name]["data"], overrideWithName: Name, refreshIfOverriden?: boolean): Contexts[Name];
     public newContext(data: any, overrideWithName?: string, refreshIfOverriden: boolean = true): Context {
@@ -441,6 +306,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
     
     // - Context data build helpers - //
 
+    // Extend.
     /** Helper to build data arguments from this ContextAPI's contextual connections with the given data needs args.
      * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])`.
      * - Used internally but can be used for manual purposes. Does not support typing like listenToData - just string[].
@@ -449,29 +315,15 @@ export class ContextAPI<Contexts extends ContextsAllType = {}, CtxSignals extend
         return needs.map((need, i) => {
             const ctxName = need.split(".", 1)[0];
             const ctx = this.getContext(ctxName); // Use the getter - for better extendability of the ContextAPI class.
-            return ctx ? ctx.getInData(need.slice(ctxName.length + 1), fallbackArgs && fallbackArgs[i]) : fallbackArgs && fallbackArgs[i];
+            const dataKey = need.slice(ctxName.length + 1);
+            return ctx ? dataKey ? ctx.getInData(dataKey, fallbackArgs && fallbackArgs[i]) : ctx.getData() : fallbackArgs && fallbackArgs[i];
         });
-    }
-
-    // Local.
-    /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
-     * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.
-     */
-    public callDataBy(ctxDataKeys: true | GetJoinedDataKeysFromContexts<Contexts>[] = true): void {
-        // Loop each callback, and call if needs to.
-        // .. Note. The logic is the same as in DataMan class in the respective method.
-        for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries())// Note that we use .entries() to take a copy of the situation.
-            if (ctxDataKeys === true || ctxDataKeys.some((ctxDataKey: string) => needs.some(need => need === ctxDataKey || need.startsWith(ctxDataKey + ".") || ctxDataKey.startsWith(need + "."))))
-                callback(...this.getDataArgsBy(needs, fallbackArgs));
     }
 
 
     // - Optional assignable getter - //
 
-    /** Assignable getter to collect more signal listeners for a call through a specific context name. */
-    getListenersFor?<CtxName extends string & keyof Contexts>(ctxName: CtxName, signalName: string & keyof Contexts[CtxName]["_Signals"]): SignalListener[] | undefined;
-
     /** Assignable getter to call more data listeners when specific context names are refreshed. */
-    callDataListenersFor?(ctxNames: string[], dataKeys?: true | string[]): void;
+    public callDataListenersFor?(ctxNames: string[], dataKeys?: true | string[]): void;
 
 }

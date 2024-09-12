@@ -1,15 +1,14 @@
 
-
 // - Imports - //
 
 // Library.
-import { ClassType, GetJoinedDataKeysFrom, NodeJSTimeout } from "../library/typing";
+import { ClassType, GetJoinedDataKeysFrom } from "../library/typing";
 import { callWithTimeout } from "../library/library";
 // Classes.
+import { SignalDataMan } from "./SignalDataMan";
+// Typing.
 import { SignalListener, SignalsRecord } from "./SignalMan";
-import { DataSignalMan } from "./DataSignalMan";
-// Only typing.
-import { ContextAPI } from "./ContextAPI";
+import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - would be cyclical).
 
 
 // - Types - //
@@ -37,7 +36,7 @@ export type ContextSettings = {
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them.
  *      * In this usage, the "pre-delay" signals are tied to the Context's own refresh, while "delay" happens after all the related contextAPIs have also refreshed (= after their afterRefresh promise has resolved).
  */
-export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = any> extends DataSignalMan<Data, Signals> {
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan<Data, Signals> {
 
 
     // - Members - //
@@ -56,7 +55,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     // Internal.
     /** Temporary internal timer marker for refreshing. */
-    private _refreshTimer: number | NodeJSTimeout | null;
+    private _refreshTimer: number | NodeJS.Timeout | null;
     /** Temporary internal callbacks that will be called when the update cycle is done - at the moment of "pre-delay" cycle (after refreshTimeout). */
     private _afterPre?: Array<() => void>;
     /** Temporary internal callbacks that will be called after the update cycle and the related external refreshes (by contextAPIs) have been flushed - at the moment of "delay" cycle. */
@@ -65,11 +64,12 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     // - Construct - //
 
+    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
     constructor(data: Data, settings?: Partial<ContextSettings> | null | undefined) {
         // Base.
         super(data);
         // Public settings.
-        this.contextAPIs =  new Map();
+        this.contextAPIs = new Map();
         this.settings = this.constructor.getDefaultSettings();
         this._refreshTimer = null;
         // Update settings.
@@ -81,12 +81,12 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // - SignalMan sending extensions - //
     
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
-    getListenersFor(signalName: string): SignalListener[] | undefined {
+    public getListenersFor(signalName: string): SignalListener[] | undefined {
         // Collect all.
         let allListeners: SignalListener[] = this.signals[signalName] || [];
         for (const [contextAPI, ctxNames] of this.contextAPIs) {
             for (const ctxName of ctxNames) {
-                const listeners = contextAPI.getListenersFor ? contextAPI.getListenersFor(ctxName as never, signalName) : contextAPI.signals[ctxName + "." + signalName];
+                const listeners = contextAPI.getListenersFor ? contextAPI.getListenersFor(ctxName + "." + signalName as never) : contextAPI.signals[ctxName + "." + signalName];
                 if (listeners)
                     allListeners = allListeners.concat(listeners);
             }
@@ -95,7 +95,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
 
-    // - DataSignalMan-like methods. - //
+    // - SignalDataMan-like methods. - //
 
     // Overridden.
     /** This returns a promise that is resolved when the context is refreshed, or after all the related contextAPIs have refreshed (based on their afterRefresh promise). */
@@ -117,7 +117,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     /** Trigger refresh of the context and optionally add data keys.
      * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
      */
-    public refreshData<DataKey extends GetJoinedDataKeysFrom<Data & {}>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
+    public refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     public refreshData(dataKeys: string | string[] | boolean | null, forceTimeout?: number | null): void {
         // Add keys.
         if (dataKeys)
