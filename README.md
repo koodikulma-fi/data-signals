@@ -12,16 +12,18 @@ Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodik
 
 ## Documentation
 
+---
+
 ### 3 main layers
 
-#### Library methods
+#### 1. LIBRARY METHODS
 A couple of library methods useful for reusing data.
 - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
 - `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
 - `DataPicker` is like DataMemo but with an extraction process in between, and always uses shallow comparison (of prev/next args) to trigger the producer callback.
 - `DataSelector` functions exactly like DataSelector but uses multiple extractors: `(extractor1, extractor2, ..., producerCallback)`.
 
-#### Mixins / Classes
+#### 2. MIXINS / CLASSES
 A couple of mixins (+ stand alone class) for signalling and data listening features.
 - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
 - `DataBoy` provides data listening services, but without actually having any data.
@@ -30,7 +32,7 @@ A couple of mixins (+ stand alone class) for signalling and data listening featu
 - `SignalDataMan` extends both `SignalMan` and `DataMan`.
 - Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class.
 
-#### Classes
+#### 3. CLASSES
 Finally, two classes specialized for complex data sharing situations, like those in modern web apps.
 - `Context` extends `SignalDataMan` with syncing related settings. The contexts can also sync to the `ContextAPI`s that are listening to them.
 - `ContextAPI` extends `SignalDataBoy` and accordingly allows to listen to data and signals in various named contexts.
@@ -38,7 +40,11 @@ Finally, two classes specialized for complex data sharing situations, like those
     * For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay").
     * The rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
 
+---
+
 ### Basics
+
+---
 
 ### Selectors
 There are 4 data reusing helpers available:
@@ -55,11 +61,17 @@ There are 4 data reusing helpers available:
     * The first args are extractors, the last executor: `const mySelector = createDataSelector((state1, state2) => state1.a, (state1, state2) => state2.b, (a, b) => a < b ? [a, b] : [b, a])`.
     * Used like data picker: `const myData = mySelector(state1, state2)`.
 
+---
+
 ### Contexts
+
+---
 
 ### ContextAPIs
 
-## Examples
+---
+
+## More examples
 
 ```
 
