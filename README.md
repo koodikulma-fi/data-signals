@@ -48,6 +48,8 @@ The `ContextAPI` instance can also affect the syncing of `Context` refreshes - t
 
 ### Selectors
 
+TODO: CLEAN THIS PORTION UP.. THEN BASICALLY DOCUMENTED.
+
 There are 4 data reusing helpers available:
 - `createDataTrigger` creates a function that can be called to trigger a callback when the reference data is changed from the last time.
     * First create a trigger: `const myTrigger = createDataTrigger((newMem, oldMem) => { ...do something... }))`.
