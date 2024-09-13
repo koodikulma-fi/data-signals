@@ -77,7 +77,7 @@ The extractor based (DataPicker and DataSelector) always receive `(...args)` and
 
 ### DataMan & DataBoy
 
-- DataBoy simple provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
+- DataBoy simply provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
 - DataMan completes the concept by providing the `data` member and the related methods for setting and getting data.
 - The data reading supports nested data, which is represented by dotted data keys.
     * For example, `"something.deep"` refers to nesting: `{ something: { deep } }`.
@@ -114,7 +114,7 @@ The extractor based (DataPicker and DataSelector) always receive `(...args)` and
 
 ## More examples
 
-```
+```typescript
 
 // - - Extra tests - - //
 
