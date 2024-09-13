@@ -16,9 +16,11 @@ Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodik
 DataSignals consists of 3 main layers:
 1. A couple of library methods useful for reusing data.
     - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
-        * First create a trigger: `const myTrigger = createDataTrigger((newMem, oldMem) => { ...do something... }))`, and later on use it: `const didChange = myTrigger(newData)`.
-    - `DataMemo` allows to recompute / reuse data based on arguments. If the arguments are changed, calls the callback to return new data.
-        * First create a memo: `const orderMemo = createDataMemo((a, b) => a < b ? [a, b] : [b, a])`, and later on use it: `const [smaller, greater] = orderMemo(a, b)`.
+        * First create a trigger: `const myTrigger = createDataTrigger((newMem, oldMem) => { ...do something... }))`.
+        * Then later on use it: `const didChange = myTrigger(newData)`.
+    - `DataMemo` allows to recompute / reuse data based on arguments: when args change, calls the callback to produce new data.
+        * First create a memo: `const orderMemo = createDataMemo((a, b) => a < b ? [a, b] : [b, a])`.
+        * Then later on use it: `const [smaller, greater] = orderMemo(a, b)`.
     - `DataPicker` is like DataMemo but has an extra extraction process in between to read data from state arguments.
         * To create a picker: `const myPicker = createDataPicker((state1, state2) => [state1.a, state2.b], (a, b) => a < b ? [a, b] : [b, a])`.
         * And then use it: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of a `Context` (see below).
