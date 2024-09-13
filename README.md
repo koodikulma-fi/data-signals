@@ -2,7 +2,7 @@
 ---
 
 TODO:
-- Finish the SELECTORS part of doc.
+- Finish the SELECTORS and CONTEXTAPI parts of doc.
 - Add a couple of (typed) MIXIN usage examples.
 - Release as NPM package.
 
@@ -173,7 +173,7 @@ signalMan.sendSignal("doIt", 5);
 
 // Send a more complex signal.
 const livesAre = await signalMan.sendSignalAs("await", "whatIsLife", "me"); // [0]
-const lifeIsNow = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // 0
+const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // 0
 
 ```
 
@@ -203,15 +203,14 @@ dataMan.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback"
 // .. Note. The Contexts level has 0ms timeout by default and the refreshes are triggered all in sync.
 dataMan.setData({ simple: "no" });
 dataMan.setInData("something.deep", false);
-dataMan.setInData("something.deep", true);
-dataMan.refreshData("something.deep");
+dataMan.refreshData("something.deep"); // Trigger a refresh manually.
 dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
 
 ```
 
 ---
 
-### Contexts
+### Context
 
 - `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
 - The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
@@ -246,8 +245,7 @@ myContext.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks ===
 // .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
 myContext.setData({ simple: "no" });
 myContext.setInData("something.deep", false);
-myContext.setInData("something.deep", true);
-myContext.refreshData("something.deep"); // Trigger refresh manually.
+myContext.refreshData("something.deep"); // Trigger a refresh manually.
 myContext.refreshData(["something.deep", "simple"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
 myContext.refreshData(true, null); // Just refresh everything, and do it now (with `null` as the timeout).
 
@@ -256,7 +254,7 @@ myContext.sendSignal("doIt", 5);
 
 // Send a more complex signal.
 const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
-const lifeIsNow = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
+const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
 //
 // <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
 
@@ -264,7 +262,7 @@ const lifeIsNow = await myContext.sendSignalAs(["delay", "await", "first"], "wha
 
 ---
 
-### ContextAPIs
+### ContextAPI
 
 - `ContextAPI` provides hooking communication with multiple _named_ `Context`s.
 - When a ContextAPI is hooked up to a context, it can use its data and signalling services.
