@@ -24,7 +24,7 @@ A couple of library methods useful for reusing data.
 - `DataPicker` is like DataMemo but with an extraction process in between, and always uses shallow comparison (of prev/next args) to trigger the producer callback.
 - `DataSelector` functions exactly like DataSelector but uses multiple extractors: `(extractor1, extractor2, ..., producerCallback)`.
 
-#### 2. MIXINS / CLASSES
+#### 2. SIMPLE MIXINS / CLASSES
 
 A couple of mixins (+ stand alone class) for signalling and data listening features.
 - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
@@ -35,7 +35,7 @@ A couple of mixins (+ stand alone class) for signalling and data listening featu
 
 Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class.
 
-#### 3. CLASSES
+#### 3. COMPLEX CLASSES
 
 Finally, two classes specialized for complex data sharing situations, like those in modern web apps.
 - `Context` extends `SignalDataMan` with syncing related settings. The contexts can also sync to the `ContextAPI`s that are listening to them.
