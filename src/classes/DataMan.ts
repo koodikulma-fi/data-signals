@@ -116,8 +116,6 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
             // Add keys.
             if (dataKeys)
                 this.addRefreshKeys(dataKeys);
-            
-            // Provide the base implementation for refreshing.
             // Call after a timeout.
             if (forceTimeout != null) {
                 setTimeout(() => this.refreshData(null), forceTimeout);

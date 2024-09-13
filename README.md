@@ -72,24 +72,70 @@ The extractor based (DataPicker and DataSelector) always receive `(...args)` and
 
 ### SignalMan
 
+- `SignalMan` provides signalling features, from simple instant void signals to complex synced awaiting getters.
+
+```typescript
+
+// Prepare signal typing.
+type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
+
+// Create a SignalMan instance.
+const signalMan = new SignalMan<Signals>(initialData, settings);
+
+// Listen to signals.
+signalMan.listenTo("doIt", (what) => { console.log(what); });
+signalMan.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+
+// Send a signal.
+signalMan.sendSignal("doIt", 5);
+
+// Send a more complex signal.
+const livesAre = await signalMan.sendSignalAs("await", "whatIsLife", "me"); // [0]
+const lifeIsNow = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // 0
+
+```
 
 ---
 
 ### DataMan & DataBoy
 
-- DataBoy simply provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
-- DataMan completes the concept by providing the `data` member and the related methods for setting and getting data.
-- The data reading supports nested data, which is represented by dotted data keys.
-    * For example, `"something.deep"` refers to nesting: `{ something: { deep } }`.
-    * This works in all related methods: `getInData`, `setInData` and `listenToData`.
-    * Data listening actually supports multiple targets: `listenToData("something.deep", "simple", (deep, simple) => {})`.
-- The data listeners are triggered all at once when the DataMan's refresh cycle is finished.
-    * However, only the listeners that whose data might have changed (by using `setInData` or `refreshData`) will be triggered.
-    * For example, if you only change the "simple" in `{ something: { deep }, simple }`, then listeners for "something" or "something.deep" won't be triggered.
+- `DataBoy` simply provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
+- `DataMan` completes the concept by providing the `data` member and the related methods for setting and getting data.
+
+```typescript
+
+// Create a DataMan instance.
+const initialData = { something: { deep: true }, simple: "yes" };
+const dataMan = new DataMan(initialData);
+
+// Get data.
+dataMan.getData(); // { something: { deep: true }, simple: "yes" }
+dataMan.getInData("something.deep"); // true
+
+// Listen to data.
+dataMan.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+dataMan.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+
+// Trigger changes.
+// .. At DataMan level, the data is refreshed instantly and optional timeouts are resolved separately.
+// .. Note. The Contexts level has 0ms timeout by default and the refreshes are triggered all in sync.
+dataMan.setData({ simple: "no" });
+dataMan.setInData("something.deep", false);
+dataMan.setInData("something.deep", true);
+dataMan.refreshData("something.deep");
+dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
+
+```
 
 ---
 
 ### Contexts
+
+- `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
+- The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
+- The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
+    * The "pre-delay" is tied to context's own refresh cycle, defined by the `{ refreshTimeout: number | null; }` setting.
+    * The "delay" happens after ("pre-delay" and) all the connected `ContextAPI` instances have refreshed (by their `afterRefresh` promise).
 
 ```typescript
 
@@ -109,20 +155,25 @@ myContext.getData(); // { something: { deep: true }, simple: "yes" }
 myContext.getInData("something.deep"); // true
 
 // Listen to data and signals.
-myContext.listenToData("something.deep", "simple", (deep, simple) => { });
-myContext.listenTo("doIt", (what) => {});
+myContext.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+myContext.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+myContext.listenTo("doIt", (what) => { console.log(what); });
 myContext.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
 
 // Trigger changes.
+// .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
 myContext.setData({ simple: "no" });
 myContext.setInData("something.deep", false);
-myContext.refreshData("something.deep");
+myContext.setInData("something.deep", true);
+myContext.refreshData("something.deep"); // Trigger refresh manually.
+myContext.refreshData(["something.deep", "simple"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
+myContext.refreshData(true, null); // Just refresh everything, and do it now (with `null` as the timeout).
 
 // Send a signal.
 myContext.sendSignal("doIt", 5);
 
 // Send a more complex signal.
-const lifeIs = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
+const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
 const lifeIsNow = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
 //
 // <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
@@ -132,6 +183,17 @@ const lifeIsNow = await myContext.sendSignalAs(["delay", "await", "first"], "wha
 ---
 
 ### ContextAPIs
+
+- `ContextAPI` provides hooking communication with multiple _named_ `Context`s.
+- When a ContextAPI is hooked up to a context, it can use its data and signalling services.
+    * In this sense, ContextAPI provides an easy to use and stable reference to potentially changing set of contexts.
+- Importantly the ContextAPIs also have `afterRefresh` method that returns a promise, which affects the "delay" cycle of Context refreshing.
+    * By default the method resolves the promise instantly, but can be overridden to tie the syncing to other systems.
+    * The "delay" cycle is resolved only once all the ContextAPIs connected to the refreshing context have resolved their `afterRefresh`.
+
+```typescript
+
+```
 
 ---
 
