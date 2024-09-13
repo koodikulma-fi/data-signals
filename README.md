@@ -1,6 +1,6 @@
-## About
+## What is `data-signals`?
 
-DataSignals (or `data-signals`) is a library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
+DataSignals (or `data-signals`) is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
 
 The classes and methods are fully typed.
 
