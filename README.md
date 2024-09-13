@@ -16,9 +16,9 @@ Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodik
 DataSignals consists of 3 main layers:
 1. A couple of library methods useful for reusing data.
     - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
-    - `DataMemo` allows to recompute / reuse data based on arguments: when args change, calls the callback to produce new data.
-    - `DataPicker` is like DataMemo but has an extra extraction process in between to read data from state arguments.
-    - `DataSelector` functions exactly like DataSelector but uses multiple extractors.
+    - `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
+    - `DataPicker` is like DataMemo but with an extraction process in between, and always uses shallow comparison (of prev/next args) to trigger the producer callback.
+    - `DataSelector` functions exactly like DataSelector but uses multiple extractors: `(extractor1, extractor2, ..., producerCallback)`.
 2. A couple of mixins (+ stand alone class) for signalling and data listening features.
     - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
     - `DataBoy` provides data listening services, but without actually having any data.
