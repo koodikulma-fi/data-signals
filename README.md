@@ -91,20 +91,43 @@ The extractor based (DataPicker and DataSelector) always receive `(...args)` and
 
 ### Contexts
 
-- Create a new context: `const myContext = new Context(initialData, settings)`.
-    * The settings merely contain `{ refreshTimeout: number | null; }` defaulting to `0`.
-    * Setting refreshTimeout to `null` makes the refresh cycle synchronous. (Not recommended in normal situations.)
-- You might want to type the context data and signals: `Context<Data, Signals>`.
-    * For example: `type Data = { something: { deep: boolean; }; simple: number; };`, then access: `myContext.getInData("something.deep")`.
-    * Likewise for signals: `type Signals = { doIt: (what: number) => void; }`, and emit: `myContext.sendSignal("doIt", 5)`.
-- Of course, you can also listen to the signals.
-    * For example: `myContext.listenTo("doIt", (what) => { })`.
-    * In normal usage, the signals are called out immediately and ignore return values.
-    * However, the signal options are customizeable using the `sendSignalAs` method in relation to syncing and fetching data from receivers.
-- Importantly, you can also listen to the data refreshes.
-    * The data listeners are triggered upon the context's refresh cycle, only if related data branches have changed.
-    * For example: `myContext.listenToData("something.deep", "simple", (deep, simple) => { });` is triggered if "something", "something.deep" or "simple" is changed.
+```typescript
 
+// Prepare initial data and settings.
+const initialData = { something: { deep: true }, simple: "yes" };
+const settings: { refreshTimeout?: number | null; } = {}; // Defaults to 0ms, null means synchronous, undefined uses default.
+
+// Extra typing - just to show case Context<Data, Signals>.
+type Data = typeof initialData;
+type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
+
+// Create a context.
+const myContext = new Context<Data, Signals>(initialData, settings);
+
+// Get data.
+myContext.getData(); // { something: { deep: true }, simple: "yes" }
+myContext.getInData("something.deep"); // true
+
+// Listen to data and signals.
+myContext.listenToData("something.deep", "simple", (deep, simple) => { });
+myContext.listenTo("doIt", (what) => {});
+myContext.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+
+// Trigger changes.
+myContext.setData({ simple: "no" });
+myContext.setInData("something.deep", false);
+myContext.refreshData("something.deep");
+
+// Send a signal.
+myContext.sendSignal("doIt", 5);
+
+// Send a more complex signal.
+const lifeIs = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
+const lifeIsNow = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
+//
+// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
+
+```
 
 ---
 
@@ -116,10 +139,7 @@ The extractor based (DataPicker and DataSelector) always receive `(...args)` and
 
 ```typescript
 
-// - - Extra tests - - //
-
-
-// - Testing: DataSelector - //
+// - createDataSelector - //
 
 // Prepare.
 type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
@@ -154,7 +174,7 @@ const sel_MANUAL = codeViewDataSelector_MANUAL("dark", true);
 const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL("FAIL", true); // Only difference is that both: ("FAIL", true) are red-underlined.
 
 
-// - Testing: DataPicker - //
+// - createDataPicker - //
 
 // Prepare.
 type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
