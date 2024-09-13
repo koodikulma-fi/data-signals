@@ -2,7 +2,7 @@
 
 DataSignals (or `data-signals`) is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
 
-The classes and methods are fully typed.
+The classes and methods are fully typed and commented. Accordingly the methods themselves can be used as documentation.
 
 ## NPM
 
