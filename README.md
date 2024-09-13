@@ -68,6 +68,81 @@ Both the DataTrigger and DataMemo support defining the level of comparison to us
 
 The extractor based (DataPicker and DataSelector) always receive `(...args)` and use shallow comparison of the array contents.
 
+```typescript
+
+// - createDataSelector - //
+
+// Prepare.
+type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
+type MyData = { theme: "dark" | "light"; typescript: boolean; }
+
+// With pre-typing.
+const codeViewDataSelector = (createDataSelector as CreateDataSelector<MyParams, MyData>)(
+    // Extractors.
+    [
+        (colorMode, _typeScript) => colorMode || "dark",
+        (_colorMode, typeScript) => typeScript || false,
+    ], // No trick.
+    // Selector.
+    (theme, typescript) => ({ theme, typescript })
+);
+
+// With manual typing.
+const codeViewDataSelector_MANUAL = createDataSelector(
+    // Extractors.
+    [
+        (colorMode: "light" | "dark", _typeScript: boolean) => colorMode || "dark",
+        (...[_colorMode, typeScript]: MyParams) => typeScript || false,
+    ], // No trick.
+    // Selector.
+    (theme, typescript): MyData => ({ theme, typescript })
+);
+
+// Test.
+const sel = codeViewDataSelector("dark", true);
+const sel_FAIL = codeViewDataSelector("FAIL", true); // Here only "FAIL" is red-underlined.
+const sel_MANUAL = codeViewDataSelector_MANUAL("dark", true);
+const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL("FAIL", true); // Only difference is that both: ("FAIL", true) are red-underlined.
+
+
+// - createDataPicker - //
+
+// Prepare.
+type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
+type MyData = { theme: "dark" | "light"; typescript: boolean; }
+
+// With pre-typing.
+const codeViewDataPicker =
+    (createDataPicker as CreateDataPicker<MyParams, MyData>)(
+    // Extractor - showcases the usage for contexts.
+    // .. For example, if has many usages with similar context data needs.
+    (colorMode, typeScript) => [
+        colorMode || "dark",
+        typeScript || false,
+    ],
+    // Picker - it's only called if the extracted data items were changed from last time.
+    (theme, typescript) => ({ theme, typescript })
+);
+
+// With manual typing.
+const codeViewDataPicker_MANUAL = createDataPicker(
+    // Extractor.
+    (...[colorMode, typeScript]: MyParams) => [
+        colorMode || "dark",
+        typeScript || false,
+    ],
+    // Picker.
+    (theme, typescript): MyData => ({ theme, typescript })
+);
+
+// Test.
+const val = codeViewDataPicker("dark", true);
+const val_FAIL = codeViewDataPicker("FAIL", true);
+const val_MANUAL = codeViewDataPicker_MANUAL("dark", true);
+const val_MANUAL_FAIL = codeViewDataPicker_MANUAL("FAIL", true);
+
+```
+
 ---
 
 ### SignalMan
@@ -196,80 +271,3 @@ const lifeIsNow = await myContext.sendSignalAs(["delay", "await", "first"], "wha
 ```
 
 ---
-
-## More examples
-
-```typescript
-
-// - createDataSelector - //
-
-// Prepare.
-type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
-type MyData = { theme: "dark" | "light"; typescript: boolean; }
-
-// With pre-typing.
-const codeViewDataSelector = (createDataSelector as CreateDataSelector<MyParams, MyData>)(
-    // Extractors.
-    [
-        (colorMode, _typeScript) => colorMode || "dark",
-        (_colorMode, typeScript) => typeScript || false,
-    ], // No trick.
-    // Selector.
-    (theme, typescript) => ({ theme, typescript })
-);
-
-// With manual typing.
-const codeViewDataSelector_MANUAL = createDataSelector(
-    // Extractors.
-    [
-        (colorMode: "light" | "dark", _typeScript: boolean) => colorMode || "dark",
-        (...[_colorMode, typeScript]: MyParams) => typeScript || false,
-    ], // No trick.
-    // Selector.
-    (theme, typescript): MyData => ({ theme, typescript })
-);
-
-// Test.
-const sel = codeViewDataSelector("dark", true);
-const sel_FAIL = codeViewDataSelector("FAIL", true); // Here only "FAIL" is red-underlined.
-const sel_MANUAL = codeViewDataSelector_MANUAL("dark", true);
-const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL("FAIL", true); // Only difference is that both: ("FAIL", true) are red-underlined.
-
-
-// - createDataPicker - //
-
-// Prepare.
-type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
-type MyData = { theme: "dark" | "light"; typescript: boolean; }
-
-// With pre-typing.
-const codeViewDataPicker =
-    (createDataPicker as CreateDataPicker<MyParams, MyData>)(
-    // Extractor - showcases the usage for contexts.
-    // .. For example, if has many usages with similar context data needs.
-    (colorMode, typeScript) => [
-        colorMode || "dark",
-        typeScript || false,
-    ],
-    // Picker - it's only called if the extracted data items were changed from last time.
-    (theme, typescript) => ({ theme, typescript })
-);
-
-// With manual typing.
-const codeViewDataPicker_MANUAL = createDataPicker(
-    // Extractor.
-    (...[colorMode, typeScript]: MyParams) => [
-        colorMode || "dark",
-        typeScript || false,
-    ],
-    // Picker.
-    (theme, typescript): MyData => ({ theme, typescript })
-);
-
-// Test.
-const val = codeViewDataPicker("dark", true);
-const val_FAIL = codeViewDataPicker("FAIL", true);
-const val_MANUAL = codeViewDataPicker_MANUAL("dark", true);
-const val_MANUAL_FAIL = codeViewDataPicker_MANUAL("FAIL", true);
-
-```
