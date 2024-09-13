@@ -54,7 +54,7 @@ There are 4 data reusing helpers available:
 - `createDataMemo` is similar but when used returns the data.
     * First create a memo: `const orderMemo = createDataMemo((a, b) => a < b ? [a, b] : [b, a])`.
     * Then later on use it: `const [smaller, greater] = orderMemo(a, b)`.
-- `createDataPicker` is similar to memo concept, but uses extractor functions to produce the arguments for (comparison and) the producer callback.
+- `createDataPicker` is similar to memo, but uses an extractor func to produce the arguments for (comparison and) the producer callback.
     * Create: `const myPicker = createDataPicker((state1, state2) => [state1.a, state1.b, state2.c, state2.d], (a, b, c, d) => { return something; } )`.
     * Use: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of `Context`s (see below).
 - `createDataSelector` functions exactly like DataSelector but uses multiple extractors.
