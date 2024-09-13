@@ -22,8 +22,8 @@ DataSignals consists of 3 main layers:
         * First create a memo: `const orderMemo = createDataMemo((a, b) => a < b ? [a, b] : [b, a])`.
         * Then later on use it: `const [smaller, greater] = orderMemo(a, b)`.
     - `DataPicker` is like DataMemo but has an extra extraction process in between to read data from state arguments.
-        * To create a picker: `const myPicker = createDataPicker((state1, state2) => [state1.a, state2.b], (a, b) => a < b ? [a, b] : [b, a])`.
-        * And then use it: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of a `Context` (see below).
+        * Create: `const myPicker = createDataPicker((state1, state2) => [state1.a, state2.b], (a, b) => a < b ? [a, b] : [b, a])`.
+        * Use: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of `Context`s (see below).
     - `DataSelector` functions exactly like DataSelector but uses multiple extractors.
         * The first args are extractors, the last executor: `const mySelector = createDataSelector((state1, state2) => state1.a, (state1, state2) => state2.b, (a, b) => a < b ? [a, b] : [b, a])`.
         * Used like data picker: `const myData = mySelector(state1, state2)`.
