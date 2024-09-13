@@ -4,9 +4,7 @@ DataSignals (or `data-signals`) is a light weight library containing a few simpl
 
 The classes and methods are fully typed and commented. Accordingly the methods themselves can be used as documentation.
 
-The npm package can be found with: [data-signals](https://www.npmjs.com/package/data-signals)
-
-Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodikulma-fi/data-signals.git)
+The npm package can be found with: [data-signals](https://www.npmjs.com/package/data-signals). Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodikulma-fi/data-signals.git)
 
 ---
 
