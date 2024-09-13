@@ -1,6 +1,11 @@
 
 ---
 
+TODO:
+- Finish the SELECTORS part of doc.
+- Add a couple of (typed) MIXIN usage examples.
+- Release as NPM package.
+
 ## What is `data-signals`?
 
 DataSignals (or `data-signals`) is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
@@ -157,7 +162,7 @@ const val_MANUAL_FAIL = codeViewDataPicker_MANUAL("FAIL", true);
 type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
 
 // Create a SignalMan instance.
-const signalMan = new SignalMan<Signals>(initialData, settings);
+const signalMan = new SignalMan<Signals>();
 
 // Listen to signals.
 signalMan.listenTo("doIt", (what) => { console.log(what); });
@@ -220,7 +225,7 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 const initialData = { something: { deep: true }, simple: "yes" };
 const settings: { refreshTimeout?: number | null; } = {}; // Defaults to 0ms, null means synchronous, undefined uses default.
 
-// Extra typing - just to show case Context<Data, Signals>.
+// Extra typing - just to showcase Context<Data, Signals>.
 type Data = typeof initialData;
 type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
 
