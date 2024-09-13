@@ -1,3 +1,6 @@
+
+---
+
 ## What is `data-signals`?
 
 DataSignals (or `data-signals`) is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
@@ -10,7 +13,7 @@ The npm package can be found with: [data-signals](https://www.npmjs.com/package/
 
 ## Documentation
 
-### 3 main layers
+### Basics - 3 main layers
 
 #### 1. LIBRARY METHODS
 
@@ -38,16 +41,13 @@ Finally, two classes specialized for complex data sharing situations, like those
 - `ContextAPI` extends `SignalDataBoy` and accordingly allows to listen to data and signals in various named contexts.
 
 The `ContextAPI` instance can also affect the syncing of `Context` refreshes - this is especially useful with the "delay" type of signals.
-- For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay").
-- The rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
-
----
-
-### Basics
+- For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). For example, the signal is meant for a component that was not there before state refresh.
+- To solve it, the rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed. (The components may also use contextAPI, but typically won't affect the syncing.)
 
 ---
 
 ### Selectors
+
 There are 4 data reusing helpers available:
 - `createDataTrigger` creates a function that can be called to trigger a callback when the reference data is changed from the last time.
     * First create a trigger: `const myTrigger = createDataTrigger((newMem, oldMem) => { ...do something... }))`.
@@ -62,9 +62,42 @@ There are 4 data reusing helpers available:
     * The first args are extractors, the last executor: `const mySelector = createDataSelector((state1, state2) => state1.a, (state1, state2) => state2.b, (a, b) => a < b ? [a, b] : [b, a])`.
     * Used like data picker: `const myData = mySelector(state1, state2)`.
 
+Both the DataTrigger and DataMemo support defining the level of comparison to use.
+- For createDataMemo the depth is the 2nd argument, while for createDataTrigger it's the 3rd argument.
+- For example, `createDataMemo(producer, 2)` performs two level shallow comparison, while `(producer, -1)` would perform deep comparison.
+
+The extractor based (DataPicker and DataSelector) always receive `(...args)` and use shallow comparison of the array contents.
+
+---
+
+### SignalMan
+
+---
+
+### DataMan & DataBoy
+
+- DataBoy simple provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
+- DataMan completes the concept by providing the `data` member and the related methods for setting and getting data.
+- The data reading supports nested data, which is represented by dotted data keys: eg. `"something.deep"` refers to nesting: `{ something: { deep } }`.
+
 ---
 
 ### Contexts
+
+- Create a new context: `const myContext = new Context(initialData, settings)`.
+    * The settings merely contain `{ refreshTimeout: number | null; }` defaulting to `0`.
+    * Setting refreshTimeout to `null` makes the refresh cycle synchronous. (Not recommended in normal situations.)
+- You might want to type the context data and signals: `Context<Data, Signals>`.
+    * For example: `type Data = { something: { deep: boolean; }; simple: number; };`, then access: `myContext.getInData("something.deep")`.
+    * Likewise for signals: `type Signals = { doIt: (what: number) => void; }`, and emit: `myContext.sendSignal("doIt", 5)`.
+- Of course, you can also listen to the signals.
+    * For example: `myContext.listenTo("doIt", (what) => { })`.
+    * In normal usage, the signals are called out immediately and ignore return values.
+    * However, the signal options are customizeable using the `sendSignalAs` method in relation to syncing and fetching data from receivers.
+- Importantly, you can also listen to the data refreshes.
+    * The data listeners are triggered upon the context's refresh cycle, only if related data branches have changed.
+    * For example: `myContext.listenToData("something.deep", "simple", (deep, simple) => { });` is triggered if "something", "something.deep" or "simple" is changed.
+
 
 ---
 
