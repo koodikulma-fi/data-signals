@@ -174,7 +174,7 @@ class MyMultiMix extends DataManMixin(SignalManMixin(CustomBase)) {}
 class MyMultiMix extends SignalDataManMixin(CustomBase) {}
 
 // Note that you can do the same typing tricks as above using the ClassMixer type.
-// .. Note also that you can use ClassMixer for your own custom mixins. See the source code for examples.
+// .. Note also that you can use ClassMixer for your own custom mixins - see the source code.
 
 ```
 
@@ -419,9 +419,10 @@ const mySource = (createDataSource as CreateDataSource<MyParams, MyData>)(
         colorTheme?.mode || "dark",
         specialMode || false,
     ],
-    // Source - it's only called if the extracted data items were changed from last time.
+    // Producer - it's only called if the extracted data items were changed from last time.
     (theme, special) => ({ theme, special }),
-    // Optional depth of comparing each argument - defaults to 0, if any arg (or arg count) is changed, triggers the producer.
+    // Optional depth of comparing each argument.
+    // .. Defaults to 0: if any arg (or arg count) is changed, triggers the producer.
     0
 );
 
@@ -432,7 +433,7 @@ const mySource_MANUAL = createDataSource(
         colorTheme?.mode || "dark",
         specialMode || false,
     ],
-    // Source.
+    // Producer.
     (theme, special): MyData => ({ theme, special }),
     // Optional depth of comparing each argument.
     0
@@ -455,13 +456,17 @@ const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" i
 ```typescript
 
 // Let' use the same MyData as above, but add cacheKey to args.
-type MyCachedParams = [ colorTheme: { mode?: "light" | "dark" }, specialMode: boolean | undefined, cacheKey: string];
+type MyCachedParams = [
+    colorTheme: { mode?: "light" | "dark" },
+    specialMode: boolean | undefined,
+    cacheKey: string
+];
 
 // With pre-typing.
 const mySource = (createDataSource as CreateCachedSource<MyCachedParams, MyData>)(
     // Extractor.
     (colorTheme, specialMode) => [colorTheme?.mode || "dark", specialMode || false],
-    // Source.
+    // Producer.
     (theme, special) => ({ theme, special }),
     // Cache key generator.
     (_theme, _special, cacheKey) => cacheKey,
@@ -473,7 +478,7 @@ const mySource = (createDataSource as CreateCachedSource<MyCachedParams, MyData>
 const mySource_MANUAL = createCachedDataSource(
     // Extractor.
     (...[colorTheme, specialMode]: MyCachedParams) => [colorTheme?.mode || "dark", specialMode || false],
-    // Source.
+    // Producer.
     (theme, special): MyData => ({ theme, special }),
     // Cache key generator.
     (_theme, _special, cacheKey) => cacheKey,
