@@ -47,8 +47,6 @@ A couple of data reusing concepts in the form of library methods.
 
 ## examples: 1. BASE CLASSES / MIXINS
 
----
-
 ### SignalMan
 
 - `SignalMan` provides signalling features, from simple instant void signals to complex synced awaiting getters.
@@ -73,8 +71,6 @@ const livesAre = await signalMan.sendSignalAs("await", "whatIsLife", "me"); // [
 const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // 0
 
 ```
-
----
 
 ### DataMan & DataBoy
 
@@ -104,8 +100,6 @@ dataMan.refreshData("something.deep"); // Trigger a refresh manually.
 dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
 
 ```
-
----
 
 ### How to use mixins
 
@@ -173,8 +167,6 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 
 ## examples: 2. CONTEXT CLASSES
 
----
-
 ### Context
 
 - `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
@@ -225,8 +217,6 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 // <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
 
 ```
-
----
 
 ### ContextAPI
 
@@ -293,8 +283,6 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
----
-
 ### library: areEqual
 
 - The `areEqual(a, b, depth?)` compares data with custom level of depth.
@@ -331,8 +319,6 @@ copy = areEqual(original, 0); // Did not copy, so original === copy.
 
 ```
 
----
-
 ### library: createDataMemo
 
 - `createDataMemo` helps to reuse data in simple local usages. By default, it only computes the data if any of the arguments have changed.
@@ -359,8 +345,6 @@ const myMemo = createDataMemo(
 const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "beta" }); // { winner: "beta", loser: "alpha" }
 
 ```
-
----
 
 ### library: createDataTrigger
 
@@ -400,8 +384,6 @@ didChange = myTrigger({ id: 3, text: "thing" }, false, newCallback); // true, lo
 didChange = myTrigger({ id: 3, text: "now?" }); // true, logs: "Changes!"
 
 ```
-
----
 
 ### library: createDataSource
 
@@ -450,8 +432,6 @@ const val_MANUAL = mySource_MANUAL({ mode: "dark" }, true);
 const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
 
 ```
-
----
 
 ### library: createCachedSource
 
