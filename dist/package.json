@@ -9,6 +9,7 @@
     "data",
     "signals",
     "context",
+    "contextAPI",
     "manager",
     "tools",
     "web",
