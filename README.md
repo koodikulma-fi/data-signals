@@ -1,18 +1,5 @@
 
----
-
-TODO:
-- JS:
-    - CLEAN UP SHALLOW COMPARISON depth for DATA SOURCE, MEMO, TRIGGER. ... in JS, in comments and in DOCS.
-- RELEASE:
-    - Release as NPM package.
-- EXTRA:
-    - And.. Then provide "data-signals-debug" which is a simple UX for displaying stuff.
-        * Possibly made using MIX-DOM.
-        * Then also expansion to include mix-dom host & components debugging.
-        * The idea is simply to use a NEW WINDOW and handle its contents from the origin page.
-
-## What is `data-signals`?
+## WHAT
 
 DataSignals (or `data-signals`) is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
 
@@ -22,20 +9,11 @@ The npm package can be found with: [data-signals](https://www.npmjs.com/package/
 
 ---
 
-## Documentation
+## CONTENTS
 
 There are 3 kinds of tools available.
 
-### 1. LIBRARY METHODS
-
-A couple of data reusing concepts in the form of library methods.
-- Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
-- Data selector features with 3 variants:
-    * `createDataTrigger` triggers a callback when reference data is changed from previous time.
-    * `createDataMemo` recomputes / reuses data based on arguments: if changed, calls the producer callback.
-    * `createDataSource` is like createDataMemo but with an extraction process before the producer callback.
-
-### 2. SIMPLE BASE CLASSES / MIXINS
+### 1. BASE CLASSES / MIXINS
 
 A couple of classes and mixins for signalling and data listening features.
 - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
@@ -46,15 +24,28 @@ A couple of classes and mixins for signalling and data listening features.
 
 Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new class.
 
-### 3. CONTEXT CLASSES
+### 2. CONTEXT CLASSES
 
-Finally, two classes specialized for complex data sharing situations, like those in modern web apps.
+Two classes specialized for complex data sharing situations, like those in modern web apps.
 - `Context` extends `SignalDataMan` with syncing related settings. 
 - `ContextAPI` extends `SignalDataBoy` and allows to listen to data and signals in named contexts.
 
 The `ContextAPI` can also affect syncing of `Context` refreshes in regards to the "delay" cycle.
 - For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). Eg. the signal is meant for a component that was not there before the state refresh.
 - To solve it, the rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
+
+### 3. LIBRARY METHODS
+
+A couple of data reusing concepts in the form of library methods.
+- Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
+- Data selector features with 3 variants:
+    * `createDataTrigger` triggers a callback when reference data is changed from previous time.
+    * `createDataMemo` recomputes / reuses data based on arguments: if changed, calls the producer callback.
+    * `createDataSource` is like createDataMemo but with an extraction process before the producer callback.
+
+---
+
+## examples: 1. BASE CLASSES / MIXINS
 
 ---
 
@@ -111,119 +102,6 @@ dataMan.setData({ simple: "no" });
 dataMan.setInData("something.deep", false);
 dataMan.refreshData("something.deep"); // Trigger a refresh manually.
 dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
-
-```
-
----
-
-### Context
-
-- `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
-- The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
-- The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
-    * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
-    * The "delay" happens after all the connected `ContextAPI`s have also refreshed (by their `afterRefresh` promise).
-    * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
-
-```typescript
-
-// Prepare initial data and settings.
-const initialData = { something: { deep: true }, simple: "yes" };
-const settings: { refreshTimeout?: number | null; } = {}; // Defaults to 0ms, null means synchronous, undefined uses default.
-
-// Extra typing - just to showcase Context<Data, Signals>.
-type Data = typeof initialData;
-type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
-
-// Create a context.
-const myContext = new Context<Data, Signals>(initialData, settings);
-
-// Get data.
-myContext.getData(); // { something: { deep: true }, simple: "yes" }
-myContext.getInData("something.deep"); // true
-
-// Listen to data and signals.
-myContext.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
-myContext.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
-myContext.listenTo("doIt", (what) => { console.log(what); });
-myContext.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
-
-// Trigger changes.
-// .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
-myContext.setData({ simple: "no" });
-myContext.setInData("something.deep", false);
-myContext.refreshData("something.deep"); // Trigger a refresh manually.
-myContext.refreshData(["something.deep", "simple"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
-myContext.refreshData(true, null); // Just refresh everything, and do it now (with `null` as the timeout).
-
-// Send a signal.
-myContext.sendSignal("doIt", 5);
-
-// Send a more complex signal.
-const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
-const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
-//
-// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
-
-```
-
----
-
-### ContextAPI
-
-- `ContextAPI` provides communication with multiple _named_ `Context`s.
-- When a ContextAPI is hooked up to a context, it can use its data and signalling services.
-    * In this sense, ContextAPI provides a stable reference to potentially changing set of contexts.
-- The `afterRefresh` method of ContextAPIs affects the "delay" cycle of Context refreshing (by the returned promise).
-    * The default implementation resolves the promise instantly, but can be overridden to tie the syncing to other systems.
-    * The "delay" cycle is resolved only once all the ContextAPIs connected to the refreshing context have been awaited.
-
-```typescript
-
-// Typing for multiple contexts.
-type CtxSettingsData = { something: { deep: boolean; }; simple: string; };
-type CtxUserData = { info: { name: string; avatar: string; }; };
-type CtxUserSignals = {
-    loggedIn: (userInfo: { name: string; avatar: string; }) => void;
-    whatIsLife: (whoAsks: string) => Promise<number>;
-};
-type AllContexts = {
-    settings: Context<CtxSettingsData>;
-    user: Context<ContextUserData, ContextUserSignals>;
-};
-
-// Create a stand alone contextAPI instance.
-const cApi = new contextAPI<AllContexts>();
-
-// Get data.
-cApi.getInData("settings"); // { something: { deep: true }, simple: "yes" } | undefined
-cApi.getInData("settings.something.deep"); // true | undefined
-cApi.getInData("settings.something.deep", [false]); // true | false
-
-// Listen to data and signals.
-cApi.listenToData("settings.something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
-cApi.listenToData("settings.something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
-cApi.listenTo("user.loggedIn", (userInfo) => { console.log(userInfo); }); // logs: { name, avatar }
-cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
-
-// Trigger changes.
-// .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
-cApi.setInData("settings", { simple: "no" }); // Extends already by default, so "something" won't disappear.
-cApi.setInData("settings", { simple: "no" }, false); // This would make "something" disappears, but typing prevents it.
-cApi.setInData("settings.something.deep", false);  // Even if "something" was lost, this would re-create the path to "something.deep".
-cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
-cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
-cApi.refreshData(["settings", "user"], null); // Just refresh both contexts fully, and do it instantly (with `null` as the timeout).
-
-// Send a signal.
-cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
-
-// Send a more complex signal.
-const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0] | []
-const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0 | undefined
-//
-// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
-
 
 ```
 
@@ -293,7 +171,124 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 
 ---
 
-### Static library methods
+## examples: 2. CONTEXT CLASSES
+
+---
+
+### Context
+
+- `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
+- The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
+- The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
+    * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
+    * The "delay" happens after all the connected `ContextAPI`s have also refreshed (by their `afterRefresh` promise).
+    * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
+
+```typescript
+
+// Prepare initial data and settings.
+const initialData = { something: { deep: true }, simple: "yes" };
+const settings: { refreshTimeout?: number | null; } = {}; // Defaults to 0ms, null means synchronous, undefined uses default.
+
+// Extra typing - just to showcase Context<Data, Signals>.
+type Data = typeof initialData;
+type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
+
+// Create a context.
+const myContext = new Context<Data, Signals>(initialData, settings);
+
+// Get data.
+myContext.getData(); // { something: { deep: true }, simple: "yes" }
+myContext.getInData("something.deep"); // true
+
+// Listen to data and signals.
+myContext.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+myContext.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+myContext.listenTo("doIt", (what) => { console.log(what); });
+myContext.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+
+// Trigger changes.
+// .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
+myContext.setData({ simple: "no" });
+myContext.setInData("something.deep", false);
+myContext.refreshData("something.deep"); // Trigger a refresh manually.
+myContext.refreshData(["something.deep", "simple"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
+myContext.refreshData(true, null); // Just refresh everything, and do it now (with `null` as the timeout).
+
+// Send a signal.
+myContext.sendSignal("doIt", 5);
+
+// Send a more complex signal.
+const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
+const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
+//
+// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
+
+```
+
+---
+
+### ContextAPI
+
+- `ContextAPI` provides communication with multiple _named_ `Context`s.
+- When a ContextAPI is hooked up to a context, it can use its data and signalling services.
+    * In this sense, ContextAPI provides a stable reference to potentially changing set of contexts.
+- The ContextAPI `afterRefresh` method the "delay" refresh cycle of Contexts (by the returned promise).
+    * The default implementation resolves the promise instantly, but can be overridden (for external syncing).
+    * The Context's "delay" cycle is resolved once all the connected ContextAPIs have been awaited.
+
+```typescript
+
+// Typing for multiple contexts.
+type CtxSettingsData = { something: { deep: boolean; }; simple: string; };
+type CtxUserData = { info: { name: string; avatar: string; }; };
+type CtxUserSignals = {
+    loggedIn: (userInfo: { name: string; avatar: string; }) => void;
+    whatIsLife: (whoAsks: string) => Promise<number>;
+};
+type AllContexts = {
+    settings: Context<CtxSettingsData>;
+    user: Context<ContextUserData, ContextUserSignals>;
+};
+
+// Create a stand alone contextAPI instance.
+const cApi = new contextAPI<AllContexts>();
+
+// Get data.
+cApi.getInData("settings"); // { something: { deep: true }, simple: "yes" } | undefined
+cApi.getInData("settings.something.deep"); // true | undefined
+cApi.getInData("settings.something.deep", [false]); // true | false
+
+// Listen to data and signals.
+cApi.listenToData("settings.something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+cApi.listenToData("settings.something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+cApi.listenTo("user.loggedIn", (userInfo) => { console.log(userInfo); }); // logs: { name, avatar }
+cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+
+// Trigger changes.
+// .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
+cApi.setInData("settings", { simple: "no" }); // Extends already by default, so "something" won't disappear.
+cApi.setInData("settings", { simple: "no" }, false); // This would make "something" disappears, but typing prevents it.
+cApi.setInData("settings.something.deep", false);  // Even if "something" was lost, this would re-create the path to "something.deep".
+cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
+cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
+cApi.refreshData(["settings", "user"], null); // Just refresh both contexts fully, and do it instantly (with `null` as the timeout).
+
+// Send a signal.
+cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
+
+// Send a more complex signal.
+const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0] | []
+const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0 | undefined
+//
+// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
+
+
+```
+
+---
+
+## examples: 3. STATIC LIBRARY
 
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
@@ -370,7 +365,7 @@ const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "
 ### library: createDataTrigger
 
 - `createDataTrigger` is similar to DataMemo, but its purpose is to trigger a callback on mount.
-- In addition, the mount callback can return another callback for unmounting, which is called if the mount callback gets overridden upon usage.
+- In addition, the mount callback can return another callback for unmounting, which is called if the mount callback gets overridden upon usage (= when memory changed and a new callback was provided).
 
 ```typescript
 
@@ -410,10 +405,10 @@ didChange = myTrigger({ id: 3, text: "now?" }); // true, logs: "Changes!"
 
 ### library: createDataSource
 
-- `createDataSource` always receives `(...args)` and uses an extractor function to produce final arguments for the producer callback.
-- The producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
-- The level of comparison can be customized by the optional 3rd argument.
-- When used, the data source can receive multiple arguments, but most often a single argument is given, say, an immutable data state of a context.
+- `createDataSource` returns a function for reusing/recomputing data.
+- The function receives custom arguments and uses an extractor to produce final arguments for the producer.
+- The producer is triggered if the args count or any arg has changed: `newArgs.some((v, i) !== oldArgs[i])`.
+- The level of comparison can be customized by the optional 3rd argument. Defaults to 0: if any arg not identical.
 
 ```typescript
 
@@ -478,7 +473,7 @@ const mySource = (createDataSource as CreateCachedSource<MyCachedParams, MyData>
     // Cache key generator.
     (_theme, _special, cacheKey) => cacheKey,
     // Optional depth.
-    1
+    0
 );
 
 // With manual typing.
@@ -488,7 +483,9 @@ const mySource_MANUAL = createCachedDataSource(
     // Source.
     (theme, special): MyData => ({ theme, special }),
     // Cache key generator.
-    (_theme, _special, cacheKey) => cacheKey
+    (_theme, _special, cacheKey) => cacheKey,
+    // Optional depth.
+    0
 );
 
 // Test. Let's say state1 and state2 variants come from somewhere.

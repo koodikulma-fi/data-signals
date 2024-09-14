@@ -79,6 +79,7 @@ export type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: M
  *          - If the callback returns another callback, it will be called if the onMount callback gets replaced - see the 3rd arg upon triggering above.
  *      @param memory Defines the initial memory.
  *      @param depth Defines the comparison depth for comparing previous and new memory - to decide whether to run onMount callback.
+ *          - Defaults to 1 meaning will perform a shallow comparison on the old and new memory. (By default assumes it's an object.)
  */
 export function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMount<Memory>, memory?: Memory, depth: number | CompareDataDepthMode = 1): (newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory> | null) => boolean {
     // Local memory.
@@ -118,18 +119,19 @@ export function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMou
  * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
  * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
  * - About arguments:
- *      @param producer Defines the callback 
+ *      @param producer Defines the callback to produce the final data given the custom arguments.
  *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
+ *          - The depth defaults to 0 meaning identity check on args (or if count changed).
  *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
  */
-export function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth: number | CompareDataDepthMode = 1): (...memory: MemoryArgs) => Data {
+export function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth: number | CompareDataDepthMode = 0): (...memory: MemoryArgs) => Data {
     // Local memory.
     let data: Data | undefined = undefined;
     let memoryArgs: any[] | undefined = undefined;
     const d = typeof depth === "string" ? CompareDataDepthEnum[depth] : depth;
     // Return handler.
     return (...memory: MemoryArgs): Data => {
-        // Can potentially reuse.
+        // Can potentially reuse as we have already computed once.
         if (memoryArgs) {
             // No change.
             if (d < -1) {
@@ -153,17 +155,18 @@ export function createDataMemo<Data extends any, MemoryArgs extends any[]>(produ
 
 /** Create a data source (returns a function): Functions like createDataMemo but for data with an intermediary extractor.
  * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 20 typed members or more with `[...] as const` trick.
- * - Whenever the extracted output has changed (in shallow sense by default), the selector will be run.
- * - The arguments of the selector is the extracted array spread out, and it should return the output data solely based on them.
- * - The whole point of this abstraction, is to trigger the presumably expensive selector call only when the cheap extractor func tells there's a change.
+ * - Whenever the extracted output has changed, the producer callback is triggered.
+ *      * To control the level of comparsion, pass in the optional last arg for "depth". Defaults to 0: identity check on each argument (+ checks argment count).
+ * - The producer callback directly receives the arguments returned by the extractor, and it should return the output data solely based on them (other sources of data should be constant).
+ * - The whole point of this abstraction, is to trigger the presumably expensive producer callback only when the cheap extractor func tells there's a change.
  */
 export function createDataSource<
     Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[],
     Data extends any,
     Params extends any[],
->(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, depth: number | CompareDataDepthMode = 1): (...args: Params) => Data {
+>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, depth: number | CompareDataDepthMode = 0): (...args: Params) => Data {
     // Prepare.
-    let extracted: any[] | readonly any[] = [];
+    let extracted: any[] | readonly any[] | undefined = undefined;
     let data: Data = undefined as any;
     // Clean depth.
     const d = typeof depth === "string" ? CompareDataDepthEnum[depth] : depth;
@@ -171,15 +174,18 @@ export function createDataSource<
     return (...args: any[]): Data => {
         // Extract new extracts.
         const newExtracted = extractor(...args as any);
-        // Check extracts have changed - if not, return old outcome.
-        // .. If depth is -2 , we are in "always" mode, if lower in "never" mode, and so no need to check in either.
-        if (d < -1) {
-            // In never mode, never update.
-            if (d !== -2)
+        // Can reuse.
+        if (extracted) {
+            // Check extracts have changed - if not, return old outcome.
+            // .. If depth is -2 , we are in "always" mode, if lower in "never" mode, and so no need to check in either.
+            if (d < -1) {
+                // In never mode, never update.
+                if (d !== -2)
+                    return data;
+            }
+            else if (areEqual(newExtracted, extracted, d))
                 return data;
         }
-        else if (areEqual(newExtracted, extracted, d))
-            return data;
         // Got through - set new extracts, recalc and store new outcome by the selector.
         extracted = newExtracted;
         data = producer(...extracted as any);
@@ -200,12 +206,13 @@ export function createDataSource<
  *      * If you would use createDataSource they would be competing about it.
  *      * So in practice, the producer callback would be triggered every time the _asker changes_ - even if data in both sets would stay identical.
  *      * To solve this, you simply define unique keys for each use case. For example: "grid1" and "grid2" in our simple example here.
+ * - Like in createDataSource the optional last argument "depth" can be used to define the level of comparison for each argument. Defaults to 0: identity check.
  */
 export function createCachedSource<
     Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[],
     Data extends any,
     Params extends any[],
->(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth: number | CompareDataDepthMode = 1): (...args: Params) => Data {
+>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth: number | CompareDataDepthMode = 0): (...args: Params) => Data {
     // Memory.
     const cached: Record<string, (...args: Params) => Data> = {};
     // Return handler.

@@ -108,22 +108,25 @@ type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: Memory) 
  *          - If the callback returns another callback, it will be called if the onMount callback gets replaced - see the 3rd arg upon triggering above.
  *      @param memory Defines the initial memory.
  *      @param depth Defines the comparison depth for comparing previous and new memory - to decide whether to run onMount callback.
+ *          - Defaults to 1 meaning will perform a shallow comparison on the old and new memory. (By default assumes it's an object.)
  */
 declare function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMount<Memory>, memory?: Memory, depth?: number | CompareDataDepthMode): (newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory> | null) => boolean;
 /** Create a data memo.
  * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
  * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
  * - About arguments:
- *      @param producer Defines the callback
+ *      @param producer Defines the callback to produce the final data given the custom arguments.
  *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
+ *          - The depth defaults to 0 meaning identity check on args (or if count changed).
  *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
  */
 declare function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth?: number | CompareDataDepthMode): (...memory: MemoryArgs) => Data;
 /** Create a data source (returns a function): Functions like createDataMemo but for data with an intermediary extractor.
  * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 20 typed members or more with `[...] as const` trick.
- * - Whenever the extracted output has changed (in shallow sense by default), the selector will be run.
- * - The arguments of the selector is the extracted array spread out, and it should return the output data solely based on them.
- * - The whole point of this abstraction, is to trigger the presumably expensive selector call only when the cheap extractor func tells there's a change.
+ * - Whenever the extracted output has changed, the producer callback is triggered.
+ *      * To control the level of comparsion, pass in the optional last arg for "depth". Defaults to 0: identity check on each argument (+ checks argment count).
+ * - The producer callback directly receives the arguments returned by the extractor, and it should return the output data solely based on them (other sources of data should be constant).
+ * - The whole point of this abstraction, is to trigger the presumably expensive producer callback only when the cheap extractor func tells there's a change.
  */
 declare function createDataSource<Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[], Data extends any, Params extends any[]>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode): (...args: Params) => Data;
 /** Create a cached data source (returns a function).
@@ -135,6 +138,7 @@ declare function createDataSource<Extracted extends [any?, any?, any?, any?, any
  *      * If you would use createDataSource they would be competing about it.
  *      * So in practice, the producer callback would be triggered every time the _asker changes_ - even if data in both sets would stay identical.
  *      * To solve this, you simply define unique keys for each use case. For example: "grid1" and "grid2" in our simple example here.
+ * - Like in createDataSource the optional last argument "depth" can be used to define the level of comparison for each argument. Defaults to 0: identity check.
  */
 declare function createCachedSource<Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[], Data extends any, Params extends any[]>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth?: number | CompareDataDepthMode): (...args: Params) => Data;
 
