@@ -92,13 +92,11 @@ dataMan.getInData("something.deep"); // true
 dataMan.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
 dataMan.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
 
-// Set data.
+// Trigger changes.
 // .. At DataMan level, the data is refreshed instantly and optional timeouts are resolved separately.
 // .. Note. The Contexts level has 0ms timeout by default and the refreshes are triggered all in sync.
 dataMan.setData({ simple: "no" });
 dataMan.setInData("something.deep", false); // Automatically shallow copies the parenting "something" and root data object.
-
-// Trigger changes.
 dataMan.refreshData("something.deep"); // Trigger a refresh manually.
 dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
 
