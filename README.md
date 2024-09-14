@@ -32,7 +32,7 @@ A couple of data reusing concepts in the form of library methods.
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
 - Data selector features with 3 variants:
     * `createDataTrigger` triggers a callback when reference data is changed from previous time.
-    * `createDataMemo` recomputes / reuses data based on arguments: when args change, calls the producer to recompute data.
+    * `createDataMemo` recomputes / reuses data based on arguments: if changed, calls the producer callback.
     * `createDataSource` is like createDataMemo but with an extraction process before the producer callback.
 
 ### 2. SIMPLE BASE CLASSES / MIXINS
@@ -123,6 +123,7 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 - The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
     * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
     * The "delay" happens after all the connected `ContextAPI`s have also refreshed (by their `afterRefresh` promise).
+    * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
 
 ```typescript
 
@@ -172,10 +173,10 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 
 - `ContextAPI` provides communication with multiple _named_ `Context`s.
 - When a ContextAPI is hooked up to a context, it can use its data and signalling services.
-    * In this sense, ContextAPI provides an easy to use and stable reference to potentially changing set of contexts.
-- Importantly the ContextAPIs also have `afterRefresh` method that returns a promise, which affects the "delay" cycle of Context refreshing.
-    * By default the method resolves the promise instantly, but can be overridden to tie the syncing to other systems.
-    * The "delay" cycle is resolved only once all the ContextAPIs connected to the refreshing context have resolved their `afterRefresh`.
+    * In this sense, ContextAPI provides a stable reference to potentially changing set of contexts.
+- The `afterRefresh` method of ContextAPIs affects the "delay" cycle of Context refreshing (by the returned promise).
+    * The default implementation resolves the promise instantly, but can be overridden to tie the syncing to other systems.
+    * The "delay" cycle is resolved only once all the ContextAPIs connected to the refreshing context have been awaited.
 
 ```typescript
 

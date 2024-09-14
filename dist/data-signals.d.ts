@@ -36,10 +36,6 @@ type GetJoinedDataKeysFrom<Data extends Record<string, any>, Pre extends string 
     } ? `${PreVal}${Key}` : string & GetJoinedDataKeysFrom<Data[Key], `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` : `${PreVal}${Key}`;
 }[string & keyof Data];
 
-/** Helper for reusing a timer callback, or potentially forcing an immediate call.
- * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
- */
-declare function callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
 /** General data comparison function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
  * - About arguments:
@@ -100,15 +96,6 @@ type DataTriggerOnMount<Memory = any> = (newMem: Memory, prevMem: Memory | undef
  */
 type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: Memory) => void;
 /** Create a data memo.
- * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
- * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
- * - About arguments:
- *      @param producer Defines the callback
- *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
- *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
- */
-declare function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth?: number | CompareDataDepthMode): (...memory: MemoryArgs) => Data;
-/** Create a data memo.
  * - Usage:
  *      1. First define the (optional but often used) onMount callback to be triggered on memory change.
  *      2. Then define create a trigger: `const myTrigger = createDataMemo(onMount, memory)`.
@@ -123,6 +110,15 @@ declare function createDataMemo<Data extends any, MemoryArgs extends any[]>(prod
  *      @param depth Defines the comparison depth for comparing previous and new memory - to decide whether to run onMount callback.
  */
 declare function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMount<Memory>, memory?: Memory, depth?: number | CompareDataDepthMode): (newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory> | null) => boolean;
+/** Create a data memo.
+ * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
+ * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
+ * - About arguments:
+ *      @param producer Defines the callback
+ *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
+ *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
+ */
+declare function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth?: number | CompareDataDepthMode): (...memory: MemoryArgs) => Data;
 /** Create a data source (returns a function): Functions like createDataMemo but for data with an intermediary extractor.
  * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 20 typed members or more with `[...] as const` trick.
  * - Whenever the extracted output has changed (in shallow sense by default), the selector will be run.
@@ -547,6 +543,7 @@ type ContextSettings = {
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them.
  *      * In this usage, the "pre-delay" signals are tied to the Context's own refresh, while "delay" happens after all the related contextAPIs have also refreshed (= after their afterRefresh promise has resolved).
+ *      * Note that the "pre-delay" signals are called right _before_ the data listeners, while "delay" after the listeners and awaits from contextAPIs.
  */
 declare class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan<Data, Signals> {
     /** This is only provided for typing related technical reasons (so that can access signals typing easier externally). There's no actual _Signals member on the javascript side. */
@@ -579,13 +576,23 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
      * - So it will mark the timer as cleared, without using clearTimeout for it.
      */
     private refreshPending;
-    /** Update settings with a dictionary. If any value is `undefined` then uses the default setting. */
+    /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     modifySettings(settings: Partial<ContextSettings>): void;
     /** Extendable static default settings getter. */
     static getDefaultSettings(): ContextSettings;
+    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
+     * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
+     */
+    static callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
 }
+/** Class type for Context class. */
 type ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> = ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> & {
+    /** Extendable static default settings getter. */
     getDefaultSettings(): ContextSettings;
+    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
+     * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
+     */
+    callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
 };
 
-export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllOrNullType, ContextsAllType, CreateCachedSource, CreateDataSource, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, Dictionary, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeDictionary, RecordableType, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, callWithTimeout, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy };
+export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllOrNullType, ContextsAllType, CreateCachedSource, CreateDataSource, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, Dictionary, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeDictionary, RecordableType, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy };
