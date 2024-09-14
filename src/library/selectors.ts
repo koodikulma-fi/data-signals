@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Libraries.
-import { areEqual} from "./library";
+import { areEqual } from "./library";
 
 
 // - Data selector depth (enum and type) - //
@@ -32,60 +32,27 @@ export type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
 
 // - Data typing helpers - //
 
+// Data source.
 /** Type for a function whose job is to extract data from given arguments. */
 export type DataExtractor<P extends any[] = any[], R = any> = (...args: P) => R;
-
-/** Helper to collect up to 10 return types from an array of functions. */
-export type ReturnTypes<T extends any[] | readonly any[]> =
-    T[0] extends undefined ? [] : 
-    T[1] extends undefined ? [ReturnType<T[0]>] : 
-    T[2] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>] : 
-    T[3] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>] : 
-    T[4] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>] : 
-    T[5] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>] : 
-    T[6] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>] : 
-    T[7] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>] : 
-    T[8] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>] : 
-    T[9] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>, ReturnType<T[8]>] : 
-    [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>, ReturnType<T[8]>, ReturnType<T[9]>];
-
-/** This helps to create a fully typed data selector with multiple extractors (each outputting any value) as an array.
- * - It returns a callback that can be used for selecting (like in Redux).
- * - The typing supports up to 10 extractors.
- */
-export type CreateDataSelector<Params extends any[], Data extends any> =
-    <Extractors extends
-        [DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>]
-    >(extractors: Extractors, selector: (...args: ReturnTypes<Extractors>) => Data, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
-
-/** This helps to create a typed data picker by providing the types for the Params for extractor and Data for output of the selector.
+/** This helps to create a typed data selector by providing the types for the Params for extractor and Data for output of the selector.
  * - The type return is a function that can be used for triggering the effect (like in Redux).
- * - The extractor can return an array up to 10 typed members.
+ * - The extractor can return an array up to 20 typed members.
  */
-export type CreateDataPicker<Params extends any[] = any[], Data = any> = <
-    Extractor extends
-        ((...args: Params) => [any]) | 
-        ((...args: Params) => [any, any]) | 
-        ((...args: Params) => [any, any, any]) | 
-        ((...args: Params) => [any, any, any, any]) | 
-        ((...args: Params) => [any, any, any, any, any]) | 
-        ((...args: Params) => [any, any, any, any, any, any]) | 
-        ((...args: Params) => [any, any, any, any, any, any, any]) | 
-        ((...args: Params) => [any, any, any, any, any, any, any, any]) | 
-        ((...args: Params) => [any, any, any, any, any, any, any, any, any]) | 
-        ((...args: Params) => [any, any, any, any, any, any, any, any, any, any]),
+export type CreateDataSource<Params extends any[] = any[], Data = any> = <
+    Extractor extends(...args: Params) => [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?],
     Extracted extends ReturnType<Extractor> = ReturnType<Extractor>
->(extractor: Extractor, selector: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
+>(extractor: Extractor, producer: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
+/** This helps to create a typed cached data selector by providing the types for the Params for extractor and Data for output of the selector.
+ * - The type return is a function that can be used for triggering the effect (like in Redux).
+ * - The extractor can return an array up to 20 typed members.
+ */
+export type CreateCachedSource<Params extends any[] = any[], Data = any> = <
+    Extractor extends(...args: Params) => [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?],
+    Extracted extends ReturnType<Extractor> = ReturnType<Extractor>
+>(extractor: Extractor, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
 
+// Data trigger.
 /** Callback to run when the DataTrigger memory has changed (according to the comparison mode).
  * - If the callback returns a new callback function, it will be run when unmounting the callback.
  */
@@ -182,54 +149,19 @@ export function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMou
 }
 
 
-// - Create data selector - //
+// - Create data source - //
 
-/** Create a data selector: It's like the DataPicker above, but takes in an array of extractors (not just one).
- * - Accordingly the outputs of extractors are then spread out as the arguments for the selector.
- */
-export function createDataSelector<
-    Extractors extends
-        [DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] |
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>] | 
-        [DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>, DataExtractor<Params>],
-    Data extends any,
-    Params extends any[] = Parameters<Extractors[number]>,
->(extractors: Extractors, selector: (...args: ReturnTypes<Extractors>) => Data, depth: number | CompareDataDepthMode = 1): (...args: Params) => Data {
-    return createDataPicker((...args) => extractors.map(e => e && e(...args as any)) as any, selector, depth);
-}
-
-
-// - Create data picker - //
-
-/** Create a data picker (returns a function): It's like Memo but for data with an intermediary extractor.
- * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 10 typed members or more with `[...] as const` trick.
+/** Create a data source (returns a function): Functions like createDataMemo but for data with an intermediary extractor.
+ * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 20 typed members or more with `[...] as const` trick.
  * - Whenever the extracted output has changed (in shallow sense by default), the selector will be run.
  * - The arguments of the selector is the extracted array spread out, and it should return the output data solely based on them.
  * - The whole point of this abstraction, is to trigger the presumably expensive selector call only when the cheap extractor func tells there's a change.
  */
-export function createDataPicker<
-    Extracted extends
-        [any] |
-        [any, any] |
-        [any, any, any] |
-        [any, any, any, any] |
-        [any, any, any, any, any] |
-        [any, any, any, any, any, any] |
-        [any, any, any, any, any, any, any] |
-        [any, any, any, any, any, any, any, any] |
-        [any, any, any, any, any, any, any, any, any] |
-        [any, any, any, any, any, any, any, any, any, any] | 
-        readonly any[],
+export function createDataSource<
+    Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[],
     Data extends any,
     Params extends any[],
->(extractor: (...args: Params) => Extracted, selector: (...args: Extracted) => Data, depth: number | CompareDataDepthMode = 1): (...args: Params) => Data {
+>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, depth: number | CompareDataDepthMode = 1): (...args: Params) => Data {
     // Prepare.
     let extracted: any[] | readonly any[] = [];
     let data: Data = undefined as any;
@@ -250,83 +182,118 @@ export function createDataPicker<
             return data;
         // Got through - set new extracts, recalc and store new outcome by the selector.
         extracted = newExtracted;
-        data = selector(...extracted as any);
+        data = producer(...extracted as any);
         // Return the new data.
         return data;
     };
 }
 
 
-// // - - Extra tests - - //
-//
-//
-// // - Testing: DataSelector - //
+// - Create data source - //
+
+/** Create a cached data source (returns a function).
+ * - Just like createDataSource but provides multiple sets of extraction and data memory.
+ * - The key (string) for caching is derived by the 3rd argument which is a function that receives the source arguments: `(...origArgs, cached): string`.
+ *      * The cached extra argument provides the dictionary of current caching. The function may also use it to mutate the cache manually, eg. to delete keys from it.
+ * - The reason why you would use the "cached" variant is when you have multiple similar use cases for the same selector with different source datas.
+ *      * For example, let's say you have 2 similar grids but with two different source data.
+ *      * If you would use createDataSource they would be competing about it.
+ *      * So in practice, the producer callback would be triggered every time the _asker changes_ - even if data in both sets would stay identical.
+ *      * To solve this, you simply define unique keys for each use case. For example: "grid1" and "grid2" in our simple example here.
+ */
+export function createCachedSource<
+    Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[],
+    Data extends any,
+    Params extends any[],
+>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth: number | CompareDataDepthMode = 1): (...args: Params) => Data {
+    // Memory.
+    const cached: Record<string, (...args: Params) => Data> = {};
+    // Return handler.
+    return (...args: any[]): Data => {
+        // Get key.
+        const cachedKey = cacher(...args as Params, cached);
+        // Create a new data source if had no cache key.
+        if (!cached[cachedKey])
+            cached[cachedKey] = createDataSource(extractor, producer, depth);
+        // Use data source.
+        return cached[cachedKey](...args as Params);
+    }
+}
+
+
+// // - Typing test: createDataSource - //
 // 
 // // Prepare.
 // type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
 // type MyData = { theme: "dark" | "light"; typescript: boolean; }
 // 
 // // With pre-typing.
-// const codeViewDataSelector = (createDataSelector as CreateDataSelector<MyParams, MyData>)(
-//     // Extractors.
-//     [
-//         (colorMode, _typeScript) => colorMode || "dark",
-//         (_colorMode, typeScript) => typeScript || false,
-//     ], // No trick.
-//     // Selector.
-//     (theme, typescript) => ({ theme, typescript })
-// );
-// 
-// // With manual typing.
-// const codeViewDataSelector_MANUAL = createDataSelector(
-//     // Extractors.
-//     [
-//         (colorMode: "light" | "dark", _typeScript: boolean) => colorMode || "dark",
-//         (...[_colorMode, typeScript]: MyParams) => typeScript || false,
-//     ], // No trick.
-//     // Selector.
-//     (theme, typescript): MyData => ({ theme, typescript })
-// );
-// 
-// // All work.
-// const sel = codeViewDataSelector("dark", true);
-// const sel_FAIL = codeViewDataSelector("FAIL", true); // Here only "FAIL" is red-underlined.
-// const sel_MANUAL = codeViewDataSelector_MANUAL("dark", true);
-// const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL("FAIL", true); // Only difference is that both: ("FAIL", true) are red-underlined.
-//
-//
-// // - Testing: DataPicker - //
-// 
-// // Prepare.
-// type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
-// type MyData = { theme: "dark" | "light"; typescript: boolean; }
-// 
-// // With pre-typing.
-// const codeViewDataPicker =
-//     (createDataPicker as CreateDataPicker<MyParams, MyData>)(
+// const mySource =
+//     (createDataSource as CreateDataSource<MyParams, MyData>)(
 //     // Extractor - showcases the usage for contexts.
 //     // .. For example, if has many usages with similar context data needs.
 //     (colorMode, typeScript) => [
 //         colorMode || "dark",
 //         typeScript || false,
 //     ],
-//     // Picker - it's only called if the extracted data items were changed from last time.
+//     // Selector - it's only called if the extracted data items were changed from last time.
 //     (theme, typescript) => ({ theme, typescript })
 // );
 // 
 // // With manual typing.
-// const codeViewDataPicker_MANUAL = createDataPicker(
+// const mySource_MANUAL = createDataSource(
 //     // Extractor.
 //     (...[colorMode, typeScript]: MyParams) => [
 //         colorMode || "dark",
 //         typeScript || false,
 //     ],
-//     // Picker.
+//     // Selector.
 //     (theme, typescript): MyData => ({ theme, typescript })
 // );
 // 
-// // All work.
-// const val = codeViewDataPicker("dark", true);
-// const val_FAIL = codeViewDataPicker("FAIL", true);
-// const val_MANUAL = codeViewDataPicker_MANUAL("dark", true);
-// const val_MANUAL_FAIL = codeViewDataPicker_MANUAL("FAIL", true);
+// // All correct.
+// const val = mySource("dark", true);
+// const val_FAIL = mySource("FAIL", true);
+// const val_MANUAL = mySource_MANUAL("dark", true);
+// const val_MANUAL_FAIL = mySource_MANUAL("FAIL", true);
+// 
+// 
+// // - Typing test: createCachedSource - //
+// 
+// // Prepare.
+// type MyCachedParams = [colorMode?: "light" | "dark", typeScript?: boolean, cacheKey?: string];
+// // type MyData = { theme: "dark" | "light"; typescript: boolean; }
+// 
+// // With pre-typing.
+// const myCachedSource =
+//     (createCachedSource as CreateCachedSource<MyCachedParams, MyData>)(
+//     // Extractor - showcases the usage for contexts.
+//     // .. For example, if has many usages with similar context data needs.
+//     (colorMode, typeScript) => [
+//         colorMode || "dark",
+//         typeScript || false,
+//     ],
+//     // Selector - it's only called if the extracted data items were changed from last time.
+//     (theme, typescript) => ({ theme, typescript }),
+//     // Cache key deriver.
+//     (_theme, _typescript, cacheKey) => cacheKey || ""
+// );
+// 
+// // With manual typing.
+// const myCachedSource_MANUAL = createCachedSource(
+//     // Extractor.
+//     (...[colorMode, typeScript]: MyCachedParams) => [
+//         colorMode || "dark",
+//         typeScript || false,
+//     ],
+//     // Selector.
+//     (theme, typescript): MyData => ({ theme, typescript }),
+//     // Cache key deriver.
+//     (_theme, _typescript, cacheKey) => cacheKey || ""
+// );
+// 
+// // All correct.
+// const val_cached = myCachedSource("dark", true);
+// const val_cached_FAIL = myCachedSource("FAIL", true);
+// const val_cached_MANUAL = myCachedSource_MANUAL("dark", true);
+// const val_cached_MANUAL_FAIL = myCachedSource_MANUAL("FAIL", true);

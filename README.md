@@ -2,12 +2,17 @@
 ---
 
 TODO:
-- Add a couple of (typed) MIXIN usage examples.
-- Release as NPM package.
-- And.. Then provide "data-signals-debug" which is a simple UX for displaying stuff.
-    * Possibly made using MIX-DOM.
-    * Then also expansion to include mix-dom host & components debugging.
-    * The idea is simply to use a NEW WINDOW and handle its contents from the origin page.
+- JS:
+    - CLEAN UP SHALLOW COMPARISON depth for DATA SOURCE, MEMO, TRIGGER. ... in JS, in comments and in DOCS.
+- DOCS:
+    - Add a couple of (typed) MIXIN usage examples.
+- RELEASE:
+    - Release as NPM package.
+- EXTRA:
+    - And.. Then provide "data-signals-debug" which is a simple UX for displaying stuff.
+        * Possibly made using MIX-DOM.
+        * Then also expansion to include mix-dom host & components debugging.
+        * The idea is simply to use a NEW WINDOW and handle its contents from the origin page.
 
 ## What is `data-signals`?
 
@@ -28,9 +33,7 @@ There are 3 kinds of tools available.
 A couple of data reusing concepts in the form of library methods.
 - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
 - `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
-- `DataPicker` is like DataMemo but with an extraction process in between, and always uses shallow comparison (of prev/next args) to trigger the producer callback.
-- `DataSelector` functions exactly like DataSelector but uses multiple extractors: `(extractor1, extractor2, ..., producerCallback)`.
-
+- `DataPicker` is like DataMemo but with an extraction process in between to trigger the producer callback.
 Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and recognizing class instances.
 
 
@@ -226,14 +229,14 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 ---
 
-### Static methods
+### Static library methods
 
-- Memos, triggers and data selectors are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
+- Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
 - The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ---
 
-### Selector: createDataMemo
+### library: createDataMemo
 
 - `createDataMemo` helps to reuse data in simple local usages. By default, it only computes the data if any of the arguments have changed.
 
@@ -262,7 +265,7 @@ const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "
 
 ---
 
-### Selector: createDataTrigger
+### library: createDataTrigger
 
 - `createDataTrigger` is similar to DataMemo, but its purpose is to trigger a callback on mount.
 - In addition, the mount callback can return another callback for unmounting, which is called if the mount callback gets overridden upon usage.
@@ -303,11 +306,12 @@ didChange = myTrigger({ id: 3, text: "now?" }); // true, logs: "Changes!"
 
 ---
 
-### Selector: createDataPicker
+### library: createDataSource
 
-- `createDataPicker` always receives `(...args)` and uses an extractor function to produce final arguments for the producer callback.
+- `createDataSource` always receives `(...args)` and uses an extractor function to produce final arguments for the producer callback.
 - The producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
-- When used, the picker can receive multiple arguments, but in practice most often a single argument is given, eg. an immutable data state of a context or such.
+- The level of comparison can be customized by the optional 3rd argument.
+- When used, the data source can receive multiple arguments, but most often a single argument is given, say, an immutable data state of a context.
 
 ```typescript
 
@@ -316,76 +320,80 @@ type MyParams = [ colorTheme: { mode?: "light" | "dark" }, specialMode?: boolean
 type MyData = { theme: "dark" | "light"; special: boolean; }
 
 // With pre-typing.
-const codeViewDataPicker =
-    (createDataPicker as CreateDataPicker<MyParams, MyData>)(
+const mySource = (createDataSource as CreateDataSource<MyParams, MyData>)(
     // Extractor - showcases the usage for contexts.
     // .. For example, if has many usages with similar context data needs.
     (colorTheme, specialMode) => [
         colorTheme?.mode || "dark",
         specialMode || false,
     ],
-    // Picker - it's only called if the extracted data items were changed from last time.
-    (theme, special) => ({ theme, special })
+    // Source - it's only called if the extracted data items were changed from last time.
+    (theme, special) => ({ theme, special }),
+    // Optional depth of comparing each argument - defaults to 0, if any arg (or arg count) is changed, triggers the producer.
+    0
 );
 
 // With manual typing.
-const codeViewDataPicker_MANUAL = createDataPicker(
+const mySource_MANUAL = createDataSource(
     // Extractor.
     (...[colorTheme, specialMode]: MyParams) => [
         colorTheme?.mode || "dark",
         specialMode || false,
     ],
-    // Picker.
-    (theme, special): MyData => ({ theme, special })
+    // Source.
+    (theme, special): MyData => ({ theme, special }),
+    // Optional depth of comparing each argument.
+    0
 );
 
 // Test.
-const val = codeViewDataPicker({ mode: "dark" }, true);
-const val_FAIL = codeViewDataPicker({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
-const val_MANUAL = codeViewDataPicker_MANUAL({ mode: "dark" }, true);
-const val_MANUAL_FAIL = codeViewDataPicker_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
+const val = mySource({ mode: "dark" }, true);
+const val_FAIL = mySource({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
+const val_MANUAL = mySource_MANUAL({ mode: "dark" }, true);
+const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
 
 ```
 
 ---
 
-### Selector: createDataSelector
+### library: createCachedSource
 
-- `createDataSelector` is exactly like DataPicker but uses an extractor function per output arument, instead of a single extractor.
-- Likewise, the producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
+- `createCachedSource` is like `createDataSource` but keeps multiple sets of extracted args and data, not just one.
+- The key key for caching is derived from an extra "cacher" function dedicated to this purpose - it should return the cache key (string).
+- The cacher receives the same arguments as the extractor, but also the cached dictionary as an extra argument `(...args, cached) => string`.
 
 ```typescript
 
-// Let' use the same MyParams and MyData as above.
+// Let' use the same MyData as above, but add cacheKey to args.
+type MyCachedParams = [ colorTheme: { mode?: "light" | "dark" }, specialMode: boolean | undefined, cacheKey: string];
 
 // With pre-typing.
-const codeViewDataSelector = (createDataSelector as CreateDataSelector<MyParams, MyData>)(
-    // Extractors.
-    [
-        (colorTheme, _specialMode) => colorTheme?.mode || "dark",
-        (_colorTheme_, specialMode) => specialMode || false,
-    ],
-    // Selector.
-    (theme, special) => ({ theme, special })
+const myPicker = (createDataPicker as CreateCachedSource<MyCachedParams, MyData>)(
+    // Extractor.
+    (colorTheme, specialMode) => [colorTheme?.mode || "dark", specialMode || false],
+    // Picker.
+    (theme, special) => ({ theme, special }),
+    // Cache key generator.
+    (_theme, _special, cacheKey) => cacheKey,
+    // Optional depth.
+    1
 );
 
 // With manual typing.
-const codeViewDataSelector_MANUAL = createDataSelector(
-    // Extractors.
-    [
-        (colorTheme: { mode?: "light" | "dark" }, _specialMode: boolean) => colorTheme?.mode || "dark",
-        (...[_colorTheme_, specialMode]: MyParams) => specialMode || false,
-    ],
-    // Selector.
-    (theme, special): MyData => ({ theme, special })
+const myPicker_MANUAL = createCachedDataPicker(
+    // Extractor.
+    (...[colorTheme, specialMode]: MyCachedParams) => [colorTheme?.mode || "dark", specialMode || false],
+    // Picker.
+    (theme, special): MyData => ({ theme, special }),
+    // Cache key generator.
+    (_theme, _special, cacheKey) => cacheKey
 );
 
-// Test.
-const sel = codeViewDataSelector({ mode: "dark" }, true);
-const sel_FAIL = codeViewDataSelector({ mode: "FAIL" }, true); // Here only 1st arg is red-underlined.
-const sel_MANUAL = codeViewDataSelector_MANUAL({ mode: "dark" }, true);
-const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL({ mode: "FAIL" }, true); // Both args are red-underlined.
+// Test. Let's say state1 and state2 variants come from somewhere.
+let val1 = myPicker(state1a, state1b, "someKey"); // In one place.
+let val2 = myPicker(state2a, state2b, "anotherKey"); // In another place with similar data.
+// We can do it again, and the producers won't be retriggered (unlike without caching).
+val1 = myPicker(state1a, state1b, "someKey");
+val2 = myPicker(state2a, state2b, "anotherKey");
 
 ```
-
----
