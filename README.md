@@ -295,13 +295,51 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 
 ```
 
-
 ---
 
 ### Static library methods
 
+- The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
-- The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
+    * The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
+
+---
+
+### library: areEqual
+
+- The `areEqual(a, b, depth?)` compares data with custom level of depth.
+- If depth is under 0, checks deeply. Defaults to -1.
+
+```typescript
+
+// Basic usage.
+const test = { test: true };
+areEqual(true, test); // false, clearly not equal.
+areEqual(test, { test: true }); // true, contents are equal when deeply check.
+areEqual(test, { test: true }, 1); // true, contents are equal when shallow checked.
+areEqual(test, { test: true }, 0); // false, not identical objects.
+areEqual(test, test, 0); // true, identical objects.
+
+```
+
+---
+
+### library: deepCopy
+
+- The `deepCopy(anything, depth?)` copies the data with custom level of depth.
+- If depth is under 0, copies deeply. Defaults to -1.
+
+```typescript
+
+// Prepare.
+const original = { something: { deep: true }, simple: "yes" };
+let copy: typeof original;
+// Basic usage.
+copy = areEqual(original); // Copied deeply.
+copy = areEqual(original, 1); // Copied one level, so original.deep === copy.deep.
+copy = areEqual(original, 0); // Did not copy, so original === copy.
+
+```
 
 ---
 

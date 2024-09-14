@@ -5,29 +5,6 @@
 import { ClassType } from "./typing";
 
 
-// - Static timer helpers - // 
-
-/** Helper for reusing a timer callback, or potentially forcing an immediate call.
- * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
- */
-export function callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null {
-    // Clear old timer if was given a specific forceTimeout (and had a timer).
-    if (currentTimer !== null && forceTimeout !== undefined) {
-        clearTimeout(currentTimer as any); // To support both sides: NodeJS and browser.
-        currentTimer = null;
-    }
-    // Execute immediately.
-    const timeout = forceTimeout !== undefined ? forceTimeout : defaultTimeout;
-    if (timeout === null)
-        callback();
-    // Or setup a timer - unless already has a timer to be reused.
-    else if (currentTimer === null)
-        currentTimer = setTimeout(() => callback(), timeout) as any;
-    // Return the timer.
-    return currentTimer;
-}
-
-
 // - Static data helpers - // 
 
 /** General data comparison function with level for deepness.
