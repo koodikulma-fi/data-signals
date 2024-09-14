@@ -71,9 +71,10 @@ function _DataBoyMixin<Data extends Record<string, any> = {}>(Base: ClassType) {
 
         // - Helpers - //
 
-        /** Helper to build data arguments with fallbacks.
-         * - For example: `getDataArgsBy(["common.user.name", "view.darkMode"])`.
-         * - Used internally but can be used for manual purposes.
+        /** Helper to build data arguments with values fetched using getInData method with the given data needs args.
+         * - For example: `getDataArgsBy(["user.name", "darkMode"])` returns `[userName?, darkMode?]`.
+         * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
+         * - Used internally but can be used for manual purposes. Does not currently support typing for the return, only input.
          */
         public getDataArgsBy(needs: GetJoinedDataKeysFrom<Data>[], fallbackArgs?: any[]): any[] {
             return fallbackArgs ? needs.map((need, i) => this.getInData(need, fallbackArgs[i])) : needs.map((need, i) => this.getInData(need));

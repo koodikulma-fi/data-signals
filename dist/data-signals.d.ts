@@ -420,9 +420,11 @@ interface SignalMan<Signals extends SignalsRecord = {}> {
      *      * Note also that when returning values, any signal that was connected with .Deferred flag will always be ignored from the return value flow (and called 0ms later, in addition to "delay" timeout).
      */
     sendSignalAs<Name extends string & keyof Signals, Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null", HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false, HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false, HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false, HasMulti extends boolean = Mode extends string[] ? Mode[number] extends "multi" ? true : false : Mode extends "multi" ? true : false, HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false, UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast, UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay ? false : true>(modes: Mode | Mode[], name: Name, ...args: Parameters<Signals[Name]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<Signals[Name]>, HasAwait, UseSingle> : undefined;
-    /** This returns a promise that is resolved after the "pre-delay" or "delay" cycle has finished.
+    /** This triggers a refresh and returns a promise that is resolved after the "pre-delay" or "delay" cycle has finished.
      * - By default uses a timeout of 1ms for fullDelay (for "delay") and 0ms otherwise (for "pre-delay").
-     * - This is used internally by the sendSignalAs method with "pre-delay" or "delay". The method can be overridden to provide custom timing. */
+     * - This is used internally by the sendSignalAs method with "pre-delay" or "delay". The method can be overridden to provide custom timing.
+     * - Note that at the level of SignalMan there is nothing to "refresh". However, if extended by a class where refreshing makes sense, this should trigger refreshing first.
+     */
     afterRefresh(fullDelay?: boolean): Promise<void>;
     /** Optional assignable method. If used, then this will be used for the signal sending related methods to get all the listeners - instead of this.signals[name]. */
     getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
@@ -547,10 +549,12 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
     setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
     setData(data: Partial<Data>, extend?: boolean | true, refresh?: boolean, forceTimeout?: number | null): void;
     /** Set or extend in nested data, and refresh with the key. (And by default trigger a refresh.)
-     * - Note that the extend functionality should only be used for dictionary objects. Defaults to false, since the sub data is not statically known at DataMan level.
+     * - Along the way (to the leaf) automatically extends any values whose constructor === Object, and creates the path to the leaf if needed.
+     * - By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
+     * - Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
      */
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
     /** This refreshes both: data & pending signals.
      * - If refreshKeys defined, will add them - otherwise only refreshes pending.
      * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
@@ -624,11 +628,12 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
      */
     contexts: Partial<Record<string, Context<any, SignalsRecord> | null>>;
     constructor(contexts?: Partial<Contexts>);
-    /** This triggers a refresh and returns a promise that is resolved when the update cycle is completed.
+    /** This (triggers a refresh and) returns a promise that is resolved when the update cycle is completed.
      * - If there's nothing pending, then will resolve immediately.
      * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      * - Note that this method is overrideable. On the basic implementation it resolves immediately.
-     *      * However, on an external layer, it might be tied to an update cycle - to provide the bridge for syncing the "delay" signals.
+     *      * However, on an externael layer, the awaiting might be synced to an update cycle - to provide the bridge for syncing the "delay" signals.
+     *      * Note also that at ContextAPI level, there is nothing to "refresh" (it doesn't hold data, just reads it from contexts). So will not trigger a refresh, just await.
      */
     afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
     /** Emit a signal. Does not return a value. Use `sendSignalAs(modes, ctxSignalName, ...args)` to refine the behaviour. */
@@ -652,20 +657,27 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
      */
     sendSignalAs<CtxSignals extends GetSignalsFromContexts<Contexts>, CtxSignalName extends string & keyof CtxSignals, Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null", HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false, HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false, HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false, HasMulti extends boolean = Mode extends string[] ? Mode[number] extends "multi" ? true : false : Mode extends "multi" ? true : false, HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false, HasPreDelay extends boolean = Mode extends string[] ? Mode[number] extends "pre-delay" ? true : false : Mode extends "pre-delay" ? true : false, UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast, UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay | HasPreDelay ? false : true>(modes: Mode | Mode[], ctxSignalName: CtxSignalName, ...args: Parameters<CtxSignals[CtxSignalName]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<CtxSignals[CtxSignalName]>, HasAwait, UseSingle> : undefined;
     /** Get from contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
-     * - If the context exists uses the getInData method from the context, otherwise returns undefined or the fallback. (The fallback is also used if the data key not found in context data.)
+     * - If the context exists uses the getInData method from the context (or getData if no sub prop), otherwise returns undefined or the fallback.
+     * - If context found, the fallback is passed to it and also used in case the data is not found at the data key location.
      */
     getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
     getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
     /** Set in contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
-     * - Sets the data in the context, if context found, and triggers refresh (by default). If the sub data is an object, can also extend.
-     * - Note that if the context is found, using this triggers the contextual data listeners (with default or forced timeout). */
+     * - Sets the data in the context, if context found, and triggers refresh (by default).
+     * - Note that if the context is found, using this triggers the contextual data listeners (with default or forced timeout).
+     * - About setting data.
+     *      * Along the way (to the leaf) automatically extends any values whose constructor === Object, and creates the path to the leaf if needed.
+     *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
+     *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
+    */
     setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Dictionary, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
     setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
-    /** Manually trigger refresh without setting the data using a dotted key (or an array of them) with context name: eg. `"someCtxName.someData.someProp"`. */
+    /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. */
     refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>>(ctxDataKeys: CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
-    /** Manually trigger refresh by multiple refreshKeys for multiple contexts.
-     * - Note that unlike the other data methods in the ContextAPI, this one separates the contextName and the keys: `{ [contextName]: dataKeys }`
-     * - The data keys can be `true` to refresh all in the context, or a dotted string or an array of dotted strings to refresh multiple separate portions simultaneously. */
+    /** Manually trigger refresh by a dictionary with multiple refreshKeys for multiple contexts.
+     * - Note that unlike the other data methods in the ContextAPI, this one separates the contextName and the keys: `{ [contextName]: dataKeys }` instead of `${contextName}.${dataKeyOrSignal}`.
+     * - The values (= data keys) can be `true` to refresh all in that context, or a dotted string or an array of dotted strings to refresh multiple separate portions simultaneously.
+     */
     refreshDataBy<All extends {
         [Name in keyof Contexts]: All[Name] extends boolean ? boolean : All[Name] extends string ? PropType<Contexts[Name]["data"], All[Name], never> extends never ? never : string : All[Name] extends string[] | readonly string[] ? unknown extends PropType<Contexts[Name]["data"], All[Name][number]> ? never : string[] | readonly string[] : never;
     }>(namedRefreshes: Partial<All>, forceTimeout?: number | null): void;
@@ -675,11 +687,16 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
     getContext<Name extends keyof Contexts & string>(name: Name): Contexts[Name] | null | undefined;
     /** Gets the contexts by names. If name not found, not included in the returned dictionary, otherwise the values are Context | null. */
     getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null): Partial<Record<string, Context | null>> & Partial<ContextsAllOrNullType<Contexts>>;
-    /** Create a new context. If overrideWithName given, then calls setContext automatically with the given name. */
+    /** Create a new context.
+     * - If overrideWithName given, then calls setContext automatically with the given name. If empty (default), functions like a simple static function just instantiating a new context with given data.
+     * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
+     */
     newContext<CtxData extends Record<string, any> = {}, CtxSignals extends SignalsRecord = {}>(data: CtxData, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
     newContext<Name extends keyof Contexts & string>(data: Contexts[Name]["data"], overrideWithName: Name, refreshIfOverriden?: boolean): Contexts[Name];
     /** Same as newContext but for multiple contexts all at once.
-     * - If overrideForSelf set to true, will call setContexts after to attach the contexts here. */
+     * - If overrideForSelf set to true, call setContexts afterwards with the respective context names in allData. Defaults to false: functions as if a static method.
+     * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
+     */
     newContexts<Contexts extends {
         [Name in keyof AllData & string]: Context<AllData[Name] & {}>;
     }, AllData extends Record<keyof Contexts & string, Record<string, any>> = {
@@ -698,11 +715,12 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
     setContexts(contexts: Partial<{
         [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
     }>, callDataIfChanged?: boolean): boolean;
-    /** Helper to build data arguments from this ContextAPI's contextual connections with the given data needs args.
-     * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])`.
-     * - Used internally but can be used for manual purposes. Does not support typing like listenToData - just string[].
+    /** Helper to build data arguments with values fetched from this ContextAPI's contextual connections with the given data needs args.
+     * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])` returns `[userName?, darkMode?]`.
+         * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
+     * - Used internally but can be used for manual purposes. Does not currently support typing for the return, only input.
      */
-    getDataArgsBy(needs: string[], fallbackArgs?: any[]): any[];
+    getDataArgsBy(needs: GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[], fallbackArgs?: any[]): any[];
     /** Assignable getter to call more data listeners when specific context names are refreshed. */
     callDataListenersFor?(ctxNames: string[], dataKeys?: true | string[]): void;
 }

@@ -145,28 +145,42 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
 
     // Extend.
     /** Get from contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
-     * - If the context exists uses the getInData method from the context, otherwise returns undefined or the fallback. (The fallback is also used if the data key not found in context data.)
+     * - If the context exists uses the getInData method from the context (or getData if no sub prop), otherwise returns undefined or the fallback.
+     * - If context found, the fallback is passed to it and also used in case the data is not found at the data key location.
      */
     public getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
     public getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
     public getInData(ctxDataKey: string, fallback: any = undefined): any {
         const ctxName = ctxDataKey.split(".", 1)[0];
+        const dataKey = ctxDataKey.slice(ctxName.length + 1);
         const context = this.getContext(ctxName);
-        return context ? context.getInData(ctxDataKey.slice(ctxName.length + 1), fallback) : fallback;
+        return context ? dataKey ? context.getInData(dataKey, fallback) : context.getData() : fallback;
     }
 
     // Extend.
     /** Set in contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
-     * - Sets the data in the context, if context found, and triggers refresh (by default). If the sub data is an object, can also extend.
-     * - Note that if the context is found, using this triggers the contextual data listeners (with default or forced timeout). */
+     * - Sets the data in the context, if context found, and triggers refresh (by default).
+     * - Note that if the context is found, using this triggers the contextual data listeners (with default or forced timeout).
+     * - About setting data.
+     *      * Along the way (to the leaf) automatically extends any values whose constructor === Object, and creates the path to the leaf if needed.
+     *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
+     *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
+    */
     public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Dictionary, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
     public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
     public setInData(ctxDataKey: string, data: any, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void {
+        // Parse.
         const ctxName = ctxDataKey.split(".", 1)[0];
-        this.getContext(ctxName)?.setInData(ctxDataKey.slice(ctxName.length + 1), data as never, extend, refresh, forceTimeout);
+        const dataKey = ctxDataKey.slice(ctxName.length + 1);
+        // Set data deep in the context.
+        if (dataKey)
+            this.getContext(ctxName)?.setInData(dataKey, data as never, extend, refresh, forceTimeout);
+        // Or the whole context data.
+        else
+            this.getContext(ctxName)?.setData(data, extend, refresh, forceTimeout);
     }
 
-    /** Manually trigger refresh without setting the data using a dotted key (or an array of them) with context name: eg. `"someCtxName.someData.someProp"`. */
+    /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. */
     public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>>(ctxDataKeys: CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
     public refreshData(ctxDataKeys: string | string[], forceTimeout?: number | null): void {
         // Prepare a temp dictionary.
@@ -185,9 +199,10 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
             contexts[ctxName]?.refreshData(null as never, forceTimeout);
     }
 
-    /** Manually trigger refresh by multiple refreshKeys for multiple contexts.
-     * - Note that unlike the other data methods in the ContextAPI, this one separates the contextName and the keys: `{ [contextName]: dataKeys }`
-     * - The data keys can be `true` to refresh all in the context, or a dotted string or an array of dotted strings to refresh multiple separate portions simultaneously. */
+    /** Manually trigger refresh by a dictionary with multiple refreshKeys for multiple contexts.
+     * - Note that unlike the other data methods in the ContextAPI, this one separates the contextName and the keys: `{ [contextName]: dataKeys }` instead of `${contextName}.${dataKeyOrSignal}`.
+     * - The values (= data keys) can be `true` to refresh all in that context, or a dotted string or an array of dotted strings to refresh multiple separate portions simultaneously.
+     */
     public refreshDataBy<
         All extends {
             [Name in keyof Contexts]:
@@ -230,7 +245,10 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
         return contexts;
     }
 
-    /** Create a new context. If overrideWithName given, then calls setContext automatically with the given name. */
+    /** Create a new context.
+     * - If overrideWithName given, then calls setContext automatically with the given name. If empty (default), functions like a simple static function just instantiating a new context with given data.
+     * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
+     */
     public newContext<CtxData extends Record<string, any> = {}, CtxSignals extends SignalsRecord = {}>(data: CtxData, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
     public newContext<Name extends keyof Contexts & string>(data: Contexts[Name]["data"], overrideWithName: Name, refreshIfOverriden?: boolean): Contexts[Name];
     public newContext(data: any, overrideWithName?: string, refreshIfOverriden: boolean = true): Context {
@@ -241,15 +259,20 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
     }
 
     /** Same as newContext but for multiple contexts all at once.
-     * - If overrideForSelf set to true, will call setContexts after to attach the contexts here. */
+     * - If overrideForSelf set to true, call setContexts afterwards with the respective context names in allData. Defaults to false: functions as if a static method.
+     * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
+     */
     public newContexts<Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name] & {}> }, AllData extends Record<keyof Contexts & string, Record<string, any>> = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }>(allData: AllData, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Contexts;
     public newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<Record<Name, Contexts[Name]["data"]>>;
-    public newContexts(allData: any, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Record<string, Context> {
+    public newContexts(allData: Partial<Record<string, Record<string, any>>>, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Record<string, Context> {
+        // Create contexts.
         const contexts: Record<string, Context> = {};
         for (const name in allData)
             contexts[name] = new Context(allData[name]);
+        // Override locally.
         if (overrideForSelf)
             this.setContexts(contexts as any, refreshIfOverriden);
+        // Return.
         return contexts;
     }
 
@@ -308,11 +331,12 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
     // - Context data build helpers - //
 
     // Extend.
-    /** Helper to build data arguments from this ContextAPI's contextual connections with the given data needs args.
-     * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])`.
-     * - Used internally but can be used for manual purposes. Does not support typing like listenToData - just string[].
+    /** Helper to build data arguments with values fetched from this ContextAPI's contextual connections with the given data needs args.
+     * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])` returns `[userName?, darkMode?]`.
+         * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
+     * - Used internally but can be used for manual purposes. Does not currently support typing for the return, only input.
      */
-    public getDataArgsBy(needs: string[], fallbackArgs?: any[]): any[] {
+    public getDataArgsBy(needs: GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[], fallbackArgs?: any[]): any[] {
         return needs.map((need, i) => {
             const ctxName = need.split(".", 1)[0];
             const ctx = this.getContext(ctxName); // Use the getter - for better extendability of the ContextAPI class.

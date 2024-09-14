@@ -67,37 +67,28 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
             refresh ? this.refreshData(true, ...timeArgs) : this.addRefreshKeys(true);
         }
 
-        public setInData(dataKey: string, subData: any, extend: boolean = false, refresh: boolean = true, ...timeArgs: any[]): void {
+        public setInData(dataKey: string, subData: any, extend: boolean = true, refresh: boolean = true, ...timeArgs: any[]): void {
             // Special cases.
             if (!this.data)
                 return;
             // No data key.
             if (!dataKey) {
-                (this.data as any) = extend && this.data ? { ...this.data as object, ...subData as object } as Data : subData;
+                (this.data as Data) = extend && this.data ? { ...this.data as Data, ...subData as Data } : subData;
             }
             // Set partially.
             else {
                 // Prepare.
                 const dataKeys = dataKey.split(".");
                 const lastKey = dataKeys.pop();
-                // .. Handle invalid case. We need to have last key.
+                // Invalid - we need to have last key.
                 if (!lastKey)
                     return;
-                // Get data parent.
-                let data = this.data as Record<string, any>;
+                // Get data parent, and take copies of all dictionary types along the way until the leaf.
+                let data = { ...this.data as Record<string, any> } = this.data as Record<string, any>;
                 for (const key of dataKeys)
-                    data = data[key] || (data[key] = {});
-                // Extend.
-                if (extend) {
-                    const last = data[lastKey];
-                    if (!last || last.constructor !== Object)
-                        extend = false;
-                    else
-                        data[lastKey] = {...last, ...subData as object};
-                }
-                // Set.
-                if (!extend)
-                    data[lastKey] = subData;
+                    data = data[key] = data[key]?.constructor === Object ? { ...data[key] } : data[key] || {};
+                // Extend or replace the data at the leaf.
+                data[lastKey] = extend && data[lastKey]?.constructor === Object ? {...data[lastKey], ...subData as Record<string, any>} : subData;
             }
             // Refresh or just add keys.
             refresh ? this.refreshData(dataKey || true, ...timeArgs) : this.addRefreshKeys(dataKey || true);
@@ -209,10 +200,12 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
     setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
     setData(data: Partial<Data>, extend?: boolean | true, refresh?: boolean, forceTimeout?: number | null): void;
     /** Set or extend in nested data, and refresh with the key. (And by default trigger a refresh.)
-     * - Note that the extend functionality should only be used for dictionary objects. Defaults to false, since the sub data is not statically known at DataMan level.
+     * - Along the way (to the leaf) automatically extends any values whose constructor === Object, and creates the path to the leaf if needed.
+     * - By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
+     * - Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
      */
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
 
     /** This refreshes both: data & pending signals.
      * - If refreshKeys defined, will add them - otherwise only refreshes pending.

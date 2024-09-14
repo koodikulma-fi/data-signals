@@ -2,7 +2,8 @@
 ---
 
 TODO:
-- Finish the SELECTORS and CONTEXTAPI parts of doc.
+- Refine in code... that SETINDATA in DATAMAN performs a SHALLOW UPDATE ALONG THE WAY..!
+    * To make the data be IMMUTABLE-LIKE.. So works coherently with DATA SELECTOR CONCEPTS..!
 - Add a couple of (typed) MIXIN usage examples.
 - Release as NPM package.
 - And.. Then provide "data-signals-debug" which is a simple UX for displaying stuff.
@@ -61,14 +62,9 @@ The `ContextAPI` instance can also affect the syncing of `Context` refreshes - t
 ### Selectors
 
 - Selector are especially useful in state based refreshing systems that often compare previous and next state to determine refreshing needs.
-- Both the `createDataTrigger` and `createDataMemo` support defining the level of comparison to use.
-    * For createDataMemo the depth is the 2nd argument, while for createDataTrigger it's the 3rd argument.
-    * For example, `createDataMemo(producer, 2)` performs two level shallow comparison, while `(producer, -1)` would perform deep comparison.
-- The extractor based (DataPicker and DataSelector) always receive `(...args)` and use shallow comparison of the array contents.
+- `createDataMemo` helps to reuse data in simple local usages. By default, it only computes the data if any of the arguments have changed.
 
 ```typescript
-
-// - DataMemo - //
 
 // Create a function that can be called to return updated data if arguments changed.
 const myMemo = createDataMemo(
@@ -79,15 +75,20 @@ const myMemo = createDataMemo(
             a.score < b.score ? { winner: b.name, loser: a.name } : 
             { winner: null, loser: null };
     },
-    // 2nd arg is optional level of comparison referring to each argument. Defaults to 0: oldArg[i] !== newArg[i].
+    // 2nd arg is optional level of comparison referring to each argument.
+    // .. For DataMemo it defaults to 0, meaning identity comparison on each argument: oldArg[i] !== newArg[i].
     0,
 );
 
 // Use the memo.
 const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "beta" }); // { winner: "beta", loser: "alpha" }
 
+```
 
-// - DataTrigger - //
+- `createDataTrigger` is similar to DataMemo, but its purpose is to trigger a callback on mount.
+- In addition, the mount callback can return another callback for unmounting, which is called if the mount callback gets overridden upon usage.
+
+```typescript
 
 // Create a function that can be called to trigger a callback when the reference data is changed from the last time
 type Memory = { id: number; text: string; };
@@ -96,9 +97,9 @@ const myTrigger = createDataTrigger<Memory>(
     (newMem, oldMem) => {
         // Run upon change.
         if (newMem.id !== oldMem.id)
-            console.log("id changed!");
-        // // Optionally return a callback to do unmounting.
-        // return (currentMem, nextMem) => {}
+            console.log("Id changed!");
+        // Optionally return a callback to do unmounting.
+        return (currentMem, nextMem) => { console.log("Unmounted!"); }
     },
     // 2nd arg is optional initial memory.
     { id: 5, text: "init" },
@@ -109,88 +110,92 @@ const myTrigger = createDataTrigger<Memory>(
 // Use the trigger.
 let didChange = myTrigger({ id: 5, text: "init" }); // false
 didChange = myTrigger({ id: 5, text: "same old" }); // true
-didChange = myTrigger({ id: 7, text: "same old" }); // Triggers the console.log above.
+didChange = myTrigger({ id: 7, text: "changes" }); // true, logs: "Id changed!"
+didChange = myTrigger({ id: 7, text: "changes" }, true); // true
 
+// Change callback.
+didChange = myTrigger({ id: 1, text: "changes" }, false, () => {
+    if (newMem.id === oldMem.id)
+        console.log("Id stayed!");
+}); // true, logs: "Unmounted!" from the unmount callback above.
+didChange = myTrigger({ id: 1, text: "now?" }); // true, logs: "Id stayed!"
 
-// - `createDataPicker` is similar to memo, but uses an extractor func to produce the arguments for (comparison and) the producer callback.
-//     * Create: `const myPicker = createDataPicker((state1, state2) => [state1.a, state1.b, state2.c], (a, b, c) => doSomething)`.
-//     * Use: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of `Context`s (see below).
-// - `createDataSelector` functions exactly like DataSelector but uses multiple extractors.
-//     * The first args are extractors, the last executor: `const mySelector = createDataSelector((state1, state2) => state1.a, (state1, state2) => state2.b, (a, b) => a < b ? [a, b] : [b, a])`.
-//     * Used like data picker: `const myData = mySelector(state1, state2)`.
+```
+- `createDataPicker` always receives `(...args)` and uses an extractor function to produce final arguments for the producer callback.
+- The producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
+- When used, the picker can receive multiple arguments, but in practice most often a single argument is given, eg. an immutable data state of a context or such.
 
-
-
-// - createDataSelector - //
-
-// Prepare.
-type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
-type MyData = { theme: "dark" | "light"; typescript: boolean; }
-
-// With pre-typing.
-const codeViewDataSelector = (createDataSelector as CreateDataSelector<MyParams, MyData>)(
-    // Extractors.
-    [
-        (colorMode, _typeScript) => colorMode || "dark",
-        (_colorMode, typeScript) => typeScript || false,
-    ], // No trick.
-    // Selector.
-    (theme, typescript) => ({ theme, typescript })
-);
-
-// With manual typing.
-const codeViewDataSelector_MANUAL = createDataSelector(
-    // Extractors.
-    [
-        (colorMode: "light" | "dark", _typeScript: boolean) => colorMode || "dark",
-        (...[_colorMode, typeScript]: MyParams) => typeScript || false,
-    ], // No trick.
-    // Selector.
-    (theme, typescript): MyData => ({ theme, typescript })
-);
-
-// Test.
-const sel = codeViewDataSelector("dark", true);
-const sel_FAIL = codeViewDataSelector("FAIL", true); // Here only "FAIL" is red-underlined.
-const sel_MANUAL = codeViewDataSelector_MANUAL("dark", true);
-const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL("FAIL", true); // Only difference is that both: ("FAIL", true) are red-underlined.
-
-
-// - createDataPicker - //
+```typescript
 
 // Prepare.
-type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
-type MyData = { theme: "dark" | "light"; typescript: boolean; }
+type MyParams = [ colorTheme: { mode?: "light" | "dark" }, specialMode?: boolean];
+type MyData = { theme: "dark" | "light"; special: boolean; }
 
 // With pre-typing.
 const codeViewDataPicker =
     (createDataPicker as CreateDataPicker<MyParams, MyData>)(
     // Extractor - showcases the usage for contexts.
     // .. For example, if has many usages with similar context data needs.
-    (colorMode, typeScript) => [
-        colorMode || "dark",
-        typeScript || false,
+    (colorTheme, specialMode) => [
+        colorTheme?.mode || "dark",
+        specialMode || false,
     ],
     // Picker - it's only called if the extracted data items were changed from last time.
-    (theme, typescript) => ({ theme, typescript })
+    (theme, special) => ({ theme, special })
 );
 
 // With manual typing.
 const codeViewDataPicker_MANUAL = createDataPicker(
     // Extractor.
-    (...[colorMode, typeScript]: MyParams) => [
-        colorMode || "dark",
-        typeScript || false,
+    (...[colorTheme, specialMode]: MyParams) => [
+        colorTheme?.mode || "dark",
+        specialMode || false,
     ],
     // Picker.
-    (theme, typescript): MyData => ({ theme, typescript })
+    (theme, special): MyData => ({ theme, special })
 );
 
 // Test.
-const val = codeViewDataPicker("dark", true);
-const val_FAIL = codeViewDataPicker("FAIL", true);
-const val_MANUAL = codeViewDataPicker_MANUAL("dark", true);
-const val_MANUAL_FAIL = codeViewDataPicker_MANUAL("FAIL", true);
+const val = codeViewDataPicker({ mode: "dark" }, true);
+const val_FAIL = codeViewDataPicker({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
+const val_MANUAL = codeViewDataPicker_MANUAL({ mode: "dark" }, true);
+const val_MANUAL_FAIL = codeViewDataPicker_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
+
+```
+- `createDataPicker` is exactly like DataPicker but uses an extractor function per output arument, instead of a single extractor.
+- Likewise, the producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
+
+```typescript
+
+// Let' use the same MyParams and MyData as above.
+
+// With pre-typing.
+const codeViewDataSelector = (createDataSelector as CreateDataSelector<MyParams, MyData>)(
+    // Extractors.
+    [
+        (colorTheme, _specialMode) => colorTheme?.mode || "dark",
+        (_colorTheme_, specialMode) => specialMode || false,
+    ],
+    // Selector.
+    (theme, special) => ({ theme, special })
+);
+
+// With manual typing.
+const codeViewDataSelector_MANUAL = createDataSelector(
+    // Extractors.
+    [
+        (colorTheme: { mode?: "light" | "dark" }, _specialMode: boolean) => colorTheme?.mode || "dark",
+        (...[_colorTheme_, specialMode]: MyParams) => specialMode || false,
+    ],
+    // Selector.
+    (theme, special): MyData => ({ theme, special })
+);
+
+// Test.
+const sel = codeViewDataSelector({ mode: "dark" }, true);
+const sel_FAIL = codeViewDataSelector({ mode: "FAIL" }, true); // Here only 1st arg is red-underlined.
+const sel_MANUAL = codeViewDataSelector_MANUAL({ mode: "dark" }, true);
+const sel_MANUAL_FAIL = codeViewDataSelector_MANUAL({ mode: "FAIL" }, true); // Both args are red-underlined.
 
 ```
 
