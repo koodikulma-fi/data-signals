@@ -33,7 +33,7 @@ There are 3 kinds of tools available.
 A couple of data reusing concepts in the form of library methods.
 - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
 - `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
-- `DataPicker` is like DataMemo but with an extraction process in between to trigger the producer callback.
+- `DataSource` is like DataMemo but with an extraction process in between to trigger the producer callback.
 Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and recognizing class instances.
 
 
@@ -368,10 +368,10 @@ const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" i
 type MyCachedParams = [ colorTheme: { mode?: "light" | "dark" }, specialMode: boolean | undefined, cacheKey: string];
 
 // With pre-typing.
-const myPicker = (createDataPicker as CreateCachedSource<MyCachedParams, MyData>)(
+const mySource = (createDataSource as CreateCachedSource<MyCachedParams, MyData>)(
     // Extractor.
     (colorTheme, specialMode) => [colorTheme?.mode || "dark", specialMode || false],
-    // Picker.
+    // Source.
     (theme, special) => ({ theme, special }),
     // Cache key generator.
     (_theme, _special, cacheKey) => cacheKey,
@@ -380,20 +380,20 @@ const myPicker = (createDataPicker as CreateCachedSource<MyCachedParams, MyData>
 );
 
 // With manual typing.
-const myPicker_MANUAL = createCachedDataPicker(
+const mySource_MANUAL = createCachedDataSource(
     // Extractor.
     (...[colorTheme, specialMode]: MyCachedParams) => [colorTheme?.mode || "dark", specialMode || false],
-    // Picker.
+    // Source.
     (theme, special): MyData => ({ theme, special }),
     // Cache key generator.
     (_theme, _special, cacheKey) => cacheKey
 );
 
 // Test. Let's say state1 and state2 variants come from somewhere.
-let val1 = myPicker(state1a, state1b, "someKey"); // In one place.
-let val2 = myPicker(state2a, state2b, "anotherKey"); // In another place with similar data.
+let val1 = mySource(state1a, state1b, "someKey"); // In one place.
+let val2 = mySource(state2a, state2b, "anotherKey"); // In another place with similar data.
 // We can do it again, and the producers won't be retriggered (unlike without caching).
-val1 = myPicker(state1a, state1b, "someKey");
-val2 = myPicker(state2a, state2b, "anotherKey");
+val1 = mySource(state1a, state1b, "someKey");
+val2 = mySource(state2a, state2b, "anotherKey");
 
 ```
