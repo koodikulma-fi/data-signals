@@ -54,7 +54,8 @@ type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
 /** Collect structural data keys from a deep dictionary as dotted strings.
  * - Does not go inside arrays, sets, maps, immutable objects nor classes or class instances.
  * - By default limits to 10 depth, to not limit at all put MaxDepth to -1.
- * - Can provide <Data, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally. */
+ * - Can provide <Data, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally.
+ */
 export type GetJoinedDataKeysFrom<
     // Type arguments.
     Data extends Record<string, any>,

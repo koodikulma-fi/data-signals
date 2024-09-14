@@ -34,7 +34,8 @@ type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14
 /** Collect structural data keys from a deep dictionary as dotted strings.
  * - Does not go inside arrays, sets, maps, immutable objects nor classes or class instances.
  * - By default limits to 10 depth, to not limit at all put MaxDepth to -1.
- * - Can provide <Data, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally. */
+ * - Can provide <Data, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally.
+ */
 type GetJoinedDataKeysFrom<Data extends Record<string, any>, Pre extends string = "", Joiner extends string = ".", MaxDepth extends number = 10, PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`> = IterateBackwards[MaxDepth] extends never ? never : {
     [Key in string & keyof Data]: Data[Key] extends {
         [key: string]: any;
@@ -213,21 +214,31 @@ interface SignalMan<Signals extends SignalsRecord = {}> {
     isListening<Name extends string & keyof Signals>(name?: Name | null, callback?: SignalListenerFunc | null, groupId?: any | null): boolean;
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
-    /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
-     * - "delay": Delays sending the signal. To also collect returned values must include "await".
+    /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
+     * - `"delay"`:
+     *      * Delays sending the signal. To also collect returned values must include "await".
      *      * Note that this delays the start of the process. So if new listeners are attached right after, they'll receive the signal.
-     *      * The stand alone SignalMan simply uses setTimeout with 1ms delay. (But an external layer might tie it to its own timing processes, eg. to sync rendering.)
-     * - "pre-delay": This is like "delay" but uses 0ms timeout on the standalone SignalMan. (Typically this is arranged so that delays locally, but not pending external delays.)
-     * - "await": Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
-     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`, as there's no promise to capture the timed out returns.
-     * - "multi": Can be used to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
-     *      * Note that by default, is in multi mode, except if a mode is used that indicates a single value return.
-     * - "last": Use this to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
-     * - "first": Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
-     *      * Note that "first" does not stop the flow when using "await" as the async calls are made simultaneously. But it returns the first acceptable value.
-     * - "first-true": Is like "first" but stops only if value amounts to true like: !!value.
-     * - "no-false": Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
-     * - "no-null": Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
+     *      * In an external layer this could be further tied to other update cycles (eg. rendering cycle).
+     * - `"pre-delay"`:
+     *      * Like "delay" but uses 0ms timeout on the standalone SignalMan. (Typically this is arranged so that delays locally, but not pending external delays.)
+     * - `"await"`:
+     *      * Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
+     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`.
+     *      * This is because there's no promise to capture the timed out returns.
+     * - `"multi"`:
+     *      * "multi" is actually the default behaviour: returns an array of values ignoring any `undefined`.
+     *      * It can also be used explicitly to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
+     * - `"last"`:
+     *      * Use "last" to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
+     * - "first"`:
+     *      * Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
+     *      * Note that "first" does not stop the flow when using "await", but just returns the first acceptable value.
+     * - "first-true":
+     *      * Is like "first" but stops only if value amounts to true like: !!value.
+     * - "no-false":
+     *      * Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
+     * - "no-null":
+     *      * Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
      *      * Note also that when returning values, any signal that was connected with .Deferred flag will always be ignored from the return value flow (and called 0ms later, in addition to "delay" timeout).
      */
     sendSignalAs<Name extends string & keyof Signals, Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null", HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false, HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false, HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false, HasMulti extends boolean = Mode extends string[] ? Mode[number] extends "multi" ? true : false : Mode extends "multi" ? true : false, HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false, UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast, UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay ? false : true>(modes: Mode | Mode[], name: Name, ...args: Parameters<Signals[Name]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<Signals[Name]>, HasAwait, UseSingle> : undefined;
@@ -261,7 +272,15 @@ declare const DataBoyMixin: ClassMixer<ClassType<DataBoy<{}>, any[]>>;
 interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
 }
 declare const DataBoy_base: ClassType<{}, any[]>;
-/** This is like DataMan but only provides data listening, not actual data. */
+/** DataBoy is like DataMan but only provides data listening, not actual data.
+ * - Regardless of having no data, it assumes a custom data structure of nested dictionaries.
+ *      * For example: `{ something: { deep: boolean; }; simple: string; }`
+ * - It provides listening services using the listenToData method, eg. `listenToData("something.deep", (deep) => {})`.
+ * - Examples for usage:
+ *      * Create: `const dataMan = new DataMan({ ...initData });`
+ *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... }, [...fallbackArgs])`
+ *      * Set data: `dataMan.setInData("something.deep", somedata)`
+ */
 declare class DataBoy<Data extends Record<string, any> = {}> extends DataBoy_base {
 }
 interface DataBoy<Data extends Record<string, any> = {}> {
@@ -307,8 +326,8 @@ declare function _DataManMixin<Data extends Record<string, any> = {}>(Base: Clas
         dataKeysPending: string[] | true | null;
         getData(): Data;
         getInData(dataKey: string, fallback?: any): any;
-        setData(data: Data, extend?: boolean, refresh?: boolean, ...timeArgs: any[]): void;
-        setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean, ...timeArgs: any[]): void;
+        setData(data: Data, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
+        setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
         /** Trigger refresh and optionally add data keys for refreshing.
          * - This triggers callbacks from dataListeners that match needs in dataKeysPending.
          * - This base implementation just calls the listeners with matching keys immediately / after the given timeout.
@@ -344,14 +363,19 @@ declare const DataManMixin: ClassMixer<ClassType<DataMan<{}>, any[]>>;
 interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> {
 }
 declare const DataMan_base: ClassType<{}, any[]>;
+/** DataMan provides data setting and listening features with dotted strings.
+ * - It assumes a custom data structure of nested dictionaries.
+ *      * For example: `{ something: { deep: boolean; }; simple: string; }`
+ * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
+ *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
+ * - Examples for usage:
+ *      * Create: `const dataMan = new DataMan({ ...initData });`
+ *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... })`
+ *      * Set data: `dataMan.setInData("something.deep", somedata)`
+ */
 declare class DataMan<Data extends Record<string, any> = {}> extends DataMan_base {
     constructor(...args: {} extends Data ? any[] : [Data, ...any[]]);
 }
-/** DataMan provides data setting and listening features with dotted strings.
- * - Example to create: `const dataMan = new DataMan({ ...initData });`
- * - Example for listening: `dataMan.listenToData("some.data.key", "another", (some, other) => { ... })`
- * - Example for setting data: `dataMan.setInData("some.data.key", somedata)`
- */
 interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
     ["constructor"]: DataManType<Data>;
     readonly data: Data;
@@ -434,9 +458,14 @@ declare function buildRecordable<T extends string = any>(types: RecordableType<T
 /** Class type of ContextAPI. */
 interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassType<ContextAPI<Contexts>> {
 }
-/** ContextAPI looks like it has full SignalMan and DataMan capabilities but only extends SignalBoy internally.
- * - It has all the same methods, but does not have .data member and data listening can have a fallback array.
- * - All data keys and signal names should start with "contextName.", for example: "settings.theme" data key or "navigation.onFocus" signal.
+/** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
+ * - According to its mixin basis, ContextAPI allows to:
+ *      * SignalMan: Send and listen to signals in the named contexts.
+ *      * DataBoy: Listen to data changes, but also to set/get data in the contexts.
+ * - All data keys and signal names should start with `${contextName}.${keyOrName}`.
+ *      * For example: "settings.something.deep" data key (for "settings" context) or "navigation.onFocus" signal (for "navigation" context).
+ * - Importantly, the ContextAPI's `awaitRefresh` method can be overridden externally to affect the syncing of all the connected contexts.
+ *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitRefresh`.
  */
 declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDataBoy<GetDataFromContexts<Contexts>, GetSignalsFromContexts<Contexts>> {
     ["constructor"]: ContextAPIType<Contexts>;
@@ -462,22 +491,35 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
     awaitRefresh(): Promise<void>;
     /** Emit a signal. Does not return a value. Use `sendSignalAs(modes, ctxSignalName, ...args)` to refine the behaviour. */
     sendSignal<CtxSignalName extends string & keyof GetSignalsFromContexts<Contexts>, Names extends CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? [CtxName, SignalName] : [never, never]>(ctxSignalName: CtxSignalName, ...args: Parameters<(Contexts[Names[0]]["_Signals"] & {})[Names[1]]>): void;
-    /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
-     * - "delay": Delays sending the signal. To also collect returned values must include "await".
-     *      * Note that this delays the process to sync with the Context's refresh cycle, and waits until all related contextAPIs have refreshed. (In an external layer, often further tied to other update cycles, like rendering.)
-     * - "pre-delay": Like "delay", syncs to the Context's refresh cycle, but calls then on that cycle - without waiting external flush (from other contextAPIs connected to the same context network).
-     * - "await": Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
-     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`, as there's no promise to capture the timed out returns.
-     * - "multi": This is the default mode: returns an array of values ignoring any `undefined`.
-     *      * Inputting this mode makes no difference. It's just provided for typing convenience when wants a list of answers without anything else (instead of inputting "").
-     * - "last": Use this to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
-     * - "first": Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
-     *      * Note that "first" does not stop the flow when using "await" as the async calls are made simultaneously. But it returns the first acceptable value.
-     * - "first-true": Is like "first" but stops only if value amounts to true like: !!value.
-     * - "no-false": Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
-     * - "no-null": Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
+    /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
+     * - `"delay"`:
+     *      * Delays sending the signal. To also collect returned values must include "await".
+     *      * Note that this delays the process to sync with the Context's refresh cycle, and waits until all related contextAPIs have refreshed.
+     *      * In an external layer this could be further tied to other update cycles (eg. rendering cycle).
+     * - `"pre-delay"`:
+     *      * Like "delay", syncs to the Context's refresh cycle, but calls then on that cycle - without waiting external flush (from other contextAPIs connected to the same context network).
+     * - `"await"`:
+     *      * Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
+     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`.
+     *      * This is because there's no promise to capture the timed out returns.
+     * - `"multi"`:
+     *      * "multi" is actually the default behaviour: returns an array of values ignoring any `undefined`.
+     *      * It can also be used explicitly to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
+     * - `"last"`:
+     *      * Use "last" to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
+     * - "first"`:
+     *      * Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
+     *      * Note that "first" does not stop the flow when using "await", but just returns the first acceptable value.
+     * - "first-true":
+     *      * Is like "first" but stops only if value amounts to true like: !!value.
+     * - "no-false":
+     *      * Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
+     * - "no-null":
+     *      * Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
      *      * Note also that when returning values, any signal that was connected with .Deferred flag will always be ignored from the return value flow (and called 0ms later, in addition to "delay" timeout).
-     * - Note that ContextAPI's sendSignal and sendSignalAs will use the contexts methods if found. If context not found immediately when called, then does nothing.
+     * - Note about the signal flow at the ContextAPI level:
+     *      * The `listenTo` and `listenToData` features provide a stable basis for listening. It makes no difference whether contexts are present when attaching the listeners.
+     *      * However, the `sendSignal` and `sendSignalAs` use the context methods directly - so if the context is not found at the time of calling, then does nothing.
      */
     sendSignalAs<CtxSignals extends GetSignalsFromContexts<Contexts>, CtxSignalName extends string & keyof CtxSignals, Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null", HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false, HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false, HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false, HasMulti extends boolean = Mode extends string[] ? Mode[number] extends "multi" ? true : false : Mode extends "multi" ? true : false, HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false, HasPreDelay extends boolean = Mode extends string[] ? Mode[number] extends "pre-delay" ? true : false : Mode extends "pre-delay" ? true : false, UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast, UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay | HasPreDelay ? false : true>(modes: Mode | Mode[], ctxSignalName: CtxSignalName, ...args: Parameters<CtxSignals[CtxSignalName]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<CtxSignals[CtxSignalName]>, HasAwait, UseSingle> : undefined;
     /** Get from contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.

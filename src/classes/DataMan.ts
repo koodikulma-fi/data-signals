@@ -60,14 +60,14 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
             return data === undefined ? fallback : data;
         }
 
-        public setData(data: Data, extend: boolean = true, refresh: boolean = true, ...timeArgs: any[]): void {
+        public setData(data: Data, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
             // Set data and refresh. Note that we modify a readonly value here.
             (this.data as any) = extend !== false ? { ...this.data, ...data } as Data : data;
             // Refresh or just add keys.
-            refresh ? this.refreshData(true, ...timeArgs) : this.addRefreshKeys(true);
+            refresh ? this.refreshData(true, forceTimeout) : this.addRefreshKeys(true);
         }
 
-        public setInData(dataKey: string, subData: any, extend: boolean = true, refresh: boolean = true, ...timeArgs: any[]): void {
+        public setInData(dataKey: string, subData: any, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
             // Special cases.
             if (!this.data)
                 return;
@@ -91,7 +91,7 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
                 data[lastKey] = extend && data[lastKey]?.constructor === Object ? {...data[lastKey], ...subData as Record<string, any>} : subData;
             }
             // Refresh or just add keys.
-            refresh ? this.refreshData(dataKey || true, ...timeArgs) : this.addRefreshKeys(dataKey || true);
+            refresh ? this.refreshData(dataKey || true, forceTimeout) : this.addRefreshKeys(dataKey || true);
         }
 
 
@@ -159,6 +159,16 @@ export const DataManMixin = _DataManMixin as unknown as ClassMixer<ClassType<Dat
 // - Class - //
 
 export interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> { }
+/** DataMan provides data setting and listening features with dotted strings.
+ * - It assumes a custom data structure of nested dictionaries.
+ *      * For example: `{ something: { deep: boolean; }; simple: string; }`
+ * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
+ *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
+ * - Examples for usage:
+ *      * Create: `const dataMan = new DataMan({ ...initData });`
+ *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... })`
+ *      * Set data: `dataMan.setInData("something.deep", somedata)`
+ */
 export class DataMan<Data extends Record<string, any> = {}> extends (_DataManMixin(Object) as ClassType) {
     
     // Allow without data if data is set to {}, then we can fall it back automatically.
@@ -168,11 +178,6 @@ export class DataMan<Data extends Record<string, any> = {}> extends (_DataManMix
     }
 
 }
-/** DataMan provides data setting and listening features with dotted strings.
- * - Example to create: `const dataMan = new DataMan({ ...initData });`
- * - Example for listening: `dataMan.listenToData("some.data.key", "another", (some, other) => { ... })`
- * - Example for setting data: `dataMan.setInData("some.data.key", somedata)`
- */
 export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
     
 

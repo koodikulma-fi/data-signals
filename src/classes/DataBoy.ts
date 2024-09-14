@@ -65,7 +65,7 @@ function _DataBoyMixin<Data extends Record<string, any> = {}>(Base: ClassType) {
         }
 
         /** Should be extended. */
-        public setInData(dataKey: string, subData: any, extend: boolean = false, refresh: boolean = true, ...timeArgs: any[]): void { }
+        public setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void { }
 
 
 
@@ -105,7 +105,15 @@ export const DataBoyMixin = _DataBoyMixin as unknown as ClassMixer<ClassType<Dat
 // - Class - //
 
 export interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> { }
-/** This is like DataMan but only provides data listening, not actual data. */
+/** DataBoy is like DataMan but only provides data listening, not actual data.
+ * - Regardless of having no data, it assumes a custom data structure of nested dictionaries.
+ *      * For example: `{ something: { deep: boolean; }; simple: string; }`
+ * - It provides listening services using the listenToData method, eg. `listenToData("something.deep", (deep) => {})`.
+ * - Examples for usage:
+ *      * Create: `const dataMan = new DataMan({ ...initData });`
+ *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... }, [...fallbackArgs])`
+ *      * Set data: `dataMan.setInData("something.deep", somedata)`
+ */
 export class DataBoy<Data extends Record<string, any> = {}> extends (_DataBoyMixin(Object) as ClassType) { }
 export interface DataBoy<Data extends Record<string, any> = {}> { 
     

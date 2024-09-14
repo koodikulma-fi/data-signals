@@ -1,10 +1,4 @@
 
-## TODO:
-- Refine comments on DataMAn (and doc). That it assumes a nested dictionary structure.
-- Vreify deep data dotted key typing for dataman cases..
-- Handle REJECT flow.... just capture it..?
-
-
 ## WHAT
 
 `data-signals` is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
@@ -75,8 +69,8 @@ signalMan.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks ===
 signalMan.sendSignal("doIt", 5);
 
 // Send a more complex signal.
-const livesAre = await signalMan.sendSignalAs("await", "whatIsLife", "me"); // [0]
-const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // 0
+const livesAre = await signalMan.sendSignalAs("await", "whatIsLife", "me"); // number[]
+const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // number | undefined
 
 ```
 
@@ -234,8 +228,8 @@ myContext.refreshData(true, null); // Just refresh everything, and do it now (wi
 myContext.sendSignal("doIt", 5);
 
 // Send a more complex signal.
-const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // [0]
-const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // 0
+const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // number[]
+const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // number | undefined
 //
 // <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
 
@@ -255,26 +249,39 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 
 // Typing for multiple contexts.
 type CtxSettingsData = { something: { deep: boolean; }; simple: string; };
-type CtxUserData = { info: { name: string; avatar: string; }; };
+type CtxUserData = { info: { name: string; avatar: string; } | null; };
 type CtxUserSignals = {
     loggedIn: (userInfo: { name: string; avatar: string; }) => void;
     whatIsLife: (whoAsks: string) => Promise<number>;
 };
 type AllContexts = {
     settings: Context<CtxSettingsData>;
-    user: Context<ContextUserData, ContextUserSignals>;
+    user: Context<CtxUserData, CtxUserSignals>;
+};
+
+// Or, say we have created them.
+const allContexts: AllContexts = {
+    settings: new Context<CtxSettingsData>({ something: { deep: true }, simple: "yes" }),
+    user: new Context<CtxUserData, CtxUserSignals>({ info: null })
 };
 
 // Create a stand alone contextAPI instance.
-const cApi = new contextAPI<AllContexts>();
+const cApi = new ContextAPI(allContexts);
+// const cApi = new ContextAPI<AllContexts>(); // Without initial contexts, but typing yes.
+
+// Set and get contexts later on.
+cApi.setContexts(allContexts);
+cApi.setContext("settings", allContexts.settings);
+cApi.getContexts(); // AllContexts
+cApi.getContext("user"); // Context<CtxUserData, CtxUserSignals> | undefined
 
 // Get data.
-cApi.getInData("settings"); // { something: { deep: true }, simple: "yes" } | undefined
-cApi.getInData("settings.something.deep"); // true | undefined
-cApi.getInData("settings.something.deep", [false]); // true | false
+cApi.getInData("settings"); // CtxSettingsData | undefined
+cApi.getInData("settings.something.deep"); // boolean | undefined
+cApi.getInData("settings.something.deep", false); // boolean
 
 // Listen to data and signals.
-cApi.listenToData("settings.something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+cApi.listenToData("settings.something.deep", "settings.simple", (deep, simple) => { console.log(deep, simple); });
 cApi.listenToData("settings.something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
 cApi.listenTo("user.loggedIn", (userInfo) => { console.log(userInfo); }); // logs: { name, avatar }
 cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
@@ -282,7 +289,7 @@ cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks ===
 // Trigger changes.
 // .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
 cApi.setInData("settings", { simple: "no" }); // Extends already by default, so "something" won't disappear.
-cApi.setInData("settings", { simple: "no" }, false); // This would make "something" disappears, but typing prevents it.
+cApi.setInData("settings", { simple: "no" }, false); // This would make "something" disappear, but typing prevents it.
 cApi.setInData("settings.something.deep", false);  // Even if "something" was lost, this would re-create the path to "something.deep".
 cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
 cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
@@ -296,11 +303,10 @@ cApi.awaitRefresh = async () => await someExternalProcess();
 cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
 
 // Send a more complex signal.
-const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0] | []
-const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0 | undefined
+const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // number[]
+const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // number | undefined
 //
 // <-- Using "pre-delay" is synced to context's refresh cycle, while "delay" to once all related contextAPIs have refreshed.
-
 
 ```
 

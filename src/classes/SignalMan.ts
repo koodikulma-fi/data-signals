@@ -322,21 +322,31 @@ export interface SignalMan<Signals extends SignalsRecord = {}> {
 
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
-    /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
-     * - "delay": Delays sending the signal. To also collect returned values must include "await".
+    /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
+     * - `"delay"`:
+     *      * Delays sending the signal. To also collect returned values must include "await".
      *      * Note that this delays the start of the process. So if new listeners are attached right after, they'll receive the signal.
-     *      * The stand alone SignalMan simply uses setTimeout with 1ms delay. (But an external layer might tie it to its own timing processes, eg. to sync rendering.)
-     * - "pre-delay": This is like "delay" but uses 0ms timeout on the standalone SignalMan. (Typically this is arranged so that delays locally, but not pending external delays.)
-     * - "await": Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
-     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`, as there's no promise to capture the timed out returns.
-     * - "multi": Can be used to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
-     *      * Note that by default, is in multi mode, except if a mode is used that indicates a single value return.
-     * - "last": Use this to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
-     * - "first": Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
-     *      * Note that "first" does not stop the flow when using "await" as the async calls are made simultaneously. But it returns the first acceptable value.
-     * - "first-true": Is like "first" but stops only if value amounts to true like: !!value.
-     * - "no-false": Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
-     * - "no-null": Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
+     *      * In an external layer this could be further tied to other update cycles (eg. rendering cycle).
+     * - `"pre-delay"`:
+     *      * Like "delay" but uses 0ms timeout on the standalone SignalMan. (Typically this is arranged so that delays locally, but not pending external delays.)
+     * - `"await"`:
+     *      * Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
+     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`.
+     *      * This is because there's no promise to capture the timed out returns.
+     * - `"multi"`:
+     *      * "multi" is actually the default behaviour: returns an array of values ignoring any `undefined`.
+     *      * It can also be used explicitly to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
+     * - `"last"`:
+     *      * Use "last" to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
+     * - "first"`:
+     *      * Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
+     *      * Note that "first" does not stop the flow when using "await", but just returns the first acceptable value.
+     * - "first-true":
+     *      * Is like "first" but stops only if value amounts to true like: !!value.
+     * - "no-false":
+     *      * Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
+     * - "no-null":
+     *      * Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
      *      * Note also that when returning values, any signal that was connected with .Deferred flag will always be ignored from the return value flow (and called 0ms later, in addition to "delay" timeout).
      */
     sendSignalAs<

@@ -40,9 +40,14 @@ export function buildRecordable<T extends string = any>(types: RecordableType<T>
 
 /** Class type of ContextAPI. */
 export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassType<ContextAPI<Contexts>> { }
-/** ContextAPI looks like it has full SignalMan and DataMan capabilities but only extends SignalBoy internally.
- * - It has all the same methods, but does not have .data member and data listening can have a fallback array.
- * - All data keys and signal names should start with "contextName.", for example: "settings.theme" data key or "navigation.onFocus" signal.
+/** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
+ * - According to its mixin basis, ContextAPI allows to:
+ *      * SignalMan: Send and listen to signals in the named contexts.
+ *      * DataBoy: Listen to data changes, but also to set/get data in the contexts.
+ * - All data keys and signal names should start with `${contextName}.${keyOrName}`.
+ *      * For example: "settings.something.deep" data key (for "settings" context) or "navigation.onFocus" signal (for "navigation" context).
+ * - Importantly, the ContextAPI's `awaitRefresh` method can be overridden externally to affect the syncing of all the connected contexts.
+ *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitRefresh`.
  */
 export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDataBoy<GetDataFromContexts<Contexts>, GetSignalsFromContexts<Contexts>> {
     
@@ -106,22 +111,35 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
     }
     
     // Override to use contexts.
-    /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
-     * - "delay": Delays sending the signal. To also collect returned values must include "await".
-     *      * Note that this delays the process to sync with the Context's refresh cycle, and waits until all related contextAPIs have refreshed. (In an external layer, often further tied to other update cycles, like rendering.)
-     * - "pre-delay": Like "delay", syncs to the Context's refresh cycle, but calls then on that cycle - without waiting external flush (from other contextAPIs connected to the same context network).
-     * - "await": Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
-     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`, as there's no promise to capture the timed out returns.
-     * - "multi": This is the default mode: returns an array of values ignoring any `undefined`.
-     *      * Inputting this mode makes no difference. It's just provided for typing convenience when wants a list of answers without anything else (instead of inputting "").
-     * - "last": Use this to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
-     * - "first": Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
-     *      * Note that "first" does not stop the flow when using "await" as the async calls are made simultaneously. But it returns the first acceptable value.
-     * - "first-true": Is like "first" but stops only if value amounts to true like: !!value.
-     * - "no-false": Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
-     * - "no-null": Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
+    /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
+     * - `"delay"`:
+     *      * Delays sending the signal. To also collect returned values must include "await".
+     *      * Note that this delays the process to sync with the Context's refresh cycle, and waits until all related contextAPIs have refreshed.
+     *      * In an external layer this could be further tied to other update cycles (eg. rendering cycle).
+     * - `"pre-delay"`:
+     *      * Like "delay", syncs to the Context's refresh cycle, but calls then on that cycle - without waiting external flush (from other contextAPIs connected to the same context network).
+     * - `"await"`:
+     *      * Awaits each listener (simultaneously) and returns a promise. By default returns the last non-`undefined` value, combine with "multi" to return an array of awaited values (skipping `undefined`).
+     *      * Exceptionally if "delay" is on, and there's no "await" then can only return `undefined`.
+     *      * This is because there's no promise to capture the timed out returns.
+     * - `"multi"`:
+     *      * "multi" is actually the default behaviour: returns an array of values ignoring any `undefined`.
+     *      * It can also be used explicitly to force array return even if using "last", "first" or "first-true" - which would otherwise switch to a single value return mode.
+     * - `"last"`:
+     *      * Use "last" to return the last acceptable value (by default ignoring any `undefined`) - instead of an array of values.
+     * - "first"`:
+     *      * Stops the listening at the first value that is not `undefined` (and not skipped by "no-false" or "no-null"), and returns that single value.
+     *      * Note that "first" does not stop the flow when using "await", but just returns the first acceptable value.
+     * - "first-true":
+     *      * Is like "first" but stops only if value amounts to true like: !!value.
+     * - "no-false":
+     *      * Ignores any falsifiable values, only accepts: `(!!value)`. So most commonly ignored are: `false`, `0`, `""`, `null´, `undefined`.
+     * - "no-null":
+     *      * Ignores any `null` values in addition to `undefined`. (By default only ignores `undefined`.)
      *      * Note also that when returning values, any signal that was connected with .Deferred flag will always be ignored from the return value flow (and called 0ms later, in addition to "delay" timeout).
-     * - Note that ContextAPI's sendSignal and sendSignalAs will use the contexts methods if found. If context not found immediately when called, then does nothing.
+     * - Note about the signal flow at the ContextAPI level:
+     *      * The `listenTo` and `listenToData` features provide a stable basis for listening. It makes no difference whether contexts are present when attaching the listeners.
+     *      * However, the `sendSignal` and `sendSignalAs` use the context methods directly - so if the context is not found at the time of calling, then does nothing.
      */
     public sendSignalAs<
         // Inferred.
