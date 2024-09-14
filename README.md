@@ -162,6 +162,17 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 
 
 ```
+- And you can of course mix many mixins, one after the other.
+
+```typescript
+
+// Mix DataMan and SignalMan upon CustomBase.
+class MyMultiMix extends DataManMixin(SignalManMixin(CustomBase)) {}
+// The same thing as above is also directly available as a class.
+class MyMultiMix extends SignalDataMan(CustomBase) {}
+// Note that you can do the same typing tricks as above using the ClassMixer type.
+
+```
 
 ---
 
@@ -173,7 +184,7 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 - The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
 - The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
     * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
-    * The "delay" happens after all the connected `ContextAPI`s have also refreshed (by their `afterRefresh` promise).
+    * The "delay" happens after all the connected `ContextAPI`s have resolved their `afterRefresh` promise.
     * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
 
 ```typescript
@@ -299,8 +310,6 @@ areEqual(test, { test: true }, 0); // false, not identical objects.
 areEqual(test, test, 0); // true, identical objects.
 
 ```
-
----
 
 ### library: deepCopy
 
