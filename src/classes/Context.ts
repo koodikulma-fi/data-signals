@@ -29,12 +29,20 @@ export type ContextSettings = {
 
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
  * - Contexts provide data listening and signalling features.
+ *      - Extending SignalMan they allow to send typed signals with special options available through sendSignalAs.
+ *          * Furthermore, the "pre-delay" and "delay" signals are synced to the refresh cycles of the context.
+ *          * The "pre-delay" signals are triggered right before calling data listeners, and "delay" once all related ContextAPI's have resolved their `awaitRefresh`.
+ *      - Extending DataMan they assume a data structure of nested dictionaries.
+ *          * For example: `{ something: { deep: boolean; }; simple: string; }`
+ *          * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
+ *      - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
+ *          * Accordingly, the related data listeners are called (instantly at the level of DataMan).
+ *      - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
+ *          * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
  * - Contexts are useful in complex applications and often shared non-locally (or down the tree) in app structure to provide common data and intercommunication channels.
  *      * For example, you might have several different contexts in your app, and then interconnect them together (if needed).
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
- *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them.
- *      * In this usage, the "pre-delay" signals are tied to the Context's own refresh, while "delay" happens after all the related contextAPIs have also refreshed (= after their afterRefresh promise has resolved).
- *      * Note that the "pre-delay" signals are called right _before_ the data listeners, while "delay" after the listeners and awaits from contextAPIs.
+ *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
 export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan<Data, Signals> {
 

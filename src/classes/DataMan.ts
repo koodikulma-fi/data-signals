@@ -160,14 +160,17 @@ export const DataManMixin = _DataManMixin as unknown as ClassMixer<ClassType<Dat
 
 export interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> { }
 /** DataMan provides data setting and listening features with dotted strings.
- * - It assumes a custom data structure of nested dictionaries.
- *      * For example: `{ something: { deep: boolean; }; simple: string; }`
- * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
- *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
  * - Examples for usage:
  *      * Create: `const dataMan = new DataMan({ ...initData });`
  *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... })`
  *      * Set data: `dataMan.setInData("something.deep", somedata)`
+ * - It assumes a custom data structure of nested dictionaries.
+ *      * For example: `{ something: { deep: boolean; }; simple: string; }`
+ *      * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
+ * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
+ *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
+ * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
+ *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
  */
 export class DataMan<Data extends Record<string, any> = {}> extends (_DataManMixin(Object) as ClassType) {
     
