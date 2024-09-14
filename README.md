@@ -5,6 +5,10 @@ TODO:
 - Finish the SELECTORS and CONTEXTAPI parts of doc.
 - Add a couple of (typed) MIXIN usage examples.
 - Release as NPM package.
+- And.. Then provide "data-signals-debug" which is a simple UX for displaying stuff.
+    * Possibly made using MIX-DOM.
+    * Then also expansion to include mix-dom host & components debugging.
+    * The idea is simply to use a NEW WINDOW and handle its contents from the origin page.
 
 ## What is `data-signals`?
 
@@ -22,11 +26,14 @@ The npm package can be found with: [data-signals](https://www.npmjs.com/package/
 
 #### 1. LIBRARY METHODS
 
-A couple of library methods useful for reusing data.
+A couple of data reusing concepts in the form of library methods.
 - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
 - `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
 - `DataPicker` is like DataMemo but with an extraction process in between, and always uses shallow comparison (of prev/next args) to trigger the producer callback.
 - `DataSelector` functions exactly like DataSelector but uses multiple extractors: `(extractor1, extractor2, ..., producerCallback)`.
+
+Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and recognizing class instances.
+
 
 #### 2. SIMPLE MIXINS / CLASSES
 
@@ -53,29 +60,66 @@ The `ContextAPI` instance can also affect the syncing of `Context` refreshes - t
 
 ### Selectors
 
-TODO: CLEAN THIS PORTION UP.. THEN BASICALLY DOCUMENTED.
-
-There are 4 data reusing helpers available:
-- `createDataTrigger` creates a function that can be called to trigger a callback when the reference data is changed from the last time.
-    * First create a trigger: `const myTrigger = createDataTrigger((newMem, oldMem) => { ...do something... }))`.
-    * Then later on use it: `const didChange = myTrigger(newData)`.
-- `createDataMemo` is similar but when used returns the data.
-    * First create a memo: `const orderMemo = createDataMemo((a, b) => a < b ? [a, b] : [b, a])`.
-    * Then later on use it: `const [smaller, greater] = orderMemo(a, b)`.
-- `createDataPicker` is similar to memo, but uses an extractor func to produce the arguments for (comparison and) the producer callback.
-    * Create: `const myPicker = createDataPicker((state1, state2) => [state1.a, state1.b, state2.c], (a, b, c) => doSomething)`.
-    * Use: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of `Context`s (see below).
-- `createDataSelector` functions exactly like DataSelector but uses multiple extractors.
-    * The first args are extractors, the last executor: `const mySelector = createDataSelector((state1, state2) => state1.a, (state1, state2) => state2.b, (a, b) => a < b ? [a, b] : [b, a])`.
-    * Used like data picker: `const myData = mySelector(state1, state2)`.
-
-Both the DataTrigger and DataMemo support defining the level of comparison to use.
-- For createDataMemo the depth is the 2nd argument, while for createDataTrigger it's the 3rd argument.
-- For example, `createDataMemo(producer, 2)` performs two level shallow comparison, while `(producer, -1)` would perform deep comparison.
-
-The extractor based (DataPicker and DataSelector) always receive `(...args)` and use shallow comparison of the array contents.
+- Selector are especially useful in state based refreshing systems that often compare previous and next state to determine refreshing needs.
+- Both the `createDataTrigger` and `createDataMemo` support defining the level of comparison to use.
+    * For createDataMemo the depth is the 2nd argument, while for createDataTrigger it's the 3rd argument.
+    * For example, `createDataMemo(producer, 2)` performs two level shallow comparison, while `(producer, -1)` would perform deep comparison.
+- The extractor based (DataPicker and DataSelector) always receive `(...args)` and use shallow comparison of the array contents.
 
 ```typescript
+
+// - DataMemo - //
+
+// Create a function that can be called to return updated data if arguments changed.
+const myMemo = createDataMemo(
+    // 1st arg is the producer callback. It should return the desired data.
+    (a, b) => {
+        // Do something with the args.
+        return a.score > b.score ? { winner: a.name, loser: b.name } :
+            a.score < b.score ? { winner: b.name, loser: a.name } : 
+            { winner: null, loser: null };
+    },
+    // 2nd arg is optional level of comparison referring to each argument. Defaults to 0: oldArg[i] !== newArg[i].
+    0,
+);
+
+// Use the memo.
+const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "beta" }); // { winner: "beta", loser: "alpha" }
+
+
+// - DataTrigger - //
+
+// Create a function that can be called to trigger a callback when the reference data is changed from the last time
+type Memory = { id: number; text: string; };
+const myTrigger = createDataTrigger<Memory>(
+    // 1st arg is optional mount callback.
+    (newMem, oldMem) => {
+        // Run upon change.
+        if (newMem.id !== oldMem.id)
+            console.log("id changed!");
+        // // Optionally return a callback to do unmounting.
+        // return (currentMem, nextMem) => {}
+    },
+    // 2nd arg is optional initial memory.
+    { id: 5, text: "init" },
+    // 3rd arg is optional depth, defaults to 1, meaning performs shallow comparison on the memory.
+    1
+);
+
+// Use the trigger.
+let didChange = myTrigger({ id: 5, text: "init" }); // false
+didChange = myTrigger({ id: 5, text: "same old" }); // true
+didChange = myTrigger({ id: 7, text: "same old" }); // Triggers the console.log above.
+
+
+// - `createDataPicker` is similar to memo, but uses an extractor func to produce the arguments for (comparison and) the producer callback.
+//     * Create: `const myPicker = createDataPicker((state1, state2) => [state1.a, state1.b, state2.c], (a, b, c) => doSomething)`.
+//     * Use: `const myData = myPicker(state1, state2)`. Typically the state(s) would come from the data of `Context`s (see below).
+// - `createDataSelector` functions exactly like DataSelector but uses multiple extractors.
+//     * The first args are extractors, the last executor: `const mySelector = createDataSelector((state1, state2) => state1.a, (state1, state2) => state2.b, (a, b) => a < b ? [a, b] : [b, a])`.
+//     * Used like data picker: `const myData = mySelector(state1, state2)`.
+
+
 
 // - createDataSelector - //
 
@@ -272,6 +316,50 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
     * The "delay" cycle is resolved only once all the ContextAPIs connected to the refreshing context have resolved their `afterRefresh`.
 
 ```typescript
+
+// Typing for multiple contexts.
+type CtxSettingsData = { something: { deep: boolean; }; simple: string; };
+type CtxUserData = { info: { name: string; avatar: string; }; };
+type CtxUserSignals = {
+    loggedIn: (userInfo: { name: string; avatar: string; }) => void;
+    whatIsLife: (whoAsks: string) => Promise<number>;
+};
+type AllContexts = {
+    settings: Context<CtxSettingsData>;
+    user: Context<ContextUserData, ContextUserSignals>;
+};
+
+// Create a stand alone contextAPI instance.
+const cApi = new contextAPI<AllContexts>();
+
+// Get data.
+cApi.getInData("settings"); // { something: { deep: true }, simple: "yes" } | undefined
+cApi.getInData("settings.something.deep"); // true | undefined
+cApi.getInData("settings.something.deep", [false]); // true | false
+
+// Listen to data and signals.
+cApi.listenToData("settings.something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+cApi.listenToData("settings.something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+cApi.listenTo("user.loggedIn", (userInfo) => { console.log(userInfo); }); // logs: { name, avatar }
+cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+
+// Trigger changes.
+// .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
+cApi.setInData("settings", { simple: "no" }, true); // Extend.
+cApi.setInData("settings.something.deep", false);
+cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
+cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
+cApi.refreshData(["settings", "user"], null); // Just refresh both contexts fully, and do it instantly (with `null` as the timeout).
+
+// Send a signal.
+cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
+
+// Send a more complex signal.
+const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0]
+const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0
+//
+// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
+
 
 ```
 

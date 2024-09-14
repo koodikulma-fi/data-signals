@@ -339,9 +339,11 @@ export interface SignalMan<Signals extends SignalsRecord = {}> {
         UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast,
         UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay ? false : true,
     >(modes: Mode | Mode[], name: Name, ...args: Parameters<Signals[Name]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<Signals[Name]>, HasAwait, UseSingle> : undefined;
-    /** This returns a promise that is resolved after the "pre-delay" or "delay" cycle has finished.
+    /** This triggers a refresh and returns a promise that is resolved after the "pre-delay" or "delay" cycle has finished.
      * - By default uses a timeout of 1ms for fullDelay (for "delay") and 0ms otherwise (for "pre-delay").
-     * - This is used internally by the sendSignalAs method with "pre-delay" or "delay". The method can be overridden to provide custom timing. */
+     * - This is used internally by the sendSignalAs method with "pre-delay" or "delay". The method can be overridden to provide custom timing.
+     * - Note that at the level of SignalMan there is nothing to "refresh". However, if extended by a class where refreshing makes sense, this should trigger refreshing first.
+     */
     afterRefresh(fullDelay?: boolean): Promise<void>;
     /** Optional assignable method. If used, then this will be used for the signal sending related methods to get all the listeners - instead of this.signals[name]. */
     getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;

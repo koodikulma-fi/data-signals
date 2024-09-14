@@ -71,16 +71,17 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
 
     // - Overrideable - //
 
-    /** This triggers a refresh and returns a promise that is resolved when the update cycle is completed.
+    /** This (triggers a refresh and) returns a promise that is resolved when the update cycle is completed.
      * - If there's nothing pending, then will resolve immediately. 
      * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
      * - Note that this method is overrideable. On the basic implementation it resolves immediately.
-     *      * However, on an external layer, it might be tied to an update cycle - to provide the bridge for syncing the "delay" signals.
+     *      * However, on an externael layer, the awaiting might be synced to an update cycle - to provide the bridge for syncing the "delay" signals.
+     *      * Note also that at ContextAPI level, there is nothing to "refresh" (it doesn't hold data, just reads it from contexts). So will not trigger a refresh, just await.
      */
-     public afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
-     public afterRefresh(_fullDelay: boolean = false, _forceTimeout?: number | null): Promise<void> {
+    public afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
+    public afterRefresh(_fullDelay: boolean = false, _forceTimeout?: number | null): Promise<void> {
         return new Promise<void>(async (resolve) => resolve());
-     }
+    }
  
 
     // - Send signals - //
