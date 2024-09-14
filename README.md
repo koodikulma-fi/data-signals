@@ -345,9 +345,9 @@ areEqual(test, test, 0); // true, identical objects.
 const original = { something: { deep: true }, simple: "yes" };
 let copy: typeof original;
 // Basic usage.
-copy = areEqual(original); // Copied deeply.
-copy = areEqual(original, 1); // Copied one level, so original.deep === copy.deep.
-copy = areEqual(original, 0); // Did not copy, so original === copy.
+copy = deepCopy(original); // Copied deeply.
+copy = deepCopy(original, 1); // Copied one level, so original.something === copy.something.
+copy = deepCopy(original, 0); // Did not copy, so original === copy.
 
 ```
 
