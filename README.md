@@ -34,7 +34,7 @@ The `ContextAPI` can also affect syncing of `Context` refreshes in regards to th
 - For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). Eg. the signal is meant for a component that was not there before the state refresh.
 - To solve it, the rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
 
-### 3. LIBRARY METHODS
+### 3. STATIC LIBRARY METHODS
 
 A couple of data reusing concepts in the form of library methods.
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
@@ -111,7 +111,7 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 // Let's define some custom class.
 class CustomBase {
     something: string = "";
-    hasSomething(someArg: number): boolean {
+    hasSomething(): boolean {
         return !!this.something;
     }
 }
@@ -131,7 +131,7 @@ cMix.listenTo("doSomething", (...things) => { });
 
 ```
 - You can also use constructor arguments.
-- If the mixin uses args, it uses the first arg(s) and pass the rest further as `(...unusedArgs)`.
+- If the mixin uses args, it uses the first arg(s) and pass the rest further as `(...passArgs)`.
 
 ```typescript
 
@@ -168,9 +168,12 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 
 // Mix DataMan and SignalMan upon CustomBase.
 class MyMultiMix extends DataManMixin(SignalManMixin(CustomBase)) {}
-// The same thing as above is also directly available as a class.
-class MyMultiMix extends SignalDataMan(CustomBase) {}
+
+// The same thing as above happens to be also available as a mixin already.
+class MyMultiMix extends SignalDataManMixin(CustomBase) {}
+
 // Note that you can do the same typing tricks as above using the ClassMixer type.
+// .. Note also that you can use ClassMixer for your own custom mixins. See the source code for examples.
 
 ```
 
@@ -289,7 +292,7 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 ---
 
-## examples: 3. STATIC LIBRARY
+## examples: 3. STATIC LIBRARY METHODS
 
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
