@@ -49,7 +49,7 @@ export type PropTypeArray<T, Paths extends Array<string | undefined>, Fallbacks 
 // - Get dotted data keys from nested data - //
 
 /** Iterate down from 20 to 0. If iterates with 0 or negative returns never. If iterates with higher than 20, returns 0. */
-type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
+export type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
 
 /** Collect structural data keys from a deep dictionary as dotted strings.
  * - Does not go inside arrays, sets, maps, immutable objects nor classes or class instances.
