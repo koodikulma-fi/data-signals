@@ -3,7 +3,6 @@
 
 // Library.
 import { ClassType, GetJoinedDataKeysFrom } from "../library/typing";
-import { callWithTimeout } from "../library/library";
 // Classes.
 import { SignalDataMan } from "./SignalDataMan";
 // Typing.
@@ -128,7 +127,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     /** Trigger a refresh in the context. Refreshes all pending after a timeout. */
     public triggerRefresh(forceTimeout?: number | null): void {
-        this._refreshTimer = callWithTimeout(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
+        this._refreshTimer = (this.constructor as typeof Context).callWithTimeout(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
     }
 
     /** Check whether is waiting to be refreshed. */
@@ -163,7 +162,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
             // Call direct.
             for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
                 if (refreshKeys === true || refreshKeys.some(dataKey => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                    callback(...this.getDataArgsBy(needs as any, fallbackArgs));
+                    callback(...this.getDataArgsBy(needs as any, fallbackArgs as any));
             }
             // Call on related contextAPIs.
             // .. Only call the ones not colliding with our direct, or call all.
@@ -194,11 +193,11 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // - Settings - //
 
     // Common basis.
-    /** Update settings with a dictionary. If any value is `undefined` then uses the default setting. */
+    /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     public modifySettings(settings: Partial<ContextSettings>): void {
         const defaults = (this.constructor as typeof Context).getDefaultSettings();
         for (const name in settings)
-            this.settings[name] = settings[name] === undefined ? defaults[name] : settings[name];
+            this.settings[name] = settings[name] !== undefined ? settings[name] : this.settings[name] ?? defaults[name];
     }
 
     
@@ -209,8 +208,34 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         return { refreshTimeout: 0 };
     }
 
+    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
+     * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
+     */
+    public static callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null {
+        // Clear old timer if was given a specific forceTimeout (and had a timer).
+        if (currentTimer !== null && forceTimeout !== undefined) {
+            clearTimeout(currentTimer as any); // To support both sides: NodeJS and browser.
+            currentTimer = null;
+        }
+        // Execute immediately.
+        const timeout = forceTimeout !== undefined ? forceTimeout : defaultTimeout;
+        if (timeout === null)
+            callback();
+        // Or setup a timer - unless already has a timer to be reused.
+        else if (currentTimer === null)
+            currentTimer = setTimeout(() => callback(), timeout) as any;
+        // Return the timer.
+        return currentTimer;
+    }
+    
 }
 
+/** Class type for Context class. */
 export type ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> = ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> & {
+    /** Extendable static default settings getter. */
     getDefaultSettings(): ContextSettings;
+    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
+     * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
+     */
+    callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
 }

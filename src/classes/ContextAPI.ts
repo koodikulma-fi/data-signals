@@ -5,7 +5,7 @@
 import { SignalDataBoy } from "./SignalDataBoy";
 import { Context } from "./Context";
 // Typing.
-import { PropType, Dictionary, RecordableType, GetJoinedDataKeysFrom, ClassType } from "../library/typing";
+import { PropType, Dictionary, RecordableType, GetJoinedDataKeysFrom, ClassType, PropTypeArray } from "../library/typing";
 import { SignalsRecord, SignalSendAsReturn } from "./SignalMan";
 
 
@@ -333,16 +333,20 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
     // Extend.
     /** Helper to build data arguments with values fetched from this ContextAPI's contextual connections with the given data needs args.
      * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])` returns `[userName?, darkMode?]`.
-         * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
-     * - Used internally but can be used for manual purposes. Does not currently support typing for the return, only input.
+     * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
+     * - Used internally but can be used for manual purposes.
      */
-    public getDataArgsBy(needs: GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[], fallbackArgs?: any[]): any[] {
+    public getDataArgsBy<
+        DataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>,
+        Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?],
+        Fallbacks extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]
+    >(needs: Params, fallbackArgs?: Fallbacks): PropTypeArray<GetDataFromContexts<Contexts>, Params, Fallbacks> {
         return needs.map((need, i) => {
-            const ctxName = need.split(".", 1)[0];
+            const ctxName = need!.split(".", 1)[0];
             const ctx = this.getContext(ctxName); // Use the getter - for better extendability of the ContextAPI class.
-            const dataKey = need.slice(ctxName.length + 1);
+            const dataKey = need!.slice(ctxName.length + 1);
             return ctx ? dataKey ? ctx.getInData(dataKey, fallbackArgs && fallbackArgs[i]) : ctx.getData() : fallbackArgs && fallbackArgs[i];
-        });
+        }) as never;
     }
 
 

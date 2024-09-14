@@ -29,12 +29,12 @@ export type PropTypeDictionary<T, Fallbacks extends Record<string, any>> = {
     [Key in keyof Fallbacks & string]: PropType<T, Key, Fallbacks[Key]> | Fallbacks[Key];
 };
 
-// /** Get deep props for an array of dotted data keys. */
-// export type PropTypeArray<T, Paths extends string[], Unknown = unknown, Index extends number = Paths["length"]> =
-//     // Nothing more to do.
-//     Index extends 0 ? [] :
-//     // Do this, and then there's still more to add before us.
-//     [...PropTypeArray<T, Paths, Unknown, IterateBackwards[Index]>, PropType<T, Paths[IterateBackwards[Index]], Unknown>];
+/** Get deep props for an array of dotted data keys. */
+export type PropTypeArray<T, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> =
+    // Nothing more to do.
+    Index extends 0 ? [] :
+    // Do this, and then there's still more to add before us.
+    [...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>, PropType<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]> | Fallbacks[IterateBackwards[Index]]];
 
 
 // - Get dotted data keys from nested data - //

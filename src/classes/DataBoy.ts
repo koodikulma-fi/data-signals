@@ -3,7 +3,7 @@
 // - Imports - //
 
 // Typing.
-import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer, PropTypeDictionary } from "../library/typing";
+import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer, PropTypeDictionary, PropTypeArray } from "../library/typing";
 
 
 // - Helper types - //
@@ -223,7 +223,11 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      * - For example: `getDataArgsBy(["common.user.name", "view.darkMode"])`.
      * - Used internally but can be used for manual purposes.
      */
-    getDataArgsBy(needs: GetJoinedDataKeysFrom<Data>[], fallbackArgs?: any[]): any[];
+    getDataArgsBy<
+        DataKey extends GetJoinedDataKeysFrom<Data>,
+        Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?],
+        Fallbacks extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]
+    >(needs: Params, fallbackArgs?: Fallbacks): PropTypeArray<Data, Params, Fallbacks>;
 
     /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
      * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.

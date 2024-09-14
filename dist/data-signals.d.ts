@@ -16,6 +16,11 @@ type PropType<T, Path extends string, Unknown = unknown> = string extends Path ?
 type PropTypeDictionary<T, Fallbacks extends Record<string, any>> = {
     [Key in keyof Fallbacks & string]: PropType<T, Key, Fallbacks[Key]> | Fallbacks[Key];
 };
+/** Get deep props for an array of dotted data keys. */
+type PropTypeArray<T, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> = Index extends 0 ? [] : [
+    ...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>,
+    PropType<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]> | Fallbacks[IterateBackwards[Index]]
+];
 /** Iterate down from 20 to 0. If iterates with 0 or negative returns never. If iterates with higher than 20, returns 0. */
 type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
 /** Collect structural data keys from a deep dictionary as dotted strings.
@@ -75,94 +80,16 @@ declare enum CompareDataDepthEnum {
 type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
 /** Type for a function whose job is to extract data from given arguments. */
 type DataExtractor<P extends any[] = any[], R = any> = (...args: P) => R;
-/** Helper to collect up to 10 return types from an array of functions. */
-type ReturnTypes<T extends any[] | readonly any[]> = T[0] extends undefined ? [] : T[1] extends undefined ? [ReturnType<T[0]>] : T[2] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>] : T[3] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>] : T[4] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>] : T[5] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>] : T[6] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>] : T[7] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>] : T[8] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>] : T[9] extends undefined ? [ReturnType<T[0]>, ReturnType<T[1]>, ReturnType<T[2]>, ReturnType<T[3]>, ReturnType<T[4]>, ReturnType<T[5]>, ReturnType<T[6]>, ReturnType<T[7]>, ReturnType<T[8]>] : [
-    ReturnType<T[0]>,
-    ReturnType<T[1]>,
-    ReturnType<T[2]>,
-    ReturnType<T[3]>,
-    ReturnType<T[4]>,
-    ReturnType<T[5]>,
-    ReturnType<T[6]>,
-    ReturnType<T[7]>,
-    ReturnType<T[8]>,
-    ReturnType<T[9]>
-];
-/** This helps to create a fully typed data selector with multiple extractors (each outputting any value) as an array.
- * - It returns a callback that can be used for selecting (like in Redux).
- * - The typing supports up to 10 extractors.
- */
-type CreateDataSelector<Params extends any[], Data extends any> = <Extractors extends [
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-]>(extractors: Extractors, selector: (...args: ReturnTypes<Extractors>) => Data, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
-/** This helps to create a typed data picker by providing the types for the Params for extractor and Data for output of the selector.
+/** This helps to create a typed data selector by providing the types for the Params for extractor and Data for output of the selector.
  * - The type return is a function that can be used for triggering the effect (like in Redux).
- * - The extractor can return an array up to 10 typed members.
+ * - The extractor can return an array up to 20 typed members.
  */
-type CreateDataPicker<Params extends any[] = any[], Data = any> = <Extractor extends ((...args: Params) => [any]) | ((...args: Params) => [any, any]) | ((...args: Params) => [any, any, any]) | ((...args: Params) => [any, any, any, any]) | ((...args: Params) => [any, any, any, any, any]) | ((...args: Params) => [any, any, any, any, any, any]) | ((...args: Params) => [any, any, any, any, any, any, any]) | ((...args: Params) => [any, any, any, any, any, any, any, any]) | ((...args: Params) => [any, any, any, any, any, any, any, any, any]) | ((...args: Params) => [any, any, any, any, any, any, any, any, any, any]), Extracted extends ReturnType<Extractor> = ReturnType<Extractor>>(extractor: Extractor, selector: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
+type CreateDataSource<Params extends any[] = any[], Data = any> = <Extractor extends (...args: Params) => [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?], Extracted extends ReturnType<Extractor> = ReturnType<Extractor>>(extractor: Extractor, producer: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
+/** This helps to create a typed cached data selector by providing the types for the Params for extractor and Data for output of the selector.
+ * - The type return is a function that can be used for triggering the effect (like in Redux).
+ * - The extractor can return an array up to 20 typed members.
+ */
+type CreateCachedSource<Params extends any[] = any[], Data = any> = <Extractor extends (...args: Params) => [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?], Extracted extends ReturnType<Extractor> = ReturnType<Extractor>>(extractor: Extractor, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth?: number | CompareDataDepthMode) => (...args: Params) => Data;
 /** Callback to run when the DataTrigger memory has changed (according to the comparison mode).
  * - If the callback returns a new callback function, it will be run when unmounting the callback.
  */
@@ -196,147 +123,24 @@ declare function createDataMemo<Data extends any, MemoryArgs extends any[]>(prod
  *      @param depth Defines the comparison depth for comparing previous and new memory - to decide whether to run onMount callback.
  */
 declare function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMount<Memory>, memory?: Memory, depth?: number | CompareDataDepthMode): (newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory> | null) => boolean;
-/** Create a data selector: It's like the DataPicker above, but takes in an array of extractors (not just one).
- * - Accordingly the outputs of extractors are then spread out as the arguments for the selector.
- */
-declare function createDataSelector<Extractors extends [
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-] | [
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>,
-    DataExtractor<Params>
-], Data extends any, Params extends any[] = Parameters<Extractors[number]>>(extractors: Extractors, selector: (...args: ReturnTypes<Extractors>) => Data, depth?: number | CompareDataDepthMode): (...args: Params) => Data;
-/** Create a data picker (returns a function): It's like Memo but for data with an intermediary extractor.
- * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 10 typed members or more with `[...] as const` trick.
+/** Create a data source (returns a function): Functions like createDataMemo but for data with an intermediary extractor.
+ * - Give an extractor that extracts an array out of your customly defined arguments. Can return an array up to 20 typed members or more with `[...] as const` trick.
  * - Whenever the extracted output has changed (in shallow sense by default), the selector will be run.
  * - The arguments of the selector is the extracted array spread out, and it should return the output data solely based on them.
  * - The whole point of this abstraction, is to trigger the presumably expensive selector call only when the cheap extractor func tells there's a change.
  */
-declare function createDataPicker<Extracted extends [
-    any
-] | [
-    any,
-    any
-] | [
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
-] | [
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any,
-    any
-] | readonly any[], Data extends any, Params extends any[]>(extractor: (...args: Params) => Extracted, selector: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode): (...args: Params) => Data;
+declare function createDataSource<Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[], Data extends any, Params extends any[]>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, depth?: number | CompareDataDepthMode): (...args: Params) => Data;
+/** Create a cached data source (returns a function).
+ * - Just like createDataSource but provides multiple sets of extraction and data memory.
+ * - The key (string) for caching is derived by the 3rd argument which is a function that receives the source arguments: `(...origArgs, cached): string`.
+ *      * The cached extra argument provides the dictionary of current caching. The function may also use it to mutate the cache manually, eg. to delete keys from it.
+ * - The reason why you would use the "cached" variant is when you have multiple similar use cases for the same selector with different source datas.
+ *      * For example, let's say you have 2 similar grids but with two different source data.
+ *      * If you would use createDataSource they would be competing about it.
+ *      * So in practice, the producer callback would be triggered every time the _asker changes_ - even if data in both sets would stay identical.
+ *      * To solve this, you simply define unique keys for each use case. For example: "grid1" and "grid2" in our simple example here.
+ */
+declare function createCachedSource<Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[], Data extends any, Params extends any[]>(extractor: (...args: Params) => Extracted, producer: (...args: Extracted) => Data, cacher: (...args: [...args: Params, cached: Record<string, (...args: Params) => Data>]) => string, depth?: number | CompareDataDepthMode): (...args: Params) => Data;
 
 declare enum SignalListenerFlags {
     /** If enabled, removes the listener once it has been fired once. */
@@ -473,7 +277,7 @@ interface DataBoy<Data extends Record<string, any> = {}> {
      * - For example: `getDataArgsBy(["common.user.name", "view.darkMode"])`.
      * - Used internally but can be used for manual purposes.
      */
-    getDataArgsBy(needs: GetJoinedDataKeysFrom<Data>[], fallbackArgs?: any[]): any[];
+    getDataArgsBy<DataKey extends GetJoinedDataKeysFrom<Data>, Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?], Fallbacks extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]>(needs: Params, fallbackArgs?: Fallbacks): PropTypeArray<Data, Params, Fallbacks>;
     /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
      * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.
      * - The refreshKeys defaults to `true`, so will refresh all.
@@ -511,7 +315,7 @@ declare function _DataManMixin<Data extends Record<string, any> = {}>(Base: Clas
         listenToData<Keys_7 extends never, Key1_6 extends Keys_7, Key2_5 extends Keys_7, Key3_4 extends Keys_7, Key4_3 extends Keys_7, Key5_2 extends Keys_7, Key6_1 extends Keys_7, Key7 extends Keys_7, Callback_6 extends (val1: PropType<{}, Key1_6, never> | Fallback_6[0], val2: PropType<{}, Key2_5, never> | Fallback_6[1], val3: PropType<{}, Key3_4, never> | Fallback_6[2], val4: PropType<{}, Key4_3, never> | Fallback_6[3], val5: PropType<{}, Key5_2, never> | Fallback_6[4], val6: PropType<{}, Key6_1, never> | Fallback_6[5], val7: PropType<{}, Key7, never> | Fallback_6[6]) => void, Fallback_6 extends [any?, any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1_6, never>, PropType<{}, Key2_5, never>, PropType<{}, Key3_4, never>, PropType<{}, Key4_3, never>, PropType<{}, Key5_2, never>, PropType<{}, Key6_1, never>, PropType<{}, Key7, never>]>(dataKey1: Key1_6, dataKey2: Key2_5, dataKey3: Key3_4, dataKey4: Key4_3, dataKey5: Key5_2, dataKey6: Key6_1, dataKey7: Key6_1, callback: Callback_6, fallbackArgs?: Fallback_6 | null | undefined, callImmediately?: boolean | undefined): void;
         listenToData<Keys_8 extends never, Key1_7 extends Keys_8, Key2_6 extends Keys_8, Key3_5 extends Keys_8, Key4_4 extends Keys_8, Key5_3 extends Keys_8, Key6_2 extends Keys_8, Key7_1 extends Keys_8, Key8 extends Keys_8, Callback_7 extends (val1: PropType<{}, Key1_7, never> | Fallback_7[0], val2: PropType<{}, Key2_6, never> | Fallback_7[1], val3: PropType<{}, Key3_5, never> | Fallback_7[2], val4: PropType<{}, Key4_4, never> | Fallback_7[3], val5: PropType<{}, Key5_3, never> | Fallback_7[4], val6: PropType<{}, Key6_2, never> | Fallback_7[5], val7: PropType<{}, Key7_1, never> | Fallback_7[6], val8: PropType<{}, Key8, never> | Fallback_7[7]) => void, Fallback_7 extends [any?, any?, any?, any?, any?, any?, any?, any?] = [PropType<{}, Key1_7, never>, PropType<{}, Key2_6, never>, PropType<{}, Key3_5, never>, PropType<{}, Key4_4, never>, PropType<{}, Key5_3, never>, PropType<{}, Key6_2, never>, PropType<{}, Key7_1, never>, PropType<{}, Key8, never>]>(dataKey1: Key1_7, dataKey2: Key2_6, dataKey3: Key3_5, dataKey4: Key4_4, dataKey5: Key5_3, dataKey6: Key6_2, dataKey7: Key6_2, dataKey8: Key8, callback: Callback_7, fallbackArgs?: Fallback_7 | null | undefined, callImmediately?: boolean | undefined): void;
         unlistenToData(callback: DataListenerFunc): boolean;
-        getDataArgsBy(needs: never[], fallbackArgs?: any[] | undefined): any[];
+        getDataArgsBy<DataKey extends never, Params extends [(DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?], Fallbacks_1 extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]>(needs: Params, fallbackArgs?: Fallbacks_1 | undefined): PropTypeArray<{}, Params, Fallbacks_1, Params["length"]>;
         callDataBy(refreshKeys?: true | never[] | undefined): void;
     };
 };
@@ -717,10 +521,10 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
     }>, callDataIfChanged?: boolean): boolean;
     /** Helper to build data arguments with values fetched from this ContextAPI's contextual connections with the given data needs args.
      * - For example: `getDataArgsBy(["settings.user.name", "themes.darkMode"])` returns `[userName?, darkMode?]`.
-         * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
-     * - Used internally but can be used for manual purposes. Does not currently support typing for the return, only input.
+     * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument.
+     * - Used internally but can be used for manual purposes.
      */
-    getDataArgsBy(needs: GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[], fallbackArgs?: any[]): any[];
+    getDataArgsBy<DataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>, Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?], Fallbacks extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]>(needs: Params, fallbackArgs?: Fallbacks): PropTypeArray<GetDataFromContexts<Contexts>, Params, Fallbacks>;
     /** Assignable getter to call more data listeners when specific context names are refreshed. */
     callDataListenersFor?(ctxNames: string[], dataKeys?: true | string[]): void;
 }
@@ -784,4 +588,4 @@ type ContextType<Data extends Record<string, any> = {}, Signals extends SignalsR
     getDefaultSettings(): ContextSettings;
 };
 
-export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllOrNullType, ContextsAllType, CreateDataPicker, CreateDataSelector, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, Dictionary, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeDictionary, RecordableType, ReturnTypes, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, callWithTimeout, createDataMemo, createDataPicker, createDataSelector, createDataTrigger, deepCopy };
+export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllOrNullType, ContextsAllType, CreateCachedSource, CreateDataSource, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, Dictionary, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeDictionary, RecordableType, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, callWithTimeout, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy };

@@ -212,10 +212,10 @@ export function createCachedSource<
     return (...args: any[]): Data => {
         // Get key.
         const cachedKey = cacher(...args as Params, cached);
-        // Create a new data source if had no cache key.
+        // Create a new data source if hadn't one for the cachedKey.
         if (!cached[cachedKey])
             cached[cachedKey] = createDataSource(extractor, producer, depth);
-        // Use data source.
+        // Use the data source.
         return cached[cachedKey](...args as Params);
     }
 }

@@ -31,23 +31,24 @@ There are 3 kinds of tools available.
 ### 1. LIBRARY METHODS
 
 A couple of data reusing concepts in the form of library methods.
-- `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
-- `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
-- `DataSource` is like DataMemo but with an extraction process in between to trigger the producer callback.
+- Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
+- Data selector features with 3 variants:
+    * `createDataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
+    * `createDataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
+    * `createDataSource` is like createDataMemo but with an extraction process in between the arguments and producer callback.
 
-Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
 
+### 2. SIMPLE BASE CLASSES / MIXINS
 
-### 2. SIMPLE MIXINS / CLASSES
-
-A couple of mixins (+ stand alone class) for signalling and data listening features.
+A couple of classes and mixins for signalling and data listening features.
 - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
 - `DataBoy` provides data listening services, but without actually having any data.
 - `DataMan` extends `DataBoy` to provide the actual data hosting and related methods.
 - `SignalDataBoy` extends both `SignalMan` and `DataBoy` (through mixins).
 - `SignalDataMan` extends both `SignalMan` and `DataMan` (through mixins).
 
-Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class.
+Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class (fully typed).
+
 
 ### 3. CONTEXT CLASSES
 
@@ -228,6 +229,72 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 
 ```
+
+---
+
+### How to use mixins
+
+- Often you can just go and extend the class directly.
+- But in situations where you can't, mixins make life so much more convenient.
+
+```typescript
+
+// Let's define some custom class.
+class CustomBase {
+    something: string = "";
+    hasSomething(someArg: number): boolean {
+        return !!this.something;
+    }
+}
+
+// Let's mixin typed DataMan features.
+type MySignals = { doSomething: (...things: number[]) => void; };
+class CustomSignalMix extends (SignalManMixin as ClassMixer<SignalManType<MySignals>>)(CustomBase) { }
+// class CustomSignalMix extends SignalManMixin(CustomBase) { } // Without typing.
+
+// Create like any class.
+const cMix = new CustomSignalMix();
+
+// Use.
+cMix.something = "yes";
+cMix.hasSomething(); // true
+cMix.listenTo("doSomething", (...things) => { });
+
+```
+
+- You can also use constructor arguments, but should pass them as `(...args: any[])`.
+
+```typescript
+
+// Let's define a custom class with constructor args.
+class CustomBase {
+    someMember: boolean;
+    constructor(someMember: boolean) {
+        this.someMember = someMember;
+    }
+}
+
+// And extend it by a mixin.
+// Let's mixin typed DataMan features.
+interface MyData { something: { deep: boolean; }; simple: string; }
+class CustomDataMix extends (DataManMixin as ClassMixer<DataManType<MyData>>)(CustomBase) {
+
+    // Optional constructor. If you need a constructor, it could eg. look like this.
+    constructor(data: MyData, someMember: boolean) {
+        super(data, someMember);
+    }
+
+}
+
+// Create like any class.
+const cMix = new CustomDataMix({ something: { deep: true }, simple: "" }, false);
+
+// Use.
+cMix.listenToData("something.deep", "simple", (deep, simple) => { });
+
+
+```
+
 
 ---
 
