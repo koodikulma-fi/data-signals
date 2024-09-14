@@ -37,7 +37,6 @@ A couple of data reusing concepts in the form of library methods.
     * `createDataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
     * `createDataSource` is like createDataMemo but with an extraction process in between the arguments and producer callback.
 
-
 ### 2. SIMPLE BASE CLASSES / MIXINS
 
 A couple of classes and mixins for signalling and data listening features.
@@ -47,18 +46,17 @@ A couple of classes and mixins for signalling and data listening features.
 - `SignalDataBoy` extends both `SignalMan` and `DataBoy` (through mixins).
 - `SignalDataMan` extends both `SignalMan` and `DataMan` (through mixins).
 
-Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class (fully typed).
-
+Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new class.
 
 ### 3. CONTEXT CLASSES
 
 Finally, two classes specialized for complex data sharing situations, like those in modern web apps.
-- `Context` extends `SignalDataMan` with syncing related settings. The contexts can also sync to the `ContextAPI`s that are listening to them.
-- `ContextAPI` extends `SignalDataBoy` and accordingly allows to listen to data and signals in various named contexts.
+- `Context` extends `SignalDataMan` with syncing related settings. 
+- `ContextAPI` extends `SignalDataBoy` and allows to listen to data and signals in named contexts.
 
-The `ContextAPI` instance can also affect the syncing of `Context` refreshes - this is especially useful with the "delay" type of signals.
-- For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). For example, the signal is meant for a component that was not there before state refresh.
-- To solve it, the rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed. (The components may also use contextAPI, but typically won't affect the syncing.)
+The `ContextAPI` can also affect syncing of `Context` refreshes in regards to the "delay" cycle.
+- For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). Eg. the signal is meant for a component that was not there before the state refresh.
+- To solve it, the rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
 
 ---
 
@@ -247,7 +245,7 @@ class CustomBase {
     }
 }
 
-// Let's mixin typed DataMan features.
+// Let's mix in typed SignalMan features.
 type MySignals = { doSomething: (...things: number[]) => void; };
 class CustomSignalMix extends (SignalManMixin as ClassMixer<SignalManType<MySignals>>)(CustomBase) { }
 // class CustomSignalMix extends SignalManMixin(CustomBase) { } // Without typing.
@@ -261,8 +259,8 @@ cMix.hasSomething(); // true
 cMix.listenTo("doSomething", (...things) => { });
 
 ```
-
-- You can also use constructor arguments, but should pass them as `(...args: any[])`.
+- You can also use constructor arguments.
+- If the mixin uses args, it uses the first arg(s) and pass the rest further as `(...unusedArgs)`.
 
 ```typescript
 
@@ -274,8 +272,7 @@ class CustomBase {
     }
 }
 
-// And extend it by a mixin.
-// Let's mixin typed DataMan features.
+// Let's mix in typed DataMan features.
 interface MyData { something: { deep: boolean; }; simple: string; }
 class CustomDataMix extends (DataManMixin as ClassMixer<DataManType<MyData>>)(CustomBase) {
 
@@ -300,8 +297,7 @@ cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 ### Static library methods
 
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
-- Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
-    * The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
+- Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ---
 
@@ -465,7 +461,7 @@ const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" i
 
 ### library: createCachedSource
 
-- `createCachedSource` is like `createDataSource` but keeps multiple sets of extracted args and data, not just one.
+- `createCachedSource` is like multiple `createDataSource`s together separated by the unique cache key.
 - The key key for caching is derived from an extra "cacher" function dedicated to this purpose - it should return the cache key (string).
 - The cacher receives the same arguments as the extractor, but also the cached dictionary as an extra argument `(...args, cached) => string`.
 
