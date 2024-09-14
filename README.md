@@ -228,8 +228,8 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 ### Static methods
 
-- Selectors are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
-- There are two main types: 1. direct (memo & trigger), and 2. ones with an extractor process in between (selector & picker).
+- Memos, triggers and data selectors are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
+- The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ---
 
@@ -282,23 +282,22 @@ const myTrigger = createDataTrigger<Memory>(
     },
     // 2nd arg is optional initial memory.
     // .. Use it to delay the first triggering of the mount callback (in case the same on first usages).
-    { id: 5, text: "init" },
+    { id: 1, text: "init" },
     // 3rd arg is optional depth, defaults to 1, meaning performs shallow comparison on the memory.
     1
 );
 
 // Use the trigger.
-let didChange = myTrigger({ id: 5, text: "init" }); // false
-didChange = myTrigger({ id: 5, text: "same old" }); // true
-didChange = myTrigger({ id: 7, text: "changes" }); // true, logs: "Id changed!"
-didChange = myTrigger({ id: 7, text: "changes" }, true); // true
+let didChange = myTrigger({ id: 1, text: "init" }); // false, new memory and init memory have equal contents.
+didChange = myTrigger({ id: 1, text: "thing" }); // true
+didChange = myTrigger({ id: 2, text: "thing" }); // true, logs: "Id changed!"
+didChange = myTrigger({ id: 2, text: "thing" }, true); // true
 
 // Change callback.
-didChange = myTrigger({ id: 1, text: "changes" }, false, () => {
-    if (newMem.id === oldMem.id)
-        console.log("Id stayed!");
-}); // true, logs: "Unmounted!" from the unmount callback above.
-didChange = myTrigger({ id: 1, text: "now?" }); // true, logs: "Id stayed!"
+const newCallback = () => { console.log("Changes!"); };
+didChange = myTrigger({ id: 2, text: "thing" }, false, newCallback); // false
+didChange = myTrigger({ id: 3, text: "thing" }, false, newCallback); // true, logs: "Unmounted!" and then "Changes!".
+didChange = myTrigger({ id: 3, text: "now?" }); // true, logs: "Changes!"
 
 ```
 
