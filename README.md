@@ -21,9 +21,9 @@ The npm package can be found with: [data-signals](https://www.npmjs.com/package/
 
 ## Documentation
 
-### Basics - 3 main layers
+There are 3 kinds of tools available.
 
-#### 1. LIBRARY METHODS
+### 1. LIBRARY METHODS
 
 A couple of data reusing concepts in the form of library methods.
 - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
@@ -34,7 +34,7 @@ A couple of data reusing concepts in the form of library methods.
 Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and recognizing class instances.
 
 
-#### 2. SIMPLE MIXINS / CLASSES
+### 2. SIMPLE MIXINS / CLASSES
 
 A couple of mixins (+ stand alone class) for signalling and data listening features.
 - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
@@ -45,7 +45,7 @@ A couple of mixins (+ stand alone class) for signalling and data listening featu
 
 Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class.
 
-#### 3. COMPLEX CLASSES
+### 3. COMPLEX CLASSES
 
 Finally, two classes specialized for complex data sharing situations, like those in modern web apps.
 - `Context` extends `SignalDataMan` with syncing related settings. The contexts can also sync to the `ContextAPI`s that are listening to them.
@@ -169,7 +169,7 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 
 ### ContextAPI
 
-- `ContextAPI` provides hooking communication with multiple _named_ `Context`s.
+- `ContextAPI` provides communication with multiple _named_ `Context`s.
 - When a ContextAPI is hooked up to a context, it can use its data and signalling services.
     * In this sense, ContextAPI provides an easy to use and stable reference to potentially changing set of contexts.
 - Importantly the ContextAPIs also have `afterRefresh` method that returns a promise, which affects the "delay" cycle of Context refreshing.
@@ -226,9 +226,15 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 ---
 
-### Selectors
+### Static methods
 
 - Selectors are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs.
+- There are two main types: 1. direct (memo & trigger), and 2. ones with an extractor process in between (selector & picker).
+
+---
+
+### Selector: createDataMemo
+
 - `createDataMemo` helps to reuse data in simple local usages. By default, it only computes the data if any of the arguments have changed.
 
 ```typescript
@@ -253,6 +259,10 @@ const myMemo = createDataMemo(
 const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "beta" }); // { winner: "beta", loser: "alpha" }
 
 ```
+
+---
+
+### Selector: createDataTrigger
 
 - `createDataTrigger` is similar to DataMemo, but its purpose is to trigger a callback on mount.
 - In addition, the mount callback can return another callback for unmounting, which is called if the mount callback gets overridden upon usage.
@@ -291,6 +301,11 @@ didChange = myTrigger({ id: 1, text: "changes" }, false, () => {
 didChange = myTrigger({ id: 1, text: "now?" }); // true, logs: "Id stayed!"
 
 ```
+
+---
+
+### Selector: createDataPicker
+
 - `createDataPicker` always receives `(...args)` and uses an extractor function to produce final arguments for the producer callback.
 - The producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
 - When used, the picker can receive multiple arguments, but in practice most often a single argument is given, eg. an immutable data state of a context or such.
@@ -332,7 +347,12 @@ const val_MANUAL = codeViewDataPicker_MANUAL({ mode: "dark" }, true);
 const val_MANUAL_FAIL = codeViewDataPicker_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
 
 ```
-- `createDataPicker` is exactly like DataPicker but uses an extractor function per output arument, instead of a single extractor.
+
+---
+
+### Selector: createDataSelector
+
+- `createDataSelector` is exactly like DataPicker but uses an extractor function per output arument, instead of a single extractor.
 - Likewise, the producer is triggered if the argument count or any argument value has changed: `newArgs.some((v, i) !== oldArgs[i])`.
 
 ```typescript
