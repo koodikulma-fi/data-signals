@@ -34,7 +34,8 @@ A couple of data reusing concepts in the form of library methods.
 - `DataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
 - `DataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
 - `DataSource` is like DataMemo but with an extraction process in between to trigger the producer callback.
-Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and recognizing class instances.
+
+Also `areEqual(a, b)` and `deepCopy(anything)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
 
 
 ### 2. SIMPLE MIXINS / CLASSES
@@ -43,12 +44,12 @@ A couple of mixins (+ stand alone class) for signalling and data listening featu
 - `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
 - `DataBoy` provides data listening services, but without actually having any data.
 - `DataMan` extends `DataBoy` to provide the actual data hosting and related methods.
-- `SignalDataBoy` extends both `SignalMan` and `DataBoy`.
-- `SignalDataMan` extends both `SignalMan` and `DataMan`.
+- `SignalDataBoy` extends both `SignalMan` and `DataBoy` (through mixins).
+- `SignalDataMan` extends both `SignalMan` and `DataMan` (through mixins).
 
 Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new custom made class.
 
-### 3. COMPLEX CLASSES
+### 3. CONTEXT CLASSES
 
 Finally, two classes specialized for complex data sharing situations, like those in modern web apps.
 - `Context` extends `SignalDataMan` with syncing related settings. The contexts can also sync to the `ContextAPI`s that are listening to them.
@@ -209,8 +210,9 @@ cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks ===
 
 // Trigger changes.
 // .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
-cApi.setInData("settings", { simple: "no" }, true); // Extend.
-cApi.setInData("settings.something.deep", false);
+cApi.setInData("settings", { simple: "no" }); // Extends already by default, so "something" won't disappear.
+cApi.setInData("settings", { simple: "no" }, false); // This would make "something" disappears, but typing prevents it.
+cApi.setInData("settings.something.deep", false);  // Even if "something" was lost, this would re-create the path to "something.deep".
 cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
 cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
 cApi.refreshData(["settings", "user"], null); // Just refresh both contexts fully, and do it instantly (with `null` as the timeout).
@@ -219,8 +221,8 @@ cApi.refreshData(["settings", "user"], null); // Just refresh both contexts full
 cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
 
 // Send a more complex signal.
-const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0]
-const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0
+const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0] | []
+const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0 | undefined
 //
 // <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
 
