@@ -64,43 +64,6 @@ export type DataTriggerOnMount<Memory = any> = (newMem: Memory, prevMem: Memory 
 export type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: Memory) => void;
 
 
-// - Create data memo - //
-
-/** Create a data memo.
- * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
- * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
- * - About arguments:
- *      @param producer Defines the callback 
- *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
- *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
- */
-export function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth: number | CompareDataDepthMode = 1): (...memory: MemoryArgs) => Data {
-    // Local memory.
-    let data: Data | undefined = undefined;
-    let memoryArgs: any[] | undefined = undefined;
-    const d = typeof depth === "string" ? CompareDataDepthEnum[depth] : depth;
-    // Return handler.
-    return (...memory: MemoryArgs): Data => {
-        // Can potentially reuse.
-        if (memoryArgs) {
-            // No change.
-            if (d < -1) {
-                if (d !== -2)
-                    return data!;
-            }
-            else if (areEqual(memoryArgs, memory, d >= 0 ? d + 1 : d)) // Increase by 1 - our memory is always a new array.
-                return data!;
-        }
-        // Store the memory.
-        memoryArgs = memory;
-        // Run callback.
-        data = producer(...memory);
-        // Return data.
-        return data;
-    }
-}
-
-
 // - Create data trigger - //
 
 /** Create a data memo.
@@ -145,6 +108,43 @@ export function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMou
             onUnmount = onMount(newMemory, memWas) || undefined;
         // Did not change in given mode.
         return false;
+    }
+}
+
+
+// - Create data memo - //
+
+/** Create a data memo.
+ * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
+ * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
+ * - About arguments:
+ *      @param producer Defines the callback 
+ *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
+ *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
+ */
+export function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth: number | CompareDataDepthMode = 1): (...memory: MemoryArgs) => Data {
+    // Local memory.
+    let data: Data | undefined = undefined;
+    let memoryArgs: any[] | undefined = undefined;
+    const d = typeof depth === "string" ? CompareDataDepthEnum[depth] : depth;
+    // Return handler.
+    return (...memory: MemoryArgs): Data => {
+        // Can potentially reuse.
+        if (memoryArgs) {
+            // No change.
+            if (d < -1) {
+                if (d !== -2)
+                    return data!;
+            }
+            else if (areEqual(memoryArgs, memory, d >= 0 ? d + 1 : d)) // Increase by 1 - our memory is always a new array.
+                return data!;
+        }
+        // Store the memory.
+        memoryArgs = memory;
+        // Run callback.
+        data = producer(...memory);
+        // Return data.
+        return data;
     }
 }
 
@@ -219,81 +219,3 @@ export function createCachedSource<
         return cached[cachedKey](...args as Params);
     }
 }
-
-
-// // - Typing test: createDataSource - //
-// 
-// // Prepare.
-// type MyParams = [colorMode?: "light" | "dark", typeScript?: boolean];
-// type MyData = { theme: "dark" | "light"; typescript: boolean; }
-// 
-// // With pre-typing.
-// const mySource =
-//     (createDataSource as CreateDataSource<MyParams, MyData>)(
-//     // Extractor - showcases the usage for contexts.
-//     // .. For example, if has many usages with similar context data needs.
-//     (colorMode, typeScript) => [
-//         colorMode || "dark",
-//         typeScript || false,
-//     ],
-//     // Selector - it's only called if the extracted data items were changed from last time.
-//     (theme, typescript) => ({ theme, typescript })
-// );
-// 
-// // With manual typing.
-// const mySource_MANUAL = createDataSource(
-//     // Extractor.
-//     (...[colorMode, typeScript]: MyParams) => [
-//         colorMode || "dark",
-//         typeScript || false,
-//     ],
-//     // Selector.
-//     (theme, typescript): MyData => ({ theme, typescript })
-// );
-// 
-// // All correct.
-// const val = mySource("dark", true);
-// const val_FAIL = mySource("FAIL", true);
-// const val_MANUAL = mySource_MANUAL("dark", true);
-// const val_MANUAL_FAIL = mySource_MANUAL("FAIL", true);
-// 
-// 
-// // - Typing test: createCachedSource - //
-// 
-// // Prepare.
-// type MyCachedParams = [colorMode?: "light" | "dark", typeScript?: boolean, cacheKey?: string];
-// // type MyData = { theme: "dark" | "light"; typescript: boolean; }
-// 
-// // With pre-typing.
-// const myCachedSource =
-//     (createCachedSource as CreateCachedSource<MyCachedParams, MyData>)(
-//     // Extractor - showcases the usage for contexts.
-//     // .. For example, if has many usages with similar context data needs.
-//     (colorMode, typeScript) => [
-//         colorMode || "dark",
-//         typeScript || false,
-//     ],
-//     // Selector - it's only called if the extracted data items were changed from last time.
-//     (theme, typescript) => ({ theme, typescript }),
-//     // Cache key deriver.
-//     (_theme, _typescript, cacheKey) => cacheKey || ""
-// );
-// 
-// // With manual typing.
-// const myCachedSource_MANUAL = createCachedSource(
-//     // Extractor.
-//     (...[colorMode, typeScript]: MyCachedParams) => [
-//         colorMode || "dark",
-//         typeScript || false,
-//     ],
-//     // Selector.
-//     (theme, typescript): MyData => ({ theme, typescript }),
-//     // Cache key deriver.
-//     (_theme, _typescript, cacheKey) => cacheKey || ""
-// );
-// 
-// // All correct.
-// const val_cached = myCachedSource("dark", true);
-// const val_cached_FAIL = myCachedSource("FAIL", true);
-// const val_cached_MANUAL = myCachedSource_MANUAL("dark", true);
-// const val_cached_MANUAL_FAIL = myCachedSource_MANUAL("FAIL", true);

@@ -34,6 +34,7 @@ export type ContextSettings = {
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them.
  *      * In this usage, the "pre-delay" signals are tied to the Context's own refresh, while "delay" happens after all the related contextAPIs have also refreshed (= after their afterRefresh promise has resolved).
+ *      * Note that the "pre-delay" signals are called right _before_ the data listeners, while "delay" after the listeners and awaits from contextAPIs.
  */
 export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan<Data, Signals> {
 

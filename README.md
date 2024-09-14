@@ -4,8 +4,6 @@
 TODO:
 - JS:
     - CLEAN UP SHALLOW COMPARISON depth for DATA SOURCE, MEMO, TRIGGER. ... in JS, in comments and in DOCS.
-- DOCS:
-    - Add a couple of (typed) MIXIN usage examples.
 - RELEASE:
     - Release as NPM package.
 - EXTRA:
@@ -33,9 +31,9 @@ There are 3 kinds of tools available.
 A couple of data reusing concepts in the form of library methods.
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
 - Data selector features with 3 variants:
-    * `createDataTrigger` allows to trigger a callback when reference data is changed from last time - supporting various levels of comparison.
-    * `createDataMemo` allows to recompute / reuse data based on arguments: when args change (according to comparison level), calls the producer callback to return new data.
-    * `createDataSource` is like createDataMemo but with an extraction process in between the arguments and producer callback.
+    * `createDataTrigger` triggers a callback when reference data is changed from previous time.
+    * `createDataMemo` recomputes / reuses data based on arguments: when args change, calls the producer to recompute data.
+    * `createDataSource` is like createDataMemo but with an extraction process before the producer callback.
 
 ### 2. SIMPLE BASE CLASSES / MIXINS
 
@@ -123,8 +121,8 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 - `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
 - The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
 - The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
-    * The "pre-delay" is tied to context's own refresh cycle, defined by the `{ refreshTimeout: number | null; }` setting.
-    * The "delay" happens after ("pre-delay" and) all the connected `ContextAPI` instances have refreshed (by their `afterRefresh` promise).
+    * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
+    * The "delay" happens after all the connected `ContextAPI`s have also refreshed (by their `afterRefresh` promise).
 
 ```typescript
 
