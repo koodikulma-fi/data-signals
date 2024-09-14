@@ -2,8 +2,6 @@
 ---
 
 TODO:
-- Refine in code... that SETINDATA in DATAMAN performs a SHALLOW UPDATE ALONG THE WAY..!
-    * To make the data be IMMUTABLE-LIKE.. So works coherently with DATA SELECTOR CONCEPTS..!
 - Add a couple of (typed) MIXIN usage examples.
 - Release as NPM package.
 - And.. Then provide "data-signals-debug" which is a simple UX for displaying stuff.
