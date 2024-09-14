@@ -263,9 +263,13 @@ export function _SignalManMixin(Base: ClassType) {
             return undefined;
         }
 
-        // Extendable handler.
+        // Overrideable refresher.
         public afterRefresh(fullDelay: boolean = false): Promise<void> {
-            return new Promise<void>(resolve => setTimeout(resolve, fullDelay ? 1 : 0));
+            return new Promise<void>(resolve => setTimeout(fullDelay ? async () => { await this.awaitRefresh(); resolve(); } : resolve, 0));
+        }
+        // Overrideable "delay" awaiter.
+        awaitRefresh(): Promise<void> {
+            return new Promise<void>(resolve => setTimeout(resolve, 1));
         }
 
 
@@ -293,11 +297,17 @@ export interface SignalManType<Signals extends SignalsRecord = {}> extends Class
 export class SignalMan<Signals extends SignalsRecord = {}> extends (_SignalManMixin(Object) as ClassType) { }
 export interface SignalMan<Signals extends SignalsRecord = {}> {
 
+
+    // - Members - //
+
     // Constructor type.
     ["constructor"]: SignalManType<Signals>;
 
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
     signals: Record<string, Array<SignalListener>>;
+
+
+    // - Listen to signals - //
 
     /** Assign a listener to a signal. You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
      * Also checks whether the callback was already attached to the signal, in which case overrides the info. */
@@ -306,8 +316,9 @@ export interface SignalMan<Signals extends SignalsRecord = {}> {
     unlistenTo(names?: (string & keyof Signals) | Array<string & keyof Signals> | null, callback?: SignalListenerFunc | null, groupId?: any | null): void;
     /** Check if any listener exists by the given name, callback and/or groupId. */
     isListening<Name extends string & keyof Signals>(name?: Name | null, callback?: SignalListenerFunc | null, groupId?: any | null): boolean;
-    /** Optional local callback handler to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(name: string & keyof Signals, index: number, wasAdded: boolean): void;
+
+
+    // - Send signals - //
 
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
@@ -339,12 +350,28 @@ export interface SignalMan<Signals extends SignalsRecord = {}> {
         UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast,
         UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay ? false : true,
     >(modes: Mode | Mode[], name: Name, ...args: Parameters<Signals[Name]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<Signals[Name]>, HasAwait, UseSingle> : undefined;
-    /** This triggers a refresh and returns a promise that is resolved after the "pre-delay" or "delay" cycle has finished.
-     * - By default uses a timeout of 1ms for fullDelay (for "delay") and 0ms otherwise (for "pre-delay").
-     * - This is used internally by the sendSignalAs method with "pre-delay" or "delay". The method can be overridden to provide custom timing.
+
+
+    // - Refresh timing - //
+
+    /** Overrideable method that should trigger a refresh and return a promise.
+     * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
+     *      * By default uses a timeout of 0ms for "pre-delay" and after that awaits the promise from `awaitRefresh` for full "delay".
      * - Note that at the level of SignalMan there is nothing to "refresh". However, if extended by a class where refreshing makes sense, this should trigger refreshing first.
+     * - Used internally by sendSignalAs flow for its "pre-delay" and "delay" signals.
      */
     afterRefresh(fullDelay?: boolean): Promise<void>;
+    /** Should not be called externally, but only overridden externally to determine the timing of the "delay" signals (after "pre-delay").
+     * - By default uses a timeout of 1ms. Assumes to be overridden.
+     * - Used internally through afterRefresh flow.
+     */
+    awaitRefresh(): Promise<void>;
+
+
+    // - Extras - //
+
+    /** Optional local callback handler to keep track of added / removed listeners. Called right after adding and right before removing. */
+    onListener?(name: string & keyof Signals, index: number, wasAdded: boolean): void;
     /** Optional assignable method. If used, then this will be used for the signal sending related methods to get all the listeners - instead of this.signals[name]. */
     getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
 }

@@ -71,15 +71,24 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
 
     // - Overrideable - //
 
-    /** This (triggers a refresh and) returns a promise that is resolved when the update cycle is completed.
-     * - If there's nothing pending, then will resolve immediately. 
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+    /** This (triggers a refresh and) returns a promise that is resolved when the "pre-delay" or "delay" cycle is completed.
+     * - At the level of ContextAPI there's nothing to refresh (no data held, just read from contexts).
+     *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitRefresh` method.
      * - Note that this method is overrideable. On the basic implementation it resolves immediately.
-     *      * However, on an externael layer, the awaiting might be synced to an update cycle - to provide the bridge for syncing the "delay" signals.
-     *      * Note also that at ContextAPI level, there is nothing to "refresh" (it doesn't hold data, just reads it from contexts). So will not trigger a refresh, just await.
+     *      * But on an external layer, the awaiting might be synced to provide the bridging for syncing the "delay" signals of many contexts together.
      */
     public afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
     public afterRefresh(_fullDelay: boolean = false, _forceTimeout?: number | null): Promise<void> {
+        // Let's do an instant "pre-delay" - so, nothing.
+        // And then, let's resolve by the awaitRefresh.
+        return this.awaitRefresh();
+    }
+    /** At the level of ContextAPI the `awaitRefresh` resolves instantly.
+     * - Importantly, this method determines when the "delay" cycle of the connected Contexts is resolved. (That's why defaults to instant.)
+     * - Accordingly, you can override this method (externally or by extending class) to customize the syncing.
+     * - Note that this method should not be _called_ externally - only overridden externally (to affect the "delay" cycle timing).
+     */
+    awaitRefresh(): Promise<void> {
         return new Promise<void>(async (resolve) => resolve());
     }
  

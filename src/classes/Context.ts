@@ -78,6 +78,16 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
 
+    // - Settings - //
+
+    /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
+    public modifySettings(settings: Partial<ContextSettings>): void {
+        const defaults = (this.constructor as typeof Context).getDefaultSettings();
+        for (const name in settings)
+            this.settings[name] = settings[name] !== undefined ? settings[name] : this.settings[name] ?? defaults[name];
+    }
+
+
     // - SignalMan sending extensions - //
     
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
@@ -98,7 +108,15 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // - SignalDataMan-like methods. - //
 
     // Overridden.
-    /** This returns a promise that is resolved when the context is refreshed, or after all the related contextAPIs have refreshed (based on their afterRefresh promise). */
+    /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
+     * - If there's nothing pending, then will resolve immediately (by the design of the flow).
+     * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
+     *      * The "pre-delay" (fullDelay = false) uses the time out from settings { refreshTimeout }.
+     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitRefresh`.
+     *          - The `awaitRefresh` is in turn synced to awaiting the `awaitRefresh` of all the connected contextAPIs.
+     * - Note that technically, the system at Context level simply collects an array (per delay type) of one-time promise resolve funcs and calls them at the correct time.
+     * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
+     */
     public afterRefresh(fullDelay: boolean = false, forceTimeout?: number | null): Promise<void> {
         // Add to delayed.
         return new Promise<void>(async (resolve) => {
@@ -112,6 +130,20 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
             this.triggerRefresh(forceTimeout);
         });
     }
+    /** At the level of Context the `awaitRefresh` is tied to waiting the refresh from all contexts.
+     * - It's called by the data refreshing flow after calling the "pre-delay" actions and the data listeners.
+     * - Note that this method should not be _called_ externally, but can be overridden externally to affect when "delay" cycle is resolved.
+     */
+    async awaitRefresh() {
+        // Add an await refresh listener on all connected contextAPIs.
+        // .. Note that we don't specify which contextAPIs actually were refreshed in relation to the actions and pending data.
+        // .. We simply await before all the contextAPIs attached to us have refreshed. It's much simpler and feels more stable when actually used.
+        const toWait: Promise<void>[] = [];
+        for (const contextAPI of this.contextAPIs.keys())
+            toWait.push(contextAPI.afterRefresh(true));
+        // Wait.
+        await Promise.all(toWait);
+    }
     
     // Overridden to handle data refreshes.
     /** Trigger refresh of the context and optionally add data keys.
@@ -120,20 +152,27 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     public refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     public refreshData(dataKeys: string | string[] | boolean | null, forceTimeout?: number | null): void {
         // Add keys.
-        if (dataKeys)
-            this.addRefreshKeys(dataKeys);
+        dataKeys && this.addRefreshKeys(dataKeys);
         // Trigger contextual refresh.
         this.triggerRefresh(forceTimeout);
     }
 
+    // Added method.
     /** Trigger a refresh in the context. Refreshes all pending after a timeout. */
     public triggerRefresh(forceTimeout?: number | null): void {
         this._refreshTimer = (this.constructor as typeof Context).callWithTimeout(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
     }
 
+
+    // - Refresh state getters - //
+
     /** Check whether is waiting to be refreshed. */
     public isWaitingForRefresh(): boolean {
         return this._refreshTimer !== null;
+    }
+    /** Check whether has any reason to be refreshed: checks if there are any pending data keys or signals on the "pre-delay" or "delay" cycle. */
+    public isPendingRefresh(): boolean {
+        return !!(this._afterPre || this._afterPost || this.dataKeysPending);
     }
 
     
@@ -175,14 +214,8 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         // Trigger updates for contextAPIs and wait after they've flushed.
         if (afterPost) {
             (async () => {
-                // Add a await refresh listener on all connected contextAPIs.
-                // .. Note that we don't specify (anymore as of v3.1) which contextAPIs actually were refreshed in relation to the actions and pending data.
-                // .. We simply await before all the contextAPIs attached to us have refreshed. It's much simpler, and hard to argue that it would be worse in terms of usefulness.
-                const toWait: Promise<void>[] = [];
-                for (const contextAPI of this.contextAPIs.keys())
-                    toWait.push(contextAPI.afterRefresh(true));
                 // Wait.
-                await Promise.all(toWait);
+                await this.awaitRefresh();
                 // Resolve all afterPost awaiters.
                 for (const callback of afterPost)
                     callback();
@@ -190,17 +223,6 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         }
     }
     
-
-    // - Settings - //
-
-    // Common basis.
-    /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
-    public modifySettings(settings: Partial<ContextSettings>): void {
-        const defaults = (this.constructor as typeof Context).getDefaultSettings();
-        for (const name in settings)
-            this.settings[name] = settings[name] !== undefined ? settings[name] : this.settings[name] ?? defaults[name];
-    }
-
     
     // - Static - //
     
@@ -209,7 +231,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         return { refreshTimeout: 0 };
     }
 
-    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
+    /** General helper for reusing a timer callback, or potentially forcing an immediate call.
      * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
      */
     public static callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null {

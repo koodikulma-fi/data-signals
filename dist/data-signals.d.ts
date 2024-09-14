@@ -183,6 +183,7 @@ declare function _SignalManMixin(Base: ClassType): {
         sendSignal(name: string, ...args: any[]): any;
         sendSignalAs(modes: string | string[], name: string, ...args: any[]): any;
         afterRefresh(fullDelay?: boolean): Promise<void>;
+        awaitRefresh(): Promise<void>;
         onListener?(name: string, index: number, wasAdded: boolean): void;
         getListenersFor?(signalName: string): SignalListener[] | undefined;
     };
@@ -210,8 +211,6 @@ interface SignalMan<Signals extends SignalsRecord = {}> {
     unlistenTo(names?: (string & keyof Signals) | Array<string & keyof Signals> | null, callback?: SignalListenerFunc | null, groupId?: any | null): void;
     /** Check if any listener exists by the given name, callback and/or groupId. */
     isListening<Name extends string & keyof Signals>(name?: Name | null, callback?: SignalListenerFunc | null, groupId?: any | null): boolean;
-    /** Optional local callback handler to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(name: string & keyof Signals, index: number, wasAdded: boolean): void;
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
     /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
@@ -232,12 +231,20 @@ interface SignalMan<Signals extends SignalsRecord = {}> {
      *      * Note also that when returning values, any signal that was connected with .Deferred flag will always be ignored from the return value flow (and called 0ms later, in addition to "delay" timeout).
      */
     sendSignalAs<Name extends string & keyof Signals, Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null", HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false, HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false, HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false, HasMulti extends boolean = Mode extends string[] ? Mode[number] extends "multi" ? true : false : Mode extends "multi" ? true : false, HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false, UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast, UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay ? false : true>(modes: Mode | Mode[], name: Name, ...args: Parameters<Signals[Name]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<Signals[Name]>, HasAwait, UseSingle> : undefined;
-    /** This triggers a refresh and returns a promise that is resolved after the "pre-delay" or "delay" cycle has finished.
-     * - By default uses a timeout of 1ms for fullDelay (for "delay") and 0ms otherwise (for "pre-delay").
-     * - This is used internally by the sendSignalAs method with "pre-delay" or "delay". The method can be overridden to provide custom timing.
+    /** Overrideable method that should trigger a refresh and return a promise.
+     * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
+     *      * By default uses a timeout of 0ms for "pre-delay" and after that awaits the promise from `awaitRefresh` for full "delay".
      * - Note that at the level of SignalMan there is nothing to "refresh". However, if extended by a class where refreshing makes sense, this should trigger refreshing first.
+     * - Used internally by sendSignalAs flow for its "pre-delay" and "delay" signals.
      */
     afterRefresh(fullDelay?: boolean): Promise<void>;
+    /** Should not be called externally, but only overridden externally to determine the timing of the "delay" signals (after "pre-delay").
+     * - By default uses a timeout of 1ms. Assumes to be overridden.
+     * - Used internally through afterRefresh flow.
+     */
+    awaitRefresh(): Promise<void>;
+    /** Optional local callback handler to keep track of added / removed listeners. Called right after adding and right before removing. */
+    onListener?(name: string & keyof Signals, index: number, wasAdded: boolean): void;
     /** Optional assignable method. If used, then this will be used for the signal sending related methods to get all the listeners - instead of this.signals[name]. */
     getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
 }
@@ -440,14 +447,19 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
      */
     contexts: Partial<Record<string, Context<any, SignalsRecord> | null>>;
     constructor(contexts?: Partial<Contexts>);
-    /** This (triggers a refresh and) returns a promise that is resolved when the update cycle is completed.
-     * - If there's nothing pending, then will resolve immediately.
-     * - This uses the signals system, so the listener is called among other listeners depending on the adding order.
+    /** This (triggers a refresh and) returns a promise that is resolved when the "pre-delay" or "delay" cycle is completed.
+     * - At the level of ContextAPI there's nothing to refresh (no data held, just read from contexts).
+     *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitRefresh` method.
      * - Note that this method is overrideable. On the basic implementation it resolves immediately.
-     *      * However, on an externael layer, the awaiting might be synced to an update cycle - to provide the bridge for syncing the "delay" signals.
-     *      * Note also that at ContextAPI level, there is nothing to "refresh" (it doesn't hold data, just reads it from contexts). So will not trigger a refresh, just await.
+     *      * But on an external layer, the awaiting might be synced to provide the bridging for syncing the "delay" signals of many contexts together.
      */
     afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
+    /** At the level of ContextAPI the `awaitRefresh` resolves instantly.
+     * - Importantly, this method determines when the "delay" cycle of the connected Contexts is resolved. (That's why defaults to instant.)
+     * - Accordingly, you can override this method (externally or by extending class) to customize the syncing.
+     * - Note that this method should not be _called_ externally - only overridden externally (to affect the "delay" cycle timing).
+     */
+    awaitRefresh(): Promise<void>;
     /** Emit a signal. Does not return a value. Use `sendSignalAs(modes, ctxSignalName, ...args)` to refine the behaviour. */
     sendSignal<CtxSignalName extends string & keyof GetSignalsFromContexts<Contexts>, Names extends CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? [CtxName, SignalName] : [never, never]>(ctxSignalName: CtxSignalName, ...args: Parameters<(Contexts[Names[0]]["_Signals"] & {})[Names[1]]>): void;
     /** This exposes various features to the signalling process which are inputted as the first arg: either string or string[]. Features are:
@@ -571,10 +583,25 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     /** Temporary internal callbacks that will be called after the update cycle and the related external refreshes (by contextAPIs) have been flushed - at the moment of "delay" cycle. */
     private _afterPost?;
     constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
+    /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
+    modifySettings(settings: Partial<ContextSettings>): void;
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
     getListenersFor(signalName: string): SignalListener[] | undefined;
-    /** This returns a promise that is resolved when the context is refreshed, or after all the related contextAPIs have refreshed (based on their afterRefresh promise). */
+    /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
+     * - If there's nothing pending, then will resolve immediately (by the design of the flow).
+     * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
+     *      * The "pre-delay" (fullDelay = false) uses the time out from settings { refreshTimeout }.
+     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitRefresh`.
+     *          - The `awaitRefresh` is in turn synced to awaiting the `awaitRefresh` of all the connected contextAPIs.
+     * - Note that technically, the system at Context level simply collects an array (per delay type) of one-time promise resolve funcs and calls them at the correct time.
+     * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
+     */
     afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
+    /** At the level of Context the `awaitRefresh` is tied to waiting the refresh from all contexts.
+     * - It's called by the data refreshing flow after calling the "pre-delay" actions and the data listeners.
+     * - Note that this method should not be _called_ externally, but can be overridden externally to affect when "delay" cycle is resolved.
+     */
+    awaitRefresh(): Promise<void>;
     /** Trigger refresh of the context and optionally add data keys.
      * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
      */
@@ -583,16 +610,16 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     triggerRefresh(forceTimeout?: number | null): void;
     /** Check whether is waiting to be refreshed. */
     isWaitingForRefresh(): boolean;
+    /** Check whether has any reason to be refreshed: checks if there are any pending data keys or signals on the "pre-delay" or "delay" cycle. */
+    isPendingRefresh(): boolean;
     /** This refreshes the context immediately.
      * - This is assumed to be called only by the .refresh function above.
      * - So it will mark the timer as cleared, without using clearTimeout for it.
      */
     private refreshPending;
-    /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
-    modifySettings(settings: Partial<ContextSettings>): void;
     /** Extendable static default settings getter. */
     static getDefaultSettings(): ContextSettings;
-    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
+    /** General helper for reusing a timer callback, or potentially forcing an immediate call.
      * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
      */
     static callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;

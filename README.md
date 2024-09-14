@@ -1,4 +1,10 @@
 
+## TODO:
+- Refine comments on DataMAn (and doc). That it assumes a nested dictionary structure.
+- Vreify deep data dotted key typing for dataman cases..
+- Handle REJECT flow.... just capture it..?
+
+
 ## WHAT
 
 `data-signals` is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
@@ -32,16 +38,18 @@ Two classes specialized for complex data sharing situations, like those in moder
 
 The `ContextAPI` can also affect syncing of `Context` refreshes in regards to the "delay" cycle.
 - For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). Eg. the signal is meant for a component that was not there before the state refresh.
-- To solve it, the rendering hosts can simply use a connected contextAPI and override its `afterRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
+- To solve it, the rendering hosts can simply use a connected contextAPI and override its `awaitRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
 
 ### 3. STATIC LIBRARY METHODS
 
 A couple of data reusing concepts in the form of library methods.
-- Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1) for deep supporting Objects, Arrays, Maps, Sets and (skipping) classes.
-- Data selector features with 3 variants:
+- Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1).
+    * The methods support native JS Objects, Arrays, Maps, Sets and handling classes.
+- Data selector features:
     * `createDataTrigger` triggers a callback when reference data is changed from previous time.
     * `createDataMemo` recomputes / reuses data based on arguments: if changed, calls the producer callback.
     * `createDataSource` is like createDataMemo but with an extraction process before the producer callback.
+    * `createCachedSource` is like createDataSource but creates a new data source for each cacheKey.
 
 ---
 
@@ -188,7 +196,7 @@ class MyMultiMix extends SignalDataManMixin(CustomBase) {}
 - The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
 - The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
     * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
-    * The "delay" happens after all the connected `ContextAPI`s have resolved their `afterRefresh` promise.
+    * The "delay" happens after all the connected `ContextAPI`s have resolved their `awaitRefresh` promise.
     * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
 
 ```typescript
@@ -238,9 +246,10 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 - `ContextAPI` provides communication with multiple _named_ `Context`s.
 - When a ContextAPI is hooked up to a context, it can use its data and signalling services.
     * In this sense, ContextAPI provides a stable reference to potentially changing set of contexts.
-- The ContextAPI `afterRefresh` method the "delay" refresh cycle of Contexts (by the returned promise).
+- The ContextAPI's `awaitRefresh` method affects the "delay" refresh cycle of Contexts (by the returned promise).
     * The default implementation resolves the promise instantly, but can be overridden (for external syncing).
     * The Context's "delay" cycle is resolved once all the connected ContextAPIs have been awaited.
+    * I's totally fine to override the method externally: `myContextAPI.awaitRefresh = async () => await someProcess()`.
 
 ```typescript
 
@@ -279,6 +288,10 @@ cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
 cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
 cApi.refreshData(["settings", "user"], null); // Just refresh both contexts fully, and do it instantly (with `null` as the timeout).
 
+// Override the awaitRefresh timer - it will affect when "delay" signals are resolved for all connected contexts.
+cApi.awaitRefresh = () => new Promise((resolve, reject) => { window.setTimeout(resolve, 500); }); // Just to showcase.
+cApi.awaitRefresh = async () => await someExternalProcess();
+
 // Send a signal.
 cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
 
@@ -286,7 +299,7 @@ cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });
 const livesAre = await cApi.sendSignalAs("await", "user.whatIsLife", "me"); // [0] | []
 const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "user.whatIsLife", "me"); // 0 | undefined
 //
-// <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
+// <-- Using "pre-delay" is synced to context's refresh cycle, while "delay" to once all related contextAPIs have refreshed.
 
 
 ```
