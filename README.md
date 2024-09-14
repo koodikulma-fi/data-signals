@@ -45,7 +45,7 @@ A couple of data reusing concepts in the form of library methods.
 
 ---
 
-## examples: 1. BASE CLASSES / MIXINS
+## 1. BASE CLASSES / MIXINS
 
 ### SignalMan
 
@@ -75,7 +75,8 @@ const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsL
 ### DataMan & DataBoy
 
 - `DataBoy` simply provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
-- `DataMan` completes the concept by providing the `data` member and the related methods for setting and getting data.
+- `DataMan` completes the concept with the `data` member and related methods for setting and getting data.
+    * Note that when nested data is set (with setInData), all the parenting data dictionaries are shallow copied.
 
 ```typescript
 
@@ -91,11 +92,13 @@ dataMan.getInData("something.deep"); // true
 dataMan.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
 dataMan.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
 
-// Trigger changes.
+// Set data.
 // .. At DataMan level, the data is refreshed instantly and optional timeouts are resolved separately.
 // .. Note. The Contexts level has 0ms timeout by default and the refreshes are triggered all in sync.
 dataMan.setData({ simple: "no" });
-dataMan.setInData("something.deep", false);
+dataMan.setInData("something.deep", false); // Automatically shallow copies the parenting "something" and root data object.
+
+// Trigger changes.
 dataMan.refreshData("something.deep"); // Trigger a refresh manually.
 dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
 
@@ -179,7 +182,7 @@ class MyMultiMix extends SignalDataManMixin(CustomBase) {}
 
 ---
 
-## examples: 2. CONTEXT CLASSES
+## 2. CONTEXT CLASSES
 
 ### Context
 
@@ -292,7 +295,7 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 ---
 
-## examples: 3. STATIC LIBRARY METHODS
+## 3. STATIC LIBRARY METHODS
 
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
