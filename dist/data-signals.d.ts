@@ -1,10 +1,18 @@
 /// <reference types="node" />
+/** Awaits the value from a promise. */
 type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
+/** Type for holding keys as a dictionary, array or set. */
 type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
-type Dictionary<V = any> = Record<string, V>;
+/** Get the type for class constructor arguments. */
 type GetConstructorArgs<T> = T extends new (...args: infer U) => any ? U : never;
+/** Get the type for class constructor return. */
 type GetConstructorReturn<T> = T extends new (...args: any[]) => infer U ? U : never;
+/** Get the type for class from class instance - the opposite of `InstanceType`. Optionally define constructor args. */
 type ClassType<T = {}, Args extends any[] = any[]> = new (...args: Args) => T;
+/** Typing to extend mixins.
+ * @param TExtends Should refer to the class type of the mixin.
+ * @returns The returned type is a mixin creator, essentially: `(Base: TBase) => TBase & TExtends`.
+ */
 type ClassMixer<TExtends extends ClassType> = <TBase extends ClassType>(Base: TBase) => Omit<TBase & TExtends, "new"> & {
     new (...args: GetConstructorArgs<TExtends>): GetConstructorReturn<TBase> & GetConstructorReturn<TExtends>;
 };
@@ -474,7 +482,7 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
      *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
     */
-    setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Dictionary, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
     setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
     /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. */
     refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>>(ctxDataKeys: CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
@@ -599,4 +607,4 @@ type ContextType<Data extends Record<string, any> = {}, Signals extends SignalsR
     callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
 };
 
-export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllOrNullType, ContextsAllType, CreateCachedSource, CreateDataSource, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, Dictionary, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeDictionary, RecordableType, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy };
+export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllOrNullType, ContextsAllType, CreateCachedSource, CreateDataSource, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeDictionary, RecordableType, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy };

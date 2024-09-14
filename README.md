@@ -148,7 +148,7 @@ class CustomBase {
 interface MyData { something: { deep: boolean; }; simple: string; }
 class CustomDataMix extends (DataManMixin as ClassMixer<DataManType<MyData>>)(CustomBase) {
 
-    // Optional constructor. If you need a constructor, it could eg. look like this.
+    // Optional constructor. If you need a constructor, it could look like this.
     constructor(data: MyData, someMember: boolean) {
         super(data, someMember);
     }

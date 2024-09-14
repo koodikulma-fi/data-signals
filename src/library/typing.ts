@@ -2,13 +2,22 @@
 // - General - //
 
 // Common JS things.
+/** Awaits the value from a promise. */
 export type Awaited<T> = T extends PromiseLike<infer U> ? U : T
-export type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>; // Iterable<K>;
-export type Dictionary<V = any> = Record<string, V>;
+/** Type for holding keys as a dictionary, array or set. */
+export type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
+
 // Classes and mixins.
+/** Get the type for class constructor arguments. */
 export type GetConstructorArgs<T> = T extends new (...args: infer U) => any ? U : never;
+/** Get the type for class constructor return. */
 export type GetConstructorReturn<T> = T extends new (...args: any[]) => infer U ? U : never;
+/** Get the type for class from class instance - the opposite of `InstanceType`. Optionally define constructor args. */
 export type ClassType<T = {}, Args extends any[] = any[]> = new (...args: Args) => T;
+/** Typing to extend mixins.
+ * @param TExtends Should refer to the class type of the mixin.
+ * @returns The returned type is a mixin creator, essentially: `(Base: TBase) => TBase & TExtends`.
+ */
 export type ClassMixer<TExtends extends ClassType> = <TBase extends ClassType>(Base: TBase) => Omit<TBase & TExtends, "new"> & { new (...args: GetConstructorArgs<TExtends>): GetConstructorReturn<TBase> & GetConstructorReturn<TExtends>; };
 
 

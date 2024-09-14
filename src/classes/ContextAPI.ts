@@ -5,7 +5,7 @@
 import { SignalDataBoy } from "./SignalDataBoy";
 import { Context } from "./Context";
 // Typing.
-import { PropType, Dictionary, RecordableType, GetJoinedDataKeysFrom, ClassType, PropTypeArray } from "../library/typing";
+import { PropType, RecordableType, GetJoinedDataKeysFrom, ClassType, PropTypeArray } from "../library/typing";
 import { SignalsRecord, SignalSendAsReturn } from "./SignalMan";
 
 
@@ -166,7 +166,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
      *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
     */
-    public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Dictionary, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
+    public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
     public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
     public setInData(ctxDataKey: string, data: any, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void {
         // Parse.
