@@ -25,30 +25,47 @@ export type ClassMixer<TExtends extends ClassType> = <TBase extends ClassType>(B
 
 // Thanks to: https://github.com/microsoft/TypeScript/pull/40336
 /** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`. If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path. */
-export type PropType<T, Path extends string, Unknown = unknown> =
+export type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | never = false> =
+    // Too generic.
     string extends Path ? Unknown :
-    Path extends keyof T ? T[Path] :
-    Path extends `${infer K}.${infer R}` ? K extends keyof T ? PropType<T[K], R, Unknown> : Unknown :
+    // Finished.
+    Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : T[Path] :
+    // Should go deeper.
+    Path extends `${infer K}.${infer R}` ?
+        // Can go deeper.
+        K extends keyof T ?
+            PropType<T[K] & {}, R, Unknown, IsPartial extends never ? never : undefined extends T[K] ? true : IsPartial> :
+        Unknown :
+    // Unfound path.
     Unknown;
 
-/** Get deep props by a dictionary whose keys are dotted data keys and values are fallbacks (to be used when data is not found on the JS side).
- * - Note that if does not validate whether the keys are valid, since in those cases should simply always return the respective fallback.
+/** This helps to feed in a fallback to handle partiality.
+ * - If the Fallback is not `undefined`, then it can cut partiality away and represents itself as an union type for the deep data.
+ * - If the Fallback is `undefined`, then only adds `undefined` if the data was actually partial. Otherwise doesn't.
  */
-export type PropTypeDictionary<T, Fallbacks extends Record<string, any>> = {
-    [Key in keyof Fallbacks & string]: PropType<T, Key, Fallbacks[Key]> | Fallbacks[Key];
+export type PropTypeFallback<T extends Record<string, any> | undefined, Path extends string, Fallback extends any = undefined> =
+    Fallback extends undefined ? PropType<T, Path, never> : PropType<T, Path, never, never> | Fallback;
+
+/** Get deep props by a dictionary whose keys are dotted data keys and values are fallbacks (to be used when data is not found on the JS side).
+ * - The outputted type is likewise a flat dictionary with the same keys, but values are fetched deeply for each.
+ */
+export type PropTypesFromDictionary<T extends Record<string, any>, Fallbacks extends Record<string, any>> = {
+    [Key in keyof Fallbacks & string]: PropTypeFallback<T, Key, Fallbacks[Key]>;
 };
 
 /** Get deep props for an array of dotted data keys. */
-export type PropTypeArray<T, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> =
+export type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> =
     // Nothing more to do.
     Index extends 0 ? [] :
     // Do this, and then there's still more to add before us.
-    [...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>, PropType<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]> | Fallbacks[IterateBackwards[Index]]];
+    [...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>, PropTypeFallback<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]>];
 
 
 // - Get dotted data keys from nested data - //
 
-/** Iterate down from 20 to 0. If iterates with 0 or negative returns never. If iterates with higher than 20, returns 0. */
+/** Iterate down from 20 to 0. If iterates at 0 returns never. If higher than 20, returns 0. (With negative returns all numeric options type.)
+ * - When used, should not input negative, but go down from, say, `Arr["length"]`, and stop after 0.
+ */
 export type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
 
 /** Collect structural data keys from a deep dictionary as dotted strings.
@@ -66,9 +83,9 @@ export type GetJoinedDataKeysFrom<
     PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`
 > = IterateBackwards[MaxDepth] extends never ? never : 
     { [Key in string & keyof Data]:
-        Data[Key] extends { [key: string]: any;[key: number]: never; } ?
-            Data[Key] extends { asMutable(): Data[Key]; } ?
+        Data[Key] & {} extends { [key: string]: any; [key: number]: never; } ?
+            Data[Key] & {} extends { asMutable(): Data[Key]; } ?
                 `${PreVal}${Key}` :
-            string & GetJoinedDataKeysFrom<Data[Key], `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` :
+            string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` :
         `${PreVal}${Key}`
     }[string & keyof Data];

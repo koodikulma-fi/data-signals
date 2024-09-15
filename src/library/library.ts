@@ -2,7 +2,92 @@
 // - Import - // 
 
 // Typing.
-import { ClassType } from "./typing";
+import { ClassType, RecordableType } from "./typing";
+
+
+
+// - Static misc. helpers - //
+    
+/** Builds a record of { [key]: trueFalseLike }, which is useful for internal quick checks. */
+export function buildRecordable<T extends string = any>(types: RecordableType<T>): Partial<Record<T, any>> {
+    if (types.constructor === Object)
+        return types as Partial<Record<T, any>>;
+    const tTypes: Partial<Record<T, any>> = {};
+    for (const type of types as Iterable<T>)
+        tTypes[type] = true;
+    return tTypes;
+}
+
+/** General helper for reusing a timer callback, or potentially forcing an immediate call.
+ * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
+ */
+export function updateCallTimer<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null {
+    // Clear old timer if was given a specific forceTimeout (and had a timer).
+    if (currentTimer !== null && forceTimeout !== undefined) {
+        clearTimeout(currentTimer as any); // To support both sides: NodeJS and browser.
+        currentTimer = null;
+    }
+    // Execute immediately.
+    const timeout = forceTimeout !== undefined ? forceTimeout : defaultTimeout;
+    if (timeout === null)
+        callback();
+    // Or setup a timer - unless already has a timer to be reused.
+    else if (currentTimer === null)
+        currentTimer = setTimeout(() => callback(), timeout) as any;
+    // Return the timer.
+    return currentTimer;
+}
+
+
+// - Unused static helpers - //
+
+/** Creates a numeric range with whole numbers.
+ * - With end smaller than start, will give the same result but in reverse.
+ * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
+ * - Works for integers and floats. Of course floats might do what they do even with simple adding / subtraction.
+ * Examples:
+ * - numberRange(3) => [0, 1, 2]
+ * - numberRange(1, 3) => [1, 2]
+ * - numberRange(3, 1) => [2, 1]
+ * - numberRange(1, -2) => [0, -1, -2]
+ * - numberRange(-3) => [-1, -2, -3]
+ */
+export function createRange(start: number, end?: number | null, stepSize: number = 1): number[] {
+    // Validate.
+    if (!stepSize || stepSize < 0)
+        stepSize = 1;
+    // Only length given.
+    if (end == null)
+        [end, start] = [start, 0];
+    // Go in reverse.
+    const range: number[] = [];
+    if (end < start) {
+        for (let i=start-1; i>=end; i -= stepSize)
+            range.push(i);
+    }
+    // Fill directly.
+    else
+        for (let i=start; i<end; i += stepSize)
+            range.push(i);
+    // Return range.
+    return range;
+}
+
+// /** Extends the base class with methods from other classes - last constructor gets applied.
+//  * - This is from: https://www.typescriptlang.org/docs/handbook/mixins.html
+//  */
+// export function extendClassMethods(BaseClass, withClasses: ClassType[]): void {
+//     withClasses.forEach((ThisClass) => {
+//         Object.getOwnPropertyNames(ThisClass.prototype).forEach((name) => {
+//             Object.defineProperty(
+//                 BaseClass.prototype,
+//                 name,
+//                 Object.getOwnPropertyDescriptor(ThisClass.prototype, name) ||
+//                 Object.create(null)
+//             );
+//         });
+//     });
+// }
 
 
 // - Static data helpers - // 

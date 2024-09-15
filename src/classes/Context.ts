@@ -3,16 +3,18 @@
 
 // Library.
 import { ClassType, GetJoinedDataKeysFrom } from "../library/typing";
+import { updateCallTimer } from "../library/library";
 // Classes.
 import { SignalDataMan } from "./SignalDataMan";
 // Typing.
-import { SignalListener, SignalsRecord } from "./SignalMan";
+import { SignalListener, SignalManType, SignalsRecord } from "./SignalMan";
+import { DataManType } from "./DataMan";
 import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - would be cyclical).
 
 
-// - Types - //
+// - Extra typing - //
 
-export type ContextSettings = {
+export interface ContextSettings {
     /** Timeout for refreshing for this particular context.
      * - The timeout is used for data refreshing, but also tied to actions called with syncing (like "delay" or "pre-delay").
      *      * Note that "pre-delay" refers to resolving this refreshTimeout, while "delay" is resolved after it once all the related contextAPIs have refreshed.
@@ -22,10 +24,16 @@ export type ContextSettings = {
      *      * For example, on the next code line (after say, setting data in context) the context have already updated and triggered refreshes all around the app. Maybe instance you called from has alredy unmounted.
      */
     refreshTimeout: number | null;
-};
+}
 
 
 // - Class - //
+
+/** Class type for Context class. */
+export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, Settings extends ContextSettings = ContextSettings> extends ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]>, DataManType<Data>, SignalManType<Signals> {
+    /** Extendable static default settings getter. */
+    getDefaultSettings<CtxSettings extends Settings & ContextSettings = Settings>(): CtxSettings;
+}
 
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
  * - Contexts provide data listening and signalling features.
@@ -44,7 +52,7 @@ export type ContextSettings = {
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan<Data, Signals> {
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, Settings extends ContextSettings = ContextSettings> extends SignalDataMan<Data, Signals> {
 
 
     // - Members - //
@@ -55,7 +63,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     ["constructor"]: ContextType<Data, Signals>;
     
     // Settings.
-    public settings: ContextSettings;
+    public settings: Settings;
 
     // Connected.
     /** The keys are the ContextAPIs this context is attached to with a name, and the values are the names (typically only one). They are used for refresh related purposes. */
@@ -72,13 +80,13 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     // - Construct - //
 
-    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
-    constructor(data: Data, settings?: Partial<ContextSettings> | null | undefined) {
+    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<Settings> | null | undefined] : [data: Data, settings?: Partial<Settings> | null | undefined]);
+    constructor(data: Data, settings?: Partial<Settings> | null | undefined) {
         // Base.
         super(data);
         // Public settings.
         this.contextAPIs = new Map();
-        this.settings = this.constructor.getDefaultSettings();
+        this.settings = this.constructor.getDefaultSettings<Settings>();
         this._refreshTimer = null;
         // Update settings.
         if (settings)
@@ -168,7 +176,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // Added method.
     /** Trigger a refresh in the context. Refreshes all pending after a timeout. */
     public triggerRefresh(forceTimeout?: number | null): void {
-        this._refreshTimer = (this.constructor as typeof Context).callWithTimeout(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
+        this._refreshTimer = updateCallTimer(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
     }
 
 
@@ -235,38 +243,8 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // - Static - //
     
     /** Extendable static default settings getter. */
-    public static getDefaultSettings(): ContextSettings {
-        return { refreshTimeout: 0 };
-    }
-
-    /** General helper for reusing a timer callback, or potentially forcing an immediate call.
-     * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
-     */
-    public static callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null {
-        // Clear old timer if was given a specific forceTimeout (and had a timer).
-        if (currentTimer !== null && forceTimeout !== undefined) {
-            clearTimeout(currentTimer as any); // To support both sides: NodeJS and browser.
-            currentTimer = null;
-        }
-        // Execute immediately.
-        const timeout = forceTimeout !== undefined ? forceTimeout : defaultTimeout;
-        if (timeout === null)
-            callback();
-        // Or setup a timer - unless already has a timer to be reused.
-        else if (currentTimer === null)
-            currentTimer = setTimeout(() => callback(), timeout) as any;
-        // Return the timer.
-        return currentTimer;
+    public static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings {
+        return { refreshTimeout: 0 } as Settings;
     }
     
-}
-
-/** Class type for Context class. */
-export type ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> = ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> & {
-    /** Extendable static default settings getter. */
-    getDefaultSettings(): ContextSettings;
-    /** Helper for reusing a timer callback, or potentially forcing an immediate call.
-     * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
-     */
-    callWithTimeout<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
 }

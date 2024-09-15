@@ -77,16 +77,18 @@ export default [
                 },
                 output: { quote_style: 1 }
             }),
-        ],
-    },
+            
+    //     ],
+    // },
+    //
+    //
+    // // - Delete - //
+    //
+    // // Delete the extras.
+    // {
+    //     input: 'dist/data-signals.module.js',
+    //     plugins: [
 
-
-    // - Delete - //
-
-    // Delete the extras.
-    {
-        input: 'dist/data-signals.module.js',
-        plugins: [
             del({ targets: ['dist/classes*', 'dist/library*', 'dist/index.js', 'dist/types.js'], hook: 'buildEnd' })
         ]
     },

@@ -2,7 +2,7 @@
 
 // - Imports - //
 
-// Typing.
+// Library.
 import { ClassType, ClassMixer, Awaited } from "../library/typing";
 
 
@@ -146,8 +146,7 @@ export function _SignalManMixin(Base: ClassType) {
             if (listener[2] & SignalListenerFlags.OneShot)
                 listener.push(listeners);
             // Call.
-            if (this.onListener)
-                this.onListener(name, listeners.indexOf(listener), true);
+            this.onListener(name, listeners.indexOf(listener), true);
         }
 
         public unlistenTo(names?: string | string[] | null, callback?: SignalListenerFunc | null, groupId?: any | null) {
@@ -171,8 +170,7 @@ export function _SignalManMixin(Base: ClassType) {
                     if (hasGroupId && connections[i][3] !== groupId)
                         continue;
                     // Remove.
-                    if (this.onListener)
-                        this.onListener(thisName, i, false);
+                    this.onListener(thisName, i, false);
                     connections.splice(i, 1);
                 }
                 // Empty.
@@ -275,8 +273,10 @@ export function _SignalManMixin(Base: ClassType) {
 
         // - Optional inner listeners (for extending classes) - //
 
-        public onListener?(name: string, index: number, wasAdded: boolean): void;
+        /** Extendable. */
+        public onListener(name: string, index: number, wasAdded: boolean): void {}
         
+        /** Optional. */
         public getListenersFor?(signalName: string): SignalListener[] | undefined;
     
     }
@@ -294,6 +294,7 @@ export const SignalManMixin = _SignalManMixin as ClassMixer<SignalManType>;
 // - Class - //
 
 export interface SignalManType<Signals extends SignalsRecord = {}> extends ClassType<SignalMan<Signals>> { }
+/** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
 export class SignalMan<Signals extends SignalsRecord = {}> extends (_SignalManMixin(Object) as ClassType) { }
 export interface SignalMan<Signals extends SignalsRecord = {}> {
 
@@ -380,8 +381,10 @@ export interface SignalMan<Signals extends SignalsRecord = {}> {
 
     // - Extras - //
 
-    /** Optional local callback handler to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(name: string & keyof Signals, index: number, wasAdded: boolean): void;
-    /** Optional assignable method. If used, then this will be used for the signal sending related methods to get all the listeners - instead of this.signals[name]. */
+    /** Optional extendable local callback handler to keep track of added / removed listeners. Called right after adding and right before removing.
+     * - Note. To fluently support any possible middleware, always call `super.onListener(name, index, wasAdded)` (unless specifically wanting to ignore them).
+     */
+    onListener(name: string & keyof Signals, index: number, wasAdded: boolean): void;
+    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
     getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
 }

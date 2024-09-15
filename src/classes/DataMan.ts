@@ -1,10 +1,10 @@
 
 // - Imports - //
 
+// Library.
+import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer } from "../library/typing";
 // Base.
 import { DataBoy, DataBoyMixin, DataListenerFunc } from "./DataBoy";
-// Typing.
-import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer } from "../library/typing";
 
 
 // - Mixin - //

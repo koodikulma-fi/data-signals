@@ -1,7 +1,7 @@
 
 // - Imports - //
 
-// Libraries.
+// Library.
 import { areEqual } from "./library";
 
 
