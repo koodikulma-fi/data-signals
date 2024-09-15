@@ -92,7 +92,11 @@ dataMan.getInData("something.deep"); // true
 
 // Listen to data.
 dataMan.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
-dataMan.listenToData("something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+dataMan.listenToData("something.deep", (deepOrFallback) => { }, [false]); // If "something.deep" would be undefined, use `false`.
+dataMan.listenToData({ "something.deep": 0 as const, "simple": false }, (values) => {
+    values["something.deep"]; // boolean | 0
+    values["simple"]; // string | boolean
+});
 
 // Trigger changes.
 // .. At DataMan level, the data is refreshed instantly and optional timeouts are resolved separately.
@@ -280,11 +284,21 @@ cApi.getInData("settings"); // CtxSettingsData | undefined
 cApi.getInData("settings.something.deep"); // boolean | undefined
 cApi.getInData("settings.something.deep", false); // boolean
 
-// Listen to data and signals.
-cApi.listenToData("settings.something.deep", "settings.simple", (deep, simple) => { console.log(deep, simple); });
-cApi.listenToData("settings.something.deep", (deepOrFallback) => { }, [ "someFallback" ]); // Custom fallback if data is undefined.
+// Listen to signals.
 cApi.listenTo("user.loggedIn", (userInfo) => { console.log(userInfo); }); // logs: { name, avatar }
 cApi.listenTo("user.whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+
+// Listen to data.
+// .. As contexts might come and go, the type has `| undefined` fallback.
+cApi.listenToData("settings.something.deep", "settings.simple", (deep, simple) => { console.log(deep, simple); });
+// .. To use custom, provide custom fallback.
+cApi.listenToData("settings.something.deep", (deep) => { }, [false]); // boolean
+cApi.listenToData("settings.something.deep", (deep) => { }, ["someFallback" as const]); // boolean | "someFallback"
+cApi.listenToData("settings.something", "settings.simple", (something, simple) => { }, [{ deep: 1 }, ""] as const);
+cApi.listenToData({ "settings.something.deep": 0 as const, "settings.simple": "" }, (values) => {
+    values["settings.something.deep"]; // boolean | 0
+    values["settings.simple"]; // string
+});
 
 // Trigger changes.
 // .. At Contexts level data refreshing uses 0ms timeout by default, and refreshes are always triggered all in sync.
