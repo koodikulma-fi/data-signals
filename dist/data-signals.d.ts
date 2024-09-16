@@ -503,6 +503,12 @@ type GetDataFromContexts<Ctxs extends ContextsAllType> = {
 };
 /** Class type of ContextAPI. */
 interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassType<ContextAPI<Contexts>>, DataBoyType<Partial<GetDataFromContexts<Contexts>>>, SignalManType<GetSignalsFromContexts<Contexts>> {
+    /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
+    parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
+    /** Read context names from contextual data keys or signals. */
+    readContextNamesFrom(ctxDataSignalKeys: string[]): string[];
+    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
+    readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:
