@@ -631,8 +631,17 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
     setContexts(contexts: Partial<{
         [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
     }>, callDataIfChanged?: boolean): boolean;
-    /** Assignable getter to call more data listeners when specific context names are refreshed. */
-    callDataListenersFor?(ctxNames: string[], dataKeys?: true | string[]): void;
+    /** Assignable getter to call more data listeners when specific contexts are refreshed.
+     * - Used internally after setting contexts. If not used, calls `this.callDataBy(ctxNames)` instead.
+     * - If ctxDataKeys is true (or undefined), then should refresh all data in all contexts. (Not used internally, but to mirror callDataBy.)
+     */
+    callDataListenersFor?(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
+    /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
+    static parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
+    /** Read context names from contextual data keys or signals. */
+    static readContextNamesFrom(ctxDataSignalKeys: string[]): string[];
+    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
+    static readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
 
 interface ContextSettings {

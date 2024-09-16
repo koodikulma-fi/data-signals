@@ -183,7 +183,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
         if (!context)
             return fallback;
         // Get data with fallback.
-        return iSplit !== -1 ? context.getInData(ctxDataKey.slice(iSplit + 1), fallback) : context.getData();
+        return iSplit === -1 ? context.getData() : context.getInData(ctxDataKey.slice(iSplit + 1), fallback);
     }
 
     // Extend.
@@ -203,12 +203,12 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
         const context = this.getContext(iSplit === -1 ? ctxDataKey : ctxDataKey.slice(0, iSplit));
         if (!context)
             return;
-        // Set data deep in the context.
-        if (iSplit !== -1)
-            context.setInData(ctxDataKey.slice(iSplit + 1), data as never, extend, refresh, forceTimeout);
-        // Or the whole context data.
-        else
+        // Set the whole context data.
+        if (iSplit === -1)
             context.setData(data, extend, refresh, forceTimeout);
+        // Or data deep in the context.
+        else
+            context.setInData(ctxDataKey.slice(iSplit + 1), data as never, extend, refresh, forceTimeout);
     }
 
     /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. */
@@ -343,7 +343,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
             delete this.contexts[name];
         // Refresh.
         if (callDataIfChanged)
-            this.callDataListenersFor ? this.callDataListenersFor([name]) : this.callDataBy([name] as never);
+            this.callDataListenersFor ? this.callDataListenersFor([name] as any) : this.callDataBy([name] as any);
         return true;
     }
 
@@ -358,14 +358,53 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
             didChange = this.setContext(name, contexts[name] as any, false) || didChange;
         // Refresh.
         if (callDataIfChanged && didChange)
-            this.callDataListenersFor ? this.callDataListenersFor(Object.keys(contexts)) : this.callDataBy(Object.keys(contexts) as never);
+            this.callDataListenersFor ? this.callDataListenersFor(Object.keys(contexts) as any) : this.callDataBy(Object.keys(contexts) as any);
         return didChange;
     }
 
 
     // - Optional assignable getter - //
 
-    /** Assignable getter to call more data listeners when specific context names are refreshed. */
-    public callDataListenersFor?(ctxNames: string[], dataKeys?: true | string[]): void;
+    /** Assignable getter to call more data listeners when specific contexts are refreshed.
+     * - Used internally after setting contexts. If not used, calls `this.callDataBy(ctxNames)` instead.
+     * - If ctxDataKeys is true (or undefined), then should refresh all data in all contexts. (Not used internally, but to mirror callDataBy.)
+     */
+    public callDataListenersFor?(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
+
+
+    // - Static data/signal key helpers - //
+
+    /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
+    public static parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string] {
+        const iSplit = ctxDataSignalKey.indexOf(".");
+        return iSplit === -1 ? [ctxDataSignalKey, ""] : [ctxDataSignalKey.slice(0, iSplit), ctxDataSignalKey.slice(iSplit + 1)];
+    }
+
+    /** Read context names from contextual data keys or signals. */
+    public static readContextNamesFrom(ctxDataSignalKeys: string[]): string[] {
+        return ctxDataSignalKeys.reduce((cum, ctxDataKey) => {
+            // Read name.
+            const iSplit = ctxDataKey.indexOf(".");
+            const ctxName = iSplit === -1 ? ctxDataKey : ctxDataKey.slice(0, iSplit);
+            // Add unique.
+            if (!cum.includes(ctxName) && ctxName)
+                cum.push(ctxName);
+            return cum;
+        }, [] as string[]);
+    }
+
+    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
+    public static readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true> {
+        // Loop keys.
+        const byCtxs: Record<string, string[] | true> = {};
+        for (const ctxDataKey of ctxDataKeys) {
+            // Read.
+            const [ctxName, dataKey] = ContextAPI.parseContextDataKey(ctxDataKey);
+            // Set key, unless already at full.
+            if (byCtxs[ctxName] !== true)
+                dataKey ? (byCtxs[ctxName] as string[] | undefined || (byCtxs[ctxName] = [])).push(dataKey) : byCtxs[ctxName] = true;
+        }
+        return byCtxs;
+    }
 
 }

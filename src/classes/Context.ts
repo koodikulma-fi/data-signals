@@ -223,9 +223,8 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
             // Call on related contextAPIs.
             // .. Only call the ones not colliding with our direct, or call all.
             for (const [contextAPI, ctxNames] of this.contextAPIs.entries())
-                contextAPI.callDataListenersFor ?
-                    contextAPI.callDataListenersFor(ctxNames, refreshKeys) :
-                    contextAPI.callDataBy(refreshKeys === true ? ctxNames : ctxNames.map(ctxName => refreshKeys.map(key => ctxName + "." + key)).reduce((a, c) => a.concat(c)) as any);
+                (contextAPI[contextAPI.callDataListenersFor ? "callDataListenersFor" : "callDataBy"] as typeof contextAPI["callDataBy"] | typeof contextAPI["callDataListenersFor"])!
+                    (refreshKeys === true ? ctxNames : ctxNames.reduce((cum, ctxName) => cum.concat(refreshKeys.map(rKey => rKey ? ctxName + "." + rKey : ctxName)), [] as string[]) as any);
         }
         // Trigger updates for contextAPIs and wait after they've flushed.
         if (afterPost) {
