@@ -1,9 +1,27 @@
 
+## TODO (docs):
+
+- HEy.
+    * MAybe shoujld now use FULL TYPING INSID adDataMan and such ... for .. EXTERNAL CASES.... Tho.. too deep..?
+
+- Add tiny to docs:
+    * numberRange, buildRecordable
+- Add RefreshCycles and ContextCycles.
+- Add about the static methods in ContextAPI.
+- Maybe rename the repo to "refresh-cycle" .. ?  
+    - --> MAYBE RENAME .. To ... "data-mix" ..! .. we also provide mixin tools..
+- HEy.. WE 'D BASICALLY LIKE... SIGNALBOY..
+    * For example.... RefreshCycle wants to just have that.. It's confusing for it to have the more complex features... and awaitSync and such.
+    * So.. Add that, and remove the combos: SignalDataMan and SignalDataBoy. Can just do it through the mixin.
+
+
 ## WHAT
 
 `data-signals` is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
 
 The classes and methods are fully typed and commented. Accordingly the methods themselves can be used as documentation.
+
+The library runs on server and browser, and has no dependencies.
 
 The npm package can be found with: [data-signals](https://www.npmjs.com/package/data-signals). Contribute in GitHub: [koodikulma-fi/data-signals.git](https://github.com/koodikulma-fi/data-signals.git)
 
@@ -32,7 +50,7 @@ Two classes specialized for complex data sharing situations, like those in moder
 
 The `ContextAPI` can also affect syncing of `Context` refreshes in regards to the "delay" cycle.
 - For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). Eg. the signal is meant for a component that was not there before the state refresh.
-- To solve it, the rendering hosts can simply use a connected contextAPI and override its `awaitRefresh` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
+- To solve it, the rendering hosts can simply use a connected contextAPI and override its `awaitDelay` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
 
 ### 3. STATIC LIBRARY METHODS
 
@@ -194,7 +212,7 @@ class MyMultiMix extends SignalDataManMixin(CustomBase) {}
 - The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
 - The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
     * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
-    * The "delay" happens after all the connected `ContextAPI`s have resolved their `awaitRefresh` promise.
+    * The "delay" happens after all the connected `ContextAPI`s have resolved their `awaitDelay` promise.
     * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
 
 ```typescript
@@ -244,10 +262,10 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 - `ContextAPI` provides communication with multiple _named_ `Context`s.
 - When a ContextAPI is hooked up to a context, it can use its data and signalling services.
     * In this sense, ContextAPI provides a stable reference to potentially changing set of contexts.
-- The ContextAPI's `awaitRefresh` method affects the "delay" refresh cycle of Contexts (by the returned promise).
+- The ContextAPI's optional `awaitDelay` method affects the "delay" refresh cycle of Contexts (by the returned promise).
     * The default implementation resolves the promise instantly, but can be overridden (for external syncing).
     * The Context's "delay" cycle is resolved once all the connected ContextAPIs have been awaited.
-    * I's totally fine to override the method externally: `myContextAPI.awaitRefresh = async () => await someProcess()`.
+    * I's totally fine to override the method externally: `myContextAPI.awaitDelay = async () => await someProcess()`.
 
 ```typescript
 
@@ -309,9 +327,9 @@ cApi.refreshData("settings.something.deep"); // Trigger a refresh manually.
 cApi.refreshData(["settings.something.deep", "user.info"], 5); // Add keys and force the next cycle to be triggered after 5ms timeout.
 cApi.refreshData(["settings", "user"], null); // Just refresh both contexts fully, and do it instantly (with `null` as the timeout).
 
-// Override the awaitRefresh timer - it will affect when "delay" signals are resolved for all connected contexts.
-cApi.awaitRefresh = () => new Promise((resolve, reject) => { window.setTimeout(resolve, 500); }); // Just to showcase.
-cApi.awaitRefresh = async () => await someExternalProcess();
+// Override the awaitDelay timer - it will affect when "delay" signals are resolved for all connected contexts.
+cApi.awaitDelay = () => new Promise((resolve, reject) => { window.setTimeout(resolve, 500); }); // Just to showcase.
+cApi.awaitDelay = async () => await someExternalProcess();
 
 // Send a signal.
 cApi.sendSignal("user.loggedIn", { name: "Guest", avatar: "" });

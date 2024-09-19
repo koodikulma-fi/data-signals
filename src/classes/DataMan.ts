@@ -1,43 +1,185 @@
 
 // - Imports - //
 
+// Dependency.
+import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { PropType, GetJoinedDataKeysFrom, ClassType, ClassMixer } from "../library/typing";
+import { PropType, GetJoinedDataKeysFrom } from "../library/typing";
 // Base.
-import { DataBoy, DataBoyMixin, DataListenerFunc } from "./DataBoy";
+import { DataBoy, DataBoyType, addDataBoy } from "./DataBoy";
+
+
+// - Class - //
+
+/** Class type for DataMan. */
+export interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [Data?] : [Data]> { }
+/** DataMan provides data setting and listening features with dotted strings.
+ * - Examples for usage:
+ *      * Create: `const dataMan = new DataMan({ ...initData });`
+ *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... })`
+ *      * Set data: `dataMan.setInData("something.deep", somedata)`
+ * - It assumes a custom data structure of nested dictionaries.
+ *      * For example: `{ something: { deep: boolean; }; simple: string; }`
+ *      * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
+ * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
+ *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
+ * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
+ *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
+ */
+export class DataMan<Data extends Record<string, any> = {}> extends (addDataMan(Object) as any as ClassType) {
+    
+    // // Allow without data if data is set to {}, then we can fall it back automatically.
+    // constructor(...args: {} extends Data ? [Data?] : [Data, ...any[]]);
+    // constructor(...args: any[]) {
+    //     super(...args);
+    // }
+
+}
+export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
+    
+
+    // - Members - //
+
+    // Typing.
+    ["constructor"]: DataManType<Data>;
+
+    // Data & contents.
+    readonly data: Data;
+    /** The pending data keys - for internal refreshing uses. */
+    dataKeysPending: string[] | true | null;
+
+
+    // - Get / set data - //
+
+    /** Get the whole data (directly).
+     * - If you want to use refreshes and such as designed, don't modify the data directly (do it via setData or setInData) - or then call .refreshData accordingly.
+     */
+    getData(): Data;
+    /** Get a portion within the data using dotted string to point the location. For example: "themes.selected". */
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): PropType<Data, DataKey> | Fallback;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKey: DataKey, fallback?: never | undefined): PropType<Data, DataKey>;
+    /** Set the data and refresh. By default extends the data (only replaces if extend is set to false), and triggers a refresh. */
+    setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
+    setData(data: Partial<Data>, extend?: boolean | true, refresh?: boolean, forceTimeout?: number | null): void;
+    /** Set or extend in nested data, and refresh with the key. (And by default trigger a refresh.)
+     * - Along the way (to the leaf) automatically extends any values whose constructor === Object, and creates the path to the leaf if needed.
+     * - By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
+     * - Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
+     */
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
+
+    /** This refreshes both: data & pending signals.
+     * - If refreshKeys defined, will add them - otherwise only refreshes pending.
+     * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
+     */
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    
+    /** Note that this only adds the refresh keys but will not refresh. */
+    addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
+
+}
 
 
 // - Mixin - //
 
-export function _DataManMixin<Data extends Record<string, any> = {}>(Base: ClassType) {
-
-    return class _DataMan extends DataBoyMixin(Base) {
+/** Add DataMan features to a custom class.
+ * - Note. Either provide the BaseClass type specifically as the 2nd type argument or use AsMixin trick (see below).
+ * 
+ * ```
+ * // Type data.
+ * type MyData = { something: boolean; };
+ * 
+ * // Example #1: Create a class extending addDataMan with <MyData>.
+ * class Test extends addDataMan<MyData>(Object) {
+ * 
+ *    test() {
+ *        this.listenToData("something", (something) => {});
+ *    }
+ * }
+ * 
+ * // Example #2: Create a class extending addDataMan<MyData> and a custom class as the base.
+ * class MyBase {
+ *     public someMember: number = 0;
+ * }
+ * class Test2a extends addDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
+ * 
+ *    test2() {
+ *        this.someMember = 1;
+ *        this.listenToData("something", (something) => {});
+ *    }
+ * }
+ * // Or alternatively.
+ * class Test2b extends (addDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
+ *     
+ *     test2() {
+ *         this.someMember = 1;
+ *         this.listenToData("something", (something) => {});
+ *     }
+ * }
+ * 
+ * // Example #3: Pass generic Data from outside with MyBase.
+ * // .. Declare an interface extending what we want to extend, supporting passing generic <Data> further.
+ * interface Test3<Data extends Record<string, any> = {}> extends DataMan<Data>, MyBase {}
+ * // .. Declare a class with base `as ClassType`, so that the interface can fully define the base.
+ * class Test3<Data extends Record<string, any> = {}> extends (addDataMan(MyBase) as ClassType) {
+ * 
+ *    // // Just pass. You need to redefine constructor for the class inside the class for it to be effective.
+ *    // constructor(...args: GetConstructorArgs<DataManType<Data>>) {
+ *    //     super(...args);
+ *    // }
+ * 
+ *    // Or, if we have some custom things, can specify further.
+ *    // .. Since we know our base: MyBase < DataMan < Test3, no need to add (...args: any[]) to the constructor.
+ *    refreshTimeout: number | null;
+ *    constructor(data: Data, refreshTimeout: number | null) {
+ *        super(data);
+ *        this.refreshTimeout = refreshTimeout;
+ *    }
+ * 
+ * }
+ * 
+ * // Test.
+ * const test3 = new Test3<MyData>({ something: true }, 5);
+ * test3.listenToData("something", (something) => {});
+ * test3.refreshTimeout; // number | null
+ * 
+ * ```
+ */
+export function addDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+    // Static.
+    DataManType<Data> & BaseClass,
+    // Instanced.
+    DataMan<Data> & InstanceType<BaseClass>,
+    // Constructor args.
+    {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]
+> {
+    // For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
+    return class DataMan extends (addDataBoy(Base) as DataBoyType) {
 
 
         // - Members - //
 
         // Data & contents.
-        public readonly data: Data;
+        public readonly data: Record<string, any>;
         /** The pending data keys - for internal refreshing uses. */
-        dataKeysPending: string[] | true | null;
+        public dataKeysPending: string[] | true | null;
 
-
-        // - Construct - //
-
-        constructor(...args: {} extends Data ? any[] : [Data, ...any[]]) {
+        constructor(...args: [Record<string, any>?, ...any[]]) {
             // Base.
             super(...args.slice(1));
             // Listeners.
             this.dataListeners = new Map();
             this.dataKeysPending = null;
             // Data.
-            this.data = args[0] || {} as Data;
+            this.data = args[0] || {};
         }
 
 
         // - Get / set data - //
 
-        public getData(): Data {
+        public getData(): Record<string, any> {
             return this.data;
         }
 
@@ -60,9 +202,9 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
             return data === undefined ? fallback : data;
         }
 
-        public setData(data: Data, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
+        public setData(data: Record<string, any>, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
             // Set data and refresh. Note that we modify a readonly value here.
-            (this.data as any) = extend !== false ? { ...this.data, ...data } as Data : data;
+            (this.data as any) = extend !== false ? { ...this.data, ...data } : data;
             // Refresh or just add keys.
             refresh ? this.refreshData(true, forceTimeout) : this.addRefreshKeys(true);
         }
@@ -73,7 +215,7 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
                 return;
             // No data key.
             if (!dataKey) {
-                (this.data as Data) = extend && this.data ? { ...this.data as Data, ...subData as Data } : subData;
+                (this.data as Record<string, any>) = extend && this.data ? { ...this.data, ...subData } : subData;
             }
             // Set partially.
             else {
@@ -144,85 +286,5 @@ export function _DataManMixin<Data extends Record<string, any> = {}>(Base: Class
             }
         }
 
-    }
-}
-
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic DataMan features with advanced typing being empty.
- *      * `class MyMix extends DataManMixin(MyBase) {}`
- * 2. If you want to define the Data and Signals types, you can use this trick instead:
- *      * `class MyMix extends (DataManMixin as ClassMixer<DataManType<Data, Signals>>)(MyBase) {}`
- */
-export const DataManMixin = _DataManMixin as unknown as ClassMixer<ClassType<DataMan>>;
-
-
-// - Class - //
-
-export interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> { }
-/** DataMan provides data setting and listening features with dotted strings.
- * - Examples for usage:
- *      * Create: `const dataMan = new DataMan({ ...initData });`
- *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... })`
- *      * Set data: `dataMan.setInData("something.deep", somedata)`
- * - It assumes a custom data structure of nested dictionaries.
- *      * For example: `{ something: { deep: boolean; }; simple: string; }`
- *      * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
- * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
- *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
- * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
- *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
- */
-export class DataMan<Data extends Record<string, any> = {}> extends (_DataManMixin(Object) as ClassType) {
-    
-    // Allow without data if data is set to {}, then we can fall it back automatically.
-    constructor(...args: {} extends Data ? any[] : [Data, ...any[]]);
-    constructor(...args: any[]) {
-        super(...args);
-    }
-
-}
-export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
-    
-
-    // - Members - //
-
-    // Typing.
-    ["constructor"]: DataManType<Data>;
-
-    // Data & contents.
-    readonly data: Data;
-    /** The pending data keys - for internal refreshing uses. */
-    dataKeysPending: string[] | true | null;
-
-
-    // - Get / set data - //
-
-    /** Get the whole data (directly).
-     * - If you want to use refreshes and such as designed, don't modify the data directly (do it via setData or setInData) - or then call .refreshData accordingly.
-     */
-    getData(): Data;
-    /** Get a portion within the data using dotted string to point the location. For example: "themes.selected". */
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): PropType<Data, DataKey> | Fallback;
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKey: DataKey, fallback?: never | undefined): PropType<Data, DataKey>;
-    /** Set the data and refresh. By default extends the data (only replaces if extend is set to false), and triggers a refresh. */
-    setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
-    setData(data: Partial<Data>, extend?: boolean | true, refresh?: boolean, forceTimeout?: number | null): void;
-    /** Set or extend in nested data, and refresh with the key. (And by default trigger a refresh.)
-     * - Along the way (to the leaf) automatically extends any values whose constructor === Object, and creates the path to the leaf if needed.
-     * - By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
-     * - Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
-     */
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
-
-    /** This refreshes both: data & pending signals.
-     * - If refreshKeys defined, will add them - otherwise only refreshes pending.
-     * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
-     */
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
-    
-    /** Note that this only adds the refresh keys but will not refresh. */
-    addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
-
+    } as any; // We're detached from the return type.
 }

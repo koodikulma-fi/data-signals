@@ -1,21 +1,10 @@
 /// <reference types="node" />
+import { IterateBackwards, ClassType, AsClass } from 'mixin-types';
+
 /** Awaits the value from a promise. */
 type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
 /** Type for holding keys as a dictionary, array or set. */
 type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
-/** Get the type for class constructor arguments. */
-type GetConstructorArgs<T> = T extends new (...args: infer U) => any ? U : never;
-/** Get the type for class constructor return. */
-type GetConstructorReturn<T> = T extends new (...args: any[]) => infer U ? U : never;
-/** Get the type for class from class instance - the opposite of `InstanceType`. Optionally define constructor args. */
-type ClassType<T = {}, Args extends any[] = any[]> = new (...args: Args) => T;
-/** Typing to extend mixins.
- * @param TExtends Should refer to the class type of the mixin.
- * @returns The returned type is a mixin creator, essentially: `(Base: TBase) => TBase & TExtends`.
- */
-type ClassMixer<TExtends extends ClassType> = <TBase extends ClassType>(Base: TBase) => Omit<TBase & TExtends, "new"> & {
-    new (...args: GetConstructorArgs<TExtends>): GetConstructorReturn<TBase> & GetConstructorReturn<TExtends>;
-};
 /** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`. If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path. */
 type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | never = false> = string extends Path ? Unknown : Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : T[Path] : Path extends `${infer K}.${infer R}` ? K extends keyof T ? PropType<T[K] & {}, R, Unknown, IsPartial extends never ? never : undefined extends T[K] ? true : IsPartial> : Unknown : Unknown;
 /** This helps to feed in a fallback to handle partiality.
@@ -34,10 +23,6 @@ type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | u
     ...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>,
     PropTypeFallback<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]>
 ];
-/** Iterate down from 20 to 0. If iterates at 0 returns never. If higher than 20, returns 0. (With negative returns all numeric options type.)
- * - When used, should not input negative, but go down from, say, `Arr["length"]`, and stop after 0.
- */
-type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
 /** Collect structural data keys from a deep dictionary as dotted strings.
  * - Does not go inside arrays, sets, maps, immutable objects nor classes or class instances.
  * - By default limits to 10 depth, to not limit at all put MaxDepth to -1.
@@ -52,24 +37,22 @@ type GetJoinedDataKeysFrom<Data extends Record<string, any>, Pre extends string 
     } ? `${PreVal}${Key}` : string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` : `${PreVal}${Key}`;
 }[string & keyof Data];
 
-/** Builds a record of { [key]: trueFalseLike }, which is useful for internal quick checks. */
-declare function buildRecordable<T extends string = any>(types: RecordableType<T>): Partial<Record<T, any>>;
-/** General helper for reusing a timer callback, or potentially forcing an immediate call.
- * - Returns the value that should be assigned as the stored timer (either existing one, new one or null).
- */
-declare function updateCallTimer<Timer extends number | NodeJS.Timeout>(callback: () => void, currentTimer: Timer | null, defaultTimeout: number | null, forceTimeout?: number | null): Timer | null;
+/** Builds a record of `{ [key]: trueFalseLike }` from arrays, sets or dictionaries. The outcome is useful for internal quick checks. */
+declare function buildRecordable<T extends string = any>(types: RecordableType<T>, trueFalseLike?: any): Partial<Record<T, any>>;
 /** Creates a numeric range with whole numbers.
  * - With end smaller than start, will give the same result but in reverse.
  * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
  * - Works for integers and floats. Of course floats might do what they do even with simple adding / subtraction.
  * Examples:
- * - numberRange(3) => [0, 1, 2]
- * - numberRange(1, 3) => [1, 2]
- * - numberRange(3, 1) => [2, 1]
- * - numberRange(1, -2) => [0, -1, -2]
- * - numberRange(-3) => [-1, -2, -3]
+ * ```
+ * numberRange(3); // [0, 1, 2]
+ * numberRange(1, 3); // [1, 2]
+ * numberRange(3, 1); // [2, 1]
+ * numberRange(1, -2); // [0, -1, -2]
+ * numberRange(-3); // [-1, -2, -3]
+ * ```
  */
-declare function createRange(start: number, end?: number | null, stepSize?: number): number[];
+declare function numberRange(start: number, end?: number | null, stepSize?: number): number[];
 /** General data comparison function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
  * - About arguments:
@@ -187,50 +170,20 @@ declare enum SignalListenerFlags {
 type SignalListenerFunc = (...args: any[]) => any | void;
 type SignalListener<Callback extends SignalListenerFunc = SignalListenerFunc> = [callback: Callback, extraArgs: any[] | null, flags: SignalListenerFlags, groupId: any | null | undefined, origListeners?: SignalListener[]];
 type SignalsRecord = Record<string, SignalListenerFunc>;
-type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extends boolean, RetVal = true extends HasAwait ? Awaited<OrigReturnVal> : OrigReturnVal, ReturnVal = true extends IsSingle ? RetVal | undefined : RetVal[]> = true extends HasAwait ? Promise<ReturnVal> : ReturnVal;
 /** Calls a bunch of listeners and handles SignalListenerFlags mode.
  * - If OneShot flag used, removes from given listeners array.
  * - If Deferred flag is used, calls the listener after 0ms timeout.
  * - Does not collect return values. Just for emitting out without hassle.
  */
 declare function callListeners(listeners: SignalListener[], args?: any[] | null): void;
-/** Emits the signal and collects the answers given by each listener ignoring `undefined` as an answer.
- * - By default, returns a list of answers. To return the last one, include "last" in the modes array.
- * - To stop at the first accepted answer use "first" mode or "first-true" mode.
- * - Always skips `undefined` as an answer. To skip `null` too use "no-null" mode, or any falsifiable with `no-false`.
- */
-declare function askListeners(listeners: SignalListener[], args?: any[] | null, modes?: Array<"" | "no-false" | "no-null" | "last" | "first" | "first-true">): any;
-declare function _SignalManMixin(Base: ClassType): {
-    new (...passArgs: any[]): {
-        signals: Record<string, Array<SignalListener>>;
-        listenTo(name: string, callback: SignalListenerFunc, extraArgs?: any[], flags?: SignalListenerFlags, groupId?: any | null): void;
-        unlistenTo(names?: string | string[] | null, callback?: SignalListenerFunc | null, groupId?: any | null): void;
-        isListening(name?: string | null, callback?: (SignalListenerFunc) | null, groupId?: any | null): any;
-        sendSignal(name: string, ...args: any[]): any;
-        sendSignalAs(modes: string | string[], name: string, ...args: any[]): any;
-        afterRefresh(fullDelay?: boolean): Promise<void>;
-        awaitRefresh(): Promise<void>;
-        /** Extendable. */
-        onListener(name: string, index: number, wasAdded: boolean): void;
-        /** Optional. */
-        getListenersFor?(signalName: string): SignalListener[] | undefined;
-    };
-};
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic SignalMan features with types for Props and such being empty.
- *      * `class MyMix extends SignalManMixin(MyBase) {}`
- * 2. If you want to type the signals (as you very likely do), use this simple trick instead:
- *      * `class MyMix extends (SignalManMixin as ClassMixer<typeof SignalMan<{ someSignal: () => void; }>>)(MyBase) {}`
- */
-declare const SignalManMixin: ClassMixer<SignalManType<{}>>;
-interface SignalManType<Signals extends SignalsRecord = {}> extends ClassType<SignalMan<Signals>> {
+interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> {
 }
-declare const SignalMan_base: ClassType<{}, any[]>;
-/** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
-declare class SignalMan<Signals extends SignalsRecord = {}> extends SignalMan_base {
+declare const SignalBoy_base: ClassType<{}, any[]>;
+/** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
+declare class SignalBoy<Signals extends SignalsRecord = {}> extends SignalBoy_base {
 }
-interface SignalMan<Signals extends SignalsRecord = {}> {
-    ["constructor"]: SignalManType<Signals>;
+interface SignalBoy<Signals extends SignalsRecord = {}> {
+    ["constructor"]: SignalBoyType<Signals>;
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
     signals: Record<string, Array<SignalListener>>;
     /** Assign a listener to a signal. You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
@@ -242,6 +195,33 @@ interface SignalMan<Signals extends SignalsRecord = {}> {
     isListening<Name extends string & keyof Signals>(name?: Name | null, callback?: SignalListenerFunc | null, groupId?: any | null): boolean;
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
+    /** Optional extendable local callback handler to keep track of added / removed listeners. Called right after adding and right before removing.
+     * - Note. To fluently support any possible middleware, always call `super.onListener(name, index, wasAdded)` (unless specifically wanting to ignore them).
+     */
+    onListener(name: string & keyof Signals, index: number, wasAdded: boolean): void;
+    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
+    getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
+}
+/** Add SignalBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+ * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ */
+declare function addSignalBoy<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalBoyType<Signals> & BaseClass, SignalBoy<Signals> & InstanceType<BaseClass>, any[]>;
+
+type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extends boolean, RetVal = true extends HasAwait ? Awaited<OrigReturnVal> : OrigReturnVal, ReturnVal = true extends IsSingle ? RetVal | undefined : RetVal[]> = true extends HasAwait ? Promise<ReturnVal> : ReturnVal;
+/** Emits the signal and collects the answers given by each listener ignoring `undefined` as an answer.
+ * - By default, returns a list of answers. To return the last one, include "last" in the modes array.
+ * - To stop at the first accepted answer use "first" mode or "first-true" mode.
+ * - Always skips `undefined` as an answer. To skip `null` too use "no-null" mode, or any falsifiable with `no-false`.
+ */
+declare function askListeners(listeners: SignalListener[], args?: any[] | null, modes?: Array<"" | "no-false" | "no-null" | "last" | "first" | "first-true">): any;
+interface SignalManType<Signals extends SignalsRecord = {}> extends AsClass<SignalBoyType<Signals>, SignalBoy<Signals> & SignalMan<Signals>, []> {
+}
+declare const SignalMan_base: ClassType<{}, any[]>;
+/** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
+declare class SignalMan<Signals extends SignalsRecord = {}> extends SignalMan_base {
+}
+interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signals> {
+    ["constructor"]: SignalManType<Signals>;
     /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
      * - `"delay"`:
      *      * Delays sending the signal. To also collect returned values must include "await".
@@ -272,33 +252,24 @@ interface SignalMan<Signals extends SignalsRecord = {}> {
     sendSignalAs<Name extends string & keyof Signals, Mode extends "" | "pre-delay" | "delay" | "await" | "last" | "first" | "first-true" | "multi" | "no-false" | "no-null", HasAwait extends boolean = Mode extends string[] ? Mode[number] extends "await" ? true : false : Mode extends "await" ? true : false, HasLast extends boolean = Mode extends string[] ? Mode[number] extends "last" ? true : false : Mode extends "last" ? true : false, HasFirst extends boolean = Mode extends string[] ? Mode[number] extends "first" ? true : Mode[number] extends "first-true" ? true : false : Mode extends "first" ? true : Mode extends "first-true" ? true : false, HasMulti extends boolean = Mode extends string[] ? Mode[number] extends "multi" ? true : false : Mode extends "multi" ? true : false, HasDelay extends boolean = Mode extends string[] ? Mode[number] extends "delay" ? true : false : Mode extends "delay" ? true : false, UseSingle extends boolean = true extends HasMulti ? false : HasFirst | HasLast, UseReturnVal extends boolean = true extends HasAwait ? true : true extends HasDelay ? false : true>(modes: Mode | Mode[], name: Name, ...args: Parameters<Signals[Name]>): true extends UseReturnVal ? SignalSendAsReturn<ReturnType<Signals[Name]>, HasAwait, UseSingle> : undefined;
     /** Overrideable method that should trigger a refresh and return a promise.
      * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
-     *      * By default uses a timeout of 0ms for "pre-delay" and after that awaits the promise from `awaitRefresh` for full "delay".
+     *      * By default uses a timeout of 0ms for "pre-delay" and after that awaits the promise from `awaitDelay` for full "delay".
      * - Note that at the level of SignalMan there is nothing to "refresh". However, if extended by a class where refreshing makes sense, this should trigger refreshing first.
      * - Used internally by sendSignalAs flow for its "pre-delay" and "delay" signals.
      */
     afterRefresh(fullDelay?: boolean): Promise<void>;
     /** Should not be called externally, but only overridden externally to determine the timing of the "delay" signals (after "pre-delay").
-     * - By default uses a timeout of 1ms. Assumes to be overridden.
+     * - If not present (default), then is resolved immediately. Otherwise awaits the method.
      * - Used internally through afterRefresh flow.
      */
-    awaitRefresh(): Promise<void>;
-    /** Optional extendable local callback handler to keep track of added / removed listeners. Called right after adding and right before removing.
-     * - Note. To fluently support any possible middleware, always call `super.onListener(name, index, wasAdded)` (unless specifically wanting to ignore them).
-     */
-    onListener(name: string & keyof Signals, index: number, wasAdded: boolean): void;
-    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
+    awaitDelay?(): Promise<void>;
 }
+/** Add SignalMan features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+ * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ */
+declare function addSignalMan<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalManType<Signals> & BaseClass, SignalMan<Signals> & InstanceType<BaseClass>, any[]>;
 
 /** Technically should return void. But for conveniency can return anything - does not use the return value in any case. */
 type DataListenerFunc = (...args: any[]) => any | void;
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic DataBoy features with advanced typing being empty.
- *      * `class MyMix extends DataBoyMixin(MyBase) {}`
- * 2. If you want to define the Data and Signals types, you can use this trick instead:
- *      * `class MyMix extends (DataBoyMixin as ClassMixer<DataBoyType<Data, Signals>>)(MyBase) {}`
- */
-declare const DataBoyMixin: ClassMixer<ClassType<DataBoy<{}>, any[]>>;
 interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
 }
 declare const DataBoy_base: ClassType<{}, any[]>;
@@ -345,6 +316,11 @@ interface DataBoy<Data extends Record<string, any> = {}> {
     listenToData<Keys extends GetJoinedDataKeysFrom<Data>, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Key5 extends Keys, Key6 extends Keys, Key7 extends Keys, Key8 extends Keys, Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>, val2: PropTypeFallback<Data, Key2, Fallback[1]>, val3: PropTypeFallback<Data, Key3, Fallback[2]>, val4: PropTypeFallback<Data, Key4, Fallback[3]>, val5: PropTypeFallback<Data, Key5, Fallback[4]>, val6: PropTypeFallback<Data, Key6, Fallback[5]>, val7: PropTypeFallback<Data, Key7, Fallback[6]>, val8: PropTypeFallback<Data, Key8, Fallback[7]>) => void, Fallback extends [any?, any?, any?, any?, any?, any?, any?, any?] = []>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
     unlistenToData(callback: DataListenerFunc): boolean;
+    /** Should be extended. */
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
+    /** Should be extended. */
+    setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
     /** Helper to build data arguments with values fetched using getInData method with the given data needs args.
      * - For example: `getDataArgsBy(["user.name", "darkMode"])` returns `[userName?, darkMode?]`.
      * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument with respective order.
@@ -358,49 +334,13 @@ interface DataBoy<Data extends Record<string, any> = {}> {
      */
     callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
 }
+/** Add DataBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+ * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+*/
+declare function addDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataBoyType<Data> & BaseClass, DataBoy<Data> & InstanceType<BaseClass>, any[]>;
 
-declare function _DataManMixin<Data extends Record<string, any> = {}>(Base: ClassType): {
-    new (...args: {} extends Data ? any[] : [Data, ...any[]]): {
-        readonly data: Data;
-        /** The pending data keys - for internal refreshing uses. */
-        dataKeysPending: string[] | true | null;
-        getData(): Data;
-        getInData(dataKey: string, fallback?: any): any;
-        setData(data: Data, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
-        setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
-        /** Trigger refresh and optionally add data keys for refreshing.
-         * - This triggers callbacks from dataListeners that match needs in dataKeysPending.
-         * - This base implementation just calls the listeners with matching keys immediately / after the given timeout.
-         * - Note that you might want to override this method and tie it to some refresh system.
-         *      * In that case, remember to feed the keys: `if (dataKeys) this.addRefreshKeys(dataKeys);`
-         */
-        refreshData(dataKeys?: string | string[] | boolean | null, forceTimeout?: number | null): void;
-        /** Note that this only adds the refresh keys but will not refresh. */
-        addRefreshKeys(refreshKeys: string | string[] | boolean): void;
-        constructor: DataBoyType<{}>;
-        dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | Record<string, any> | undefined, ...needs: string[]]>;
-        listenToData<Keys extends never, Fallbacks extends Partial<Record<Keys, any>>>(fallbackDictionary: keyof Fallbacks extends Keys ? Fallbacks : never, callback: (values: PropTypesFromDictionary<{}, Fallbacks>) => void, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_1 extends never, Key1 extends Keys_1, Callback extends (val1: PropTypeFallback<{}, Key1, Fallback[0]>) => void, Fallback extends [any?] = []>(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_2 extends never, Key1_1 extends Keys_2, Key2 extends Keys_2, Callback_1 extends (val1: PropTypeFallback<{}, Key1_1, Fallback_1[0]>, val2: PropTypeFallback<{}, Key2, Fallback_1[1]>) => void, Fallback_1 extends [any?, any?] = []>(dataKey1: Key1_1, dataKey2: Key2, callback: Callback_1, fallbackArgs?: Fallback_1 | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_3 extends never, Key1_2 extends Keys_3, Key2_1 extends Keys_3, Key3 extends Keys_3, Callback_2 extends (val1: PropTypeFallback<{}, Key1_2, Fallback_2[0]>, val2: PropTypeFallback<{}, Key2_1, Fallback_2[1]>, val3: PropTypeFallback<{}, Key3, Fallback_2[2]>) => void, Fallback_2 extends [any?, any?, any?] = []>(dataKey1: Key1_2, dataKey2: Key2_1, dataKey3: Key3, callback: Callback_2, fallbackArgs?: Fallback_2 | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_4 extends never, Key1_3 extends Keys_4, Key2_2 extends Keys_4, Key3_1 extends Keys_4, Key4 extends Keys_4, Callback_3 extends (val1: PropTypeFallback<{}, Key1_3, Fallback_3[0]>, val2: PropTypeFallback<{}, Key2_2, Fallback_3[1]>, val3: PropTypeFallback<{}, Key3_1, Fallback_3[2]>, val4: PropTypeFallback<{}, Key4, Fallback_3[3]>) => void, Fallback_3 extends [any?, any?, any?, any?] = []>(dataKey1: Key1_3, dataKey2: Key2_2, dataKey3: Key3_1, dataKey4: Key4, callback: Callback_3, fallbackArgs?: Fallback_3 | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_5 extends never, Key1_4 extends Keys_5, Key2_3 extends Keys_5, Key3_2 extends Keys_5, Key4_1 extends Keys_5, Key5 extends Keys_5, Callback_4 extends (val1: PropTypeFallback<{}, Key1_4, Fallback_4[0]>, val2: PropTypeFallback<{}, Key2_3, Fallback_4[1]>, val3: PropTypeFallback<{}, Key3_2, Fallback_4[2]>, val4: PropTypeFallback<{}, Key4_1, Fallback_4[3]>, val5: PropTypeFallback<{}, Key5, Fallback_4[4]>) => void, Fallback_4 extends [any?, any?, any?, any?, any?] = []>(dataKey1: Key1_4, dataKey2: Key2_3, dataKey3: Key3_2, dataKey4: Key4_1, dataKey5: Key5, callback: Callback_4, fallbackArgs?: Fallback_4 | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_6 extends never, Key1_5 extends Keys_6, Key2_4 extends Keys_6, Key3_3 extends Keys_6, Key4_2 extends Keys_6, Key5_1 extends Keys_6, Key6 extends Keys_6, Callback_5 extends (val1: PropTypeFallback<{}, Key1_5, Fallback_5[0]>, val2: PropTypeFallback<{}, Key2_4, Fallback_5[1]>, val3: PropTypeFallback<{}, Key3_3, Fallback_5[2]>, val4: PropTypeFallback<{}, Key4_2, Fallback_5[3]>, val5: PropTypeFallback<{}, Key5_1, Fallback_5[4]>, val6: PropTypeFallback<{}, Key6, Fallback_5[5]>) => void, Fallback_5 extends [any?, any?, any?, any?, any?, any?] = []>(dataKey1: Key1_5, dataKey2: Key2_4, dataKey3: Key3_3, dataKey4: Key4_2, dataKey5: Key5_1, dataKey6: Key6, callback: Callback_5, fallbackArgs?: Fallback_5 | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_7 extends never, Key1_6 extends Keys_7, Key2_5 extends Keys_7, Key3_4 extends Keys_7, Key4_3 extends Keys_7, Key5_2 extends Keys_7, Key6_1 extends Keys_7, Key7 extends Keys_7, Callback_6 extends (val1: PropTypeFallback<{}, Key1_6, Fallback_6[0]>, val2: PropTypeFallback<{}, Key2_5, Fallback_6[1]>, val3: PropTypeFallback<{}, Key3_4, Fallback_6[2]>, val4: PropTypeFallback<{}, Key4_3, Fallback_6[3]>, val5: PropTypeFallback<{}, Key5_2, Fallback_6[4]>, val6: PropTypeFallback<{}, Key6_1, Fallback_6[5]>, val7: PropTypeFallback<{}, Key7, Fallback_6[6]>) => void, Fallback_6 extends [any?, any?, any?, any?, any?, any?, any?] = []>(dataKey1: Key1_6, dataKey2: Key2_5, dataKey3: Key3_4, dataKey4: Key4_3, dataKey5: Key5_2, dataKey6: Key6_1, dataKey7: Key6_1, callback: Callback_6, fallbackArgs?: Fallback_6 | null | undefined, callImmediately?: boolean | undefined): void;
-        listenToData<Keys_8 extends never, Key1_7 extends Keys_8, Key2_6 extends Keys_8, Key3_5 extends Keys_8, Key4_4 extends Keys_8, Key5_3 extends Keys_8, Key6_2 extends Keys_8, Key7_1 extends Keys_8, Key8 extends Keys_8, Callback_7 extends (val1: PropTypeFallback<{}, Key1_7, Fallback_7[0]>, val2: PropTypeFallback<{}, Key2_6, Fallback_7[1]>, val3: PropTypeFallback<{}, Key3_5, Fallback_7[2]>, val4: PropTypeFallback<{}, Key4_4, Fallback_7[3]>, val5: PropTypeFallback<{}, Key5_3, Fallback_7[4]>, val6: PropTypeFallback<{}, Key6_2, Fallback_7[5]>, val7: PropTypeFallback<{}, Key7_1, Fallback_7[6]>, val8: PropTypeFallback<{}, Key8, Fallback_7[7]>) => void, Fallback_7 extends [any?, any?, any?, any?, any?, any?, any?, any?] = []>(dataKey1: Key1_7, dataKey2: Key2_6, dataKey3: Key3_5, dataKey4: Key4_4, dataKey5: Key5_3, dataKey6: Key6_2, dataKey7: Key6_2, dataKey8: Key8, callback: Callback_7, fallbackArgs?: Fallback_7 | null | undefined, callImmediately?: boolean | undefined): void;
-        unlistenToData(callback: DataListenerFunc): boolean;
-        getDataArgsBy<DataKey extends never, Params extends [(DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?, (DataKey | undefined)?], Fallbacks_1 extends Record<string, any> | [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]>(needs: Params, fallbackArgs?: Fallbacks_1 | undefined): Fallbacks_1 extends any[] ? PropTypeArray<{}, Params, Fallbacks_1, Params["length"]> : [valueDictionary: PropTypesFromDictionary<{}, Fallbacks_1>];
-        callDataBy(refreshKeys?: true | never[] | undefined): void;
-    };
-};
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic DataMan features with advanced typing being empty.
- *      * `class MyMix extends DataManMixin(MyBase) {}`
- * 2. If you want to define the Data and Signals types, you can use this trick instead:
- *      * `class MyMix extends (DataManMixin as ClassMixer<DataManType<Data, Signals>>)(MyBase) {}`
- */
-declare const DataManMixin: ClassMixer<ClassType<DataMan<{}>, any[]>>;
-interface DataManType<Data extends Record<string, any> = {}> extends ClassType<DataMan<Data>> {
+/** Class type for DataMan. */
+interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [Data?] : [Data]> {
 }
 declare const DataMan_base: ClassType<{}, any[]>;
 /** DataMan provides data setting and listening features with dotted strings.
@@ -417,7 +357,6 @@ declare const DataMan_base: ClassType<{}, any[]>;
  *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
  */
 declare class DataMan<Data extends Record<string, any> = {}> extends DataMan_base {
-    constructor(...args: {} extends Data ? any[] : [Data, ...any[]]);
 }
 interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
     ["constructor"]: DataManType<Data>;
@@ -450,37 +389,143 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
     /** Note that this only adds the refresh keys but will not refresh. */
     addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
 }
-
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic SignalDataBoy features with advanced typing being empty.
- *      * `class MyMix extends SignalDataBoyMixin(MyBase) {}`
- * 2. If you want to define the Data and Signals types, you can use this trick instead:
- *      * `class MyMix extends (SignalDataBoyMixin as ClassMixer<SignalDataBoyType<Data, Signals>>)(MyBase) {}`
+/** Add DataMan features to a custom class.
+ * - Note. Either provide the BaseClass type specifically as the 2nd type argument or use AsMixin trick (see below).
+ *
+ * ```
+ * // Type data.
+ * type MyData = { something: boolean; };
+ *
+ * // Example #1: Create a class extending addDataMan with <MyData>.
+ * class Test extends addDataMan<MyData>(Object) {
+ *
+ *    test() {
+ *        this.listenToData("something", (something) => {});
+ *    }
+ * }
+ *
+ * // Example #2: Create a class extending addDataMan<MyData> and a custom class as the base.
+ * class MyBase {
+ *     public someMember: number = 0;
+ * }
+ * class Test2a extends addDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
+ *
+ *    test2() {
+ *        this.someMember = 1;
+ *        this.listenToData("something", (something) => {});
+ *    }
+ * }
+ * // Or alternatively.
+ * class Test2b extends (addDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
+ *
+ *     test2() {
+ *         this.someMember = 1;
+ *         this.listenToData("something", (something) => {});
+ *     }
+ * }
+ *
+ * // Example #3: Pass generic Data from outside with MyBase.
+ * // .. Declare an interface extending what we want to extend, supporting passing generic <Data> further.
+ * interface Test3<Data extends Record<string, any> = {}> extends DataMan<Data>, MyBase {}
+ * // .. Declare a class with base `as ClassType`, so that the interface can fully define the base.
+ * class Test3<Data extends Record<string, any> = {}> extends (addDataMan(MyBase) as ClassType) {
+ *
+ *    // // Just pass. You need to redefine constructor for the class inside the class for it to be effective.
+ *    // constructor(...args: GetConstructorArgs<DataManType<Data>>) {
+ *    //     super(...args);
+ *    // }
+ *
+ *    // Or, if we have some custom things, can specify further.
+ *    // .. Since we know our base: MyBase < DataMan < Test3, no need to add (...args: any[]) to the constructor.
+ *    refreshTimeout: number | null;
+ *    constructor(data: Data, refreshTimeout: number | null) {
+ *        super(data);
+ *        this.refreshTimeout = refreshTimeout;
+ *    }
+ *
+ * }
+ *
+ * // Test.
+ * const test3 = new Test3<MyData>({ something: true }, 5);
+ * test3.listenToData("something", (something) => {});
+ * test3.refreshTimeout; // number | null
+ *
+ * ```
  */
-declare const SignalDataBoyMixin: ClassMixer<ClassType<DataBoy<{}> & SignalMan<{}>, any[]>>;
-interface SignalDataBoyType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends ClassType<SignalDataBoy<Data, Signals>> {
-}
-declare const SignalDataBoy_base: ClassType<{}, any[]>;
-declare class SignalDataBoy<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataBoy_base {
-}
-interface SignalDataBoy<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends DataBoy<Data>, SignalMan<Signals> {
-    ["constructor"]: SignalDataBoyType<Data, Signals>;
-}
+declare function addDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data> & BaseClass, DataMan<Data> & InstanceType<BaseClass>, {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]>;
 
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic SignalDataMan features with advanced typing being empty.
- *      * `class MyMix extends SignalDataManMixin(MyBase) {}`
- * 2. If you want to define the Data and Signals types, you can use this trick instead:
- *      * `class MyMix extends (SignalDataManMixin as ClassMixer<SignalDataManType<Data, Signals>>)(MyBase) {}`
- */
-declare const SignalDataManMixin: ClassMixer<ClassType<DataMan<{}> & SignalMan<{}>, any[]>>;
-interface SignalDataManType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends ClassType<SignalDataMan<Data, Signals>> {
-}
-declare const SignalDataMan_base: ClassType<{}, any[]>;
-declare class SignalDataMan<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalDataMan_base {
-}
-interface SignalDataMan<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends DataMan<Data>, SignalMan<Signals> {
-    ["constructor"]: SignalDataManType<Data, Signals>;
+type RefreshCycleSignals<PendingOutput extends Record<string, any> = {}> = {
+    /** Called when a new cycle starts. Perfect place to trigger start-up-dependencies (from other cycles). */
+    onStart: () => void;
+    /** Called right before resolving the promise. Perfect place to trigger resolve-dependencies (from other cycles). */
+    onResolve: () => void;
+    /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates. */
+    onRefresh: (pending: Partial<PendingOutput>) => void;
+    /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles). */
+    onFinish: (cancelled: boolean) => void;
+};
+type RefreshCycleAutoPending<PendingInput extends Record<string, any> = {}, PendingOutput extends {
+    [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
+} = PendingInput> = {
+    [Key in keyof PendingInput & string]?: [
+        PendingInput[Key],
+        PendingOutput[Key]
+    ] extends [Iterable<any>, Array<any>] ? "array" | "" : [
+        PendingInput[Key],
+        PendingOutput[Key]
+    ] extends [Iterable<any>, Set<any>] ? "set" | "" : [
+        PendingInput[Key],
+        PendingOutput[Key]
+    ] extends [Iterable<any>, Array<any> | Set<any>] ? "array" | "set" | "" : PendingInput[Key] extends Record<string, any> ? "object" | "" : "";
+};
+/** Class to help manage refresh cycles. */
+declare class RefreshCycle<PendingInput extends Record<string, any> = {}, PendingOutput extends {
+    [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
+} = PendingInput, AddSignals extends SignalsRecord = {}> extends SignalBoy<RefreshCycleSignals<PendingOutput> & AddSignals> {
+    /** The `promise` can be used for waiting purposes. It's always present, and if there's nothing to wait it's already fulfilled. */
+    promise: Promise<void>;
+    /** State of the cycle. Set to "resolving" right when is finishing (does not matter if reject was called), and to "" right after the promise is resolved. */
+    state: "waiting" | "resolving" | "";
+    /** Optional collection of things to update when the cycle finished.
+     * - When the cycle is finished calls `onRefresh(pending: Partial<PendingOutput>)` using this info.
+     * - Collected by providing `addToPending` spread argument when using the `update` or `add` methods.
+     * - You can automate part of the adding process using "autoPending" member.
+     */
+    pending: Partial<PendingOutput>;
+    /** Custom auto-handlers for incoming pending info.
+     * - These can be assigned on the constructor or through setAutoPending method.
+     * - For each main property tell how to assign. The default is "".
+     *      * If uses "object" performs `{ ...oldPending[propery], ...newPending[property] }`.
+     *      * If uses "array" creates a new Array on the first run and then pushes to it from an iterable.
+     *      * If uses "set" creates a new Set on the first run and then adds to it from an iterable.
+     *      * If uses "" simply replace the old value with the new.
+     * - For example: `{ actions: "array", settings: "object", targets: "set" }` results in `{ actions: any[]; settings: Record<string, any>; targets: Set<any>; }`.
+     *      * Note that using this feature with typing requires providing the PendingOutput - it's then reflected in the constructor.
+     */
+    autoPending: RefreshCycleAutoPending<PendingInput, PendingOutput>;
+    /** The current timer if any. */
+    timer?: number | NodeJS.Timeout;
+    /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
+    private _resolvePromise?;
+    constructor(...args: PendingInput extends PendingOutput ? [RefreshCycleAutoPending<PendingInput, PendingOutput>?] : [RefreshCycleAutoPending<PendingInput, PendingOutput>]);
+    /** Start up the cycle. Goes to "waiting" state, unless is "resolving". Only starts if wasn't started already. If uses forceTimeout modifies the timeout. */
+    start(defaultTimeout?: number | null, forceTimeout?: number | null): Promise<void>;
+    /** Starts the cycle if wasn't started, and adds pending info, and modifies the timeout. The defaultTimeout is only used when starting up the cycle. */
+    update(addToPending?: Partial<PendingInput> | null, defaultTimeout?: number | null, forceTimeout?: number | null): void;
+    /** Absorbs the pending info updates without triggering the cycle. Can be automated with "autoPending" member. */
+    absorb(addToPending: Partial<PendingInput>): void;
+    /** Extend the timeout - clearing old timeout (if had).
+     * - If given `number`, then sets it as the new timeout.
+     * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
+     * - If given `undefined´ will only clear the timer and not set up a new one.
+     */
+    extend(timeout: number | null | undefined): void;
+    /** Resolve the refresh cycle (and promise) manually. Results in clearing the entry from bookkeeping and calling `onRefresh`. Resolving again results in nothing. */
+    resolve(): void;
+    /** Cancel the whole refresh cycle. Note that this will clear the entry from refreshTimers bookkeeping along with its updates. */
+    reject(): void;
+    /** Clears the timer and resolves the promise if had. During the process has state "resolving", after it "". Meant for internal use only (with resolve and reject). */
+    private flush;
 }
 
 /** Typing to hold named contexts as a dictionary. */
@@ -502,7 +547,7 @@ type GetDataFromContexts<Ctxs extends ContextsAllType> = {
     [Key in string & keyof Ctxs]: Ctxs[Key]["data"];
 };
 /** Class type of ContextAPI. */
-interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassType<ContextAPI<Contexts>>, DataBoyType<Partial<GetDataFromContexts<Contexts>>>, SignalManType<GetSignalsFromContexts<Contexts>> {
+interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [contexts?: Partial<Contexts>]> {
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
     parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
     /** Read context names from contextual data keys or signals. */
@@ -510,16 +555,19 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassTyp
     /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
+declare const ContextAPI_base: ClassType<{}, any[]>;
+interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetDataFromContexts<Contexts>>, SignalMan<GetSignalsFromContexts<Contexts>> {
+}
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:
  *      * SignalMan: Send and listen to signals in the named contexts.
  *      * DataBoy: Listen to data changes, but also to set/get data in the contexts.
  * - All data keys and signal names should start with `${contextName}.${keyOrName}`.
  *      * For example: "settings.something.deep" data key (for "settings" context) or "navigation.onFocus" signal (for "navigation" context).
- * - Importantly, the ContextAPI's `awaitRefresh` method can be overridden externally to affect the syncing of all the connected contexts.
- *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitRefresh`.
+ * - Importantly, the ContextAPI's `awaitDelay` method can be overridden externally to affect the syncing of all the connected contexts.
+ *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitDelay`.
  */
-declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDataBoy<Partial<GetDataFromContexts<Contexts>>, GetSignalsFromContexts<Contexts>> {
+declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextAPI_base {
     ["constructor"]: ContextAPIType<Contexts>;
     /** All the contexts assigned to us.
      * - They also have a link back to us by context.contextAPIs, with this as the key and context names as the values.
@@ -530,17 +578,19 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDa
     constructor(contexts?: Partial<Contexts>);
     /** This (triggers a refresh and) returns a promise that is resolved when the "pre-delay" or "delay" cycle is completed.
      * - At the level of ContextAPI there's nothing to refresh (no data held, just read from contexts).
-     *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitRefresh` method.
-     * - Note that this method is overrideable. On the basic implementation it resolves immediately.
+     *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitDelay` method.
+     * - Note that this method is overrideable. On the basic implementation it resolves immediately due to that there's no awaitDelay.
      *      * But on an external layer, the awaiting might be synced to provide the bridging for syncing the "delay" signals of many contexts together.
+     * - Note that the timing of this method should always reflect awaitDelay - it should just provide triggering refresh in addition to awaiting the promise.
+     *      * So if awaitDelay is not present, this method should resolve instantly as well.
      */
     afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
-    /** At the level of ContextAPI the `awaitRefresh` resolves instantly.
+    /** At the level of ContextAPI the `awaitDelay` resolves instantly (it's not defined).
      * - Importantly, this method determines when the "delay" cycle of the connected Contexts is resolved. (That's why defaults to instant.)
-     * - Accordingly, you can override this method (externally or by extending class) to customize the syncing.
+     * - Accordingly, you can set / override this method (externally or by extending class) to customize the syncing.
      * - Note that this method should not be _called_ externally - only overridden externally (to affect the "delay" cycle timing).
      */
-    awaitRefresh(): Promise<void>;
+    awaitDelay?(): Promise<void>;
     /** Emit a signal. Does not return a value. Use `sendSignalAs(modes, ctxSignalName, ...args)` to refine the behaviour. */
     sendSignal<CtxSignalName extends string & keyof GetSignalsFromContexts<Contexts>, Names extends CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? [CtxName, SignalName] : [never, never]>(ctxSignalName: CtxSignalName, ...args: Parameters<(Contexts[Names[0]]["_Signals"] & {})[Names[1]]>): void;
     /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
@@ -662,15 +712,22 @@ interface ContextSettings {
     refreshTimeout: number | null;
 }
 /** Class type for Context class. */
-interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, Settings extends ContextSettings = ContextSettings> extends ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]>, DataManType<Data>, SignalManType<Signals> {
+interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> {
     /** Extendable static default settings getter. */
-    getDefaultSettings<CtxSettings extends Settings & ContextSettings = Settings>(): CtxSettings;
+    getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
+    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
+    initializeCyclesFor(context: Context): void;
+    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
+    runPreDelayFor(context: Context): void;
+}
+declare const Context_base: ClassType<{}, any[]>;
+interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
 }
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
  * - Contexts provide data listening and signalling features.
  *      - Extending SignalMan they allow to send typed signals with special options available through sendSignalAs.
  *          * Furthermore, the "pre-delay" and "delay" signals are synced to the refresh cycles of the context.
- *          * The "pre-delay" signals are triggered right before calling data listeners, and "delay" once all related ContextAPI's have resolved their `awaitRefresh`.
+ *          * The "pre-delay" signals are triggered right before calling data listeners, and "delay" once all related ContextAPI's have resolved their `awaitDelay`.
  *      - Extending DataMan they assume a data structure of nested dictionaries.
  *          * For example: `{ something: { deep: boolean; }; simple: string; }`
  *          * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
@@ -683,56 +740,50 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-declare class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, Settings extends ContextSettings = ContextSettings> extends SignalDataMan<Data, Signals> {
+declare class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends Context_base {
     /** This is only provided for typing related technical reasons (so that can access signals typing easier externally). There's no actual _Signals member on the javascript side. */
     _Signals?: Signals;
     ["constructor"]: ContextType<Data, Signals>;
-    settings: Settings;
+    settings: ContextSettings;
+    /** Handle for refresh cycles. */
+    preDelayCycle: RefreshCycle;
+    delayCycle: RefreshCycle;
     /** The keys are the ContextAPIs this context is attached to with a name, and the values are the names (typically only one). They are used for refresh related purposes. */
     contextAPIs: Map<ContextAPI, string[]>;
-    /** Temporary internal timer marker for refreshing. */
-    private _refreshTimer;
-    /** Temporary internal callbacks that will be called when the update cycle is done - at the moment of "pre-delay" cycle (after refreshTimeout). */
-    private _afterPre?;
-    /** Temporary internal callbacks that will be called after the update cycle and the related external refreshes (by contextAPIs) have been flushed - at the moment of "delay" cycle. */
-    private _afterPost?;
-    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<Settings> | null | undefined] : [data: Data, settings?: Partial<Settings> | null | undefined]);
+    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
     /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     modifySettings(settings: Partial<ContextSettings>): void;
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
     getListenersFor(signalName: string): SignalListener[] | undefined;
+    /** Trigger a ("pre-delay") refresh in the context. Once finished, the "delay" cycle is refreshed. The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
+    triggerRefresh(forceTimeout?: number | null): void;
     /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
      * - If there's nothing pending, then will resolve immediately (by the design of the flow).
      * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
      *      * The "pre-delay" (fullDelay = false) uses the time out from settings { refreshTimeout }.
-     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitRefresh`.
-     *          - The `awaitRefresh` is in turn synced to awaiting the `awaitRefresh` of all the connected contextAPIs.
+     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitDelay`.
+     *          - The `awaitDelay` is in turn synced to awaiting the `awaitDelay` of all the connected contextAPIs.
      * - Note that technically, the system at Context level simply collects an array (per delay type) of one-time promise resolve funcs and calls them at the correct time.
+     *      * Note that if used with fullDelay true and forceTimeout, this will effectively not wait for contextAPIs to refresh - or if they refresh earlier, will be triggered earlier.
      * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
      */
     afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
-    /** At the level of Context the `awaitRefresh` is tied to waiting the refresh from all contexts.
-     * - It's called by the data refreshing flow after calling the "pre-delay" actions and the data listeners.
+    /** At the level of Context the `awaitDelay` is tied to waiting the refresh from all connected contextAPIs.
+     * - It's used by the data refreshing flow (after "pre-delay") to mark the "delay" cycle. When the promise resolves, the "delay" is resolved.
      * - Note that this method should not be _called_ externally, but can be overridden externally to affect when "delay" cycle is resolved.
+     * - Note that you can still externally delete the method, if needing to customize context. (Or override it to tie to other things.)
      */
-    awaitRefresh(): Promise<void>;
+    awaitDelay?(): Promise<void>;
     /** Trigger refresh of the context and optionally add data keys.
      * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
      */
     refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
-    /** Trigger a refresh in the context. Refreshes all pending after a timeout. */
-    triggerRefresh(forceTimeout?: number | null): void;
-    /** Check whether is waiting to be refreshed. */
-    isWaitingForRefresh(): boolean;
-    /** Check whether has any reason to be refreshed: checks if there are any pending data keys or signals on the "pre-delay" or "delay" cycle. */
-    isPendingRefresh(): boolean;
-    /** This refreshes the context immediately.
-     * - This is assumed to be called only by the .refresh function above.
-     * - So it will mark the timer as cleared, without using clearTimeout for it.
-     */
-    private refreshPending;
     /** Extendable static default settings getter. */
     static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
+    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
+    static initializeCyclesFor(context: Context): void;
+    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
+    static runPreDelayFor(context: Context): void;
 }
 
-export { Awaited, ClassMixer, ClassType, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyMixin, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManMixin, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetConstructorArgs, GetConstructorReturn, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IterateBackwards, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, SignalDataBoy, SignalDataBoyMixin, SignalDataBoyType, SignalDataMan, SignalDataManMixin, SignalDataManType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManMixin, SignalManType, SignalSendAsReturn, SignalsRecord, _DataManMixin, _SignalManMixin, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, createRange, deepCopy, updateCallTimer };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, addDataBoy, addDataMan, addSignalBoy, addSignalMan, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, numberRange };

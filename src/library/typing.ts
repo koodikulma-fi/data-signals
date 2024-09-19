@@ -1,4 +1,33 @@
 
+// - Imports - //
+
+// Dependency.
+import { IterateBackwards } from "mixin-types";
+
+
+// // - To remove dependency - //
+//
+// /** Iterate down from 20 to 0. If iterates at 0 returns never. If higher than 20, returns 0. (With negative or other invalid returns all numeric options type.)
+//  * - When used, should not input negative, but go down from, say, `Arr["length"]`, and stop after 0.
+//  */
+// export type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
+//
+// /** Get class type from class instance type with optional constr. args. The opposite of `InstanceType`. */
+// export type ClassType<T = {}, Args extends any[] = any[]> = new (...args: Args) => T;
+//
+// /** Re-type class.
+//  * Parameters and return:
+//  * @param Class Type of the merged class type. (Optionally extends ClassType.)
+//  * @param Instance Type of the merged class instance. (Optionally extends Object.)
+//  * @param ConstructorArgs Constructor arguments of the new class. Defaults to any[].
+//  * @returns The returned type is a new class type, with recursive class <-> instance support.
+//  */
+// export type AsClass<Class, Instance, ConstructorArgs extends any[] = any[]> = Omit<Class, "new"> & {
+//     // The ["constructor"] part is optional, but provides a typed link to the static side and back recursively.
+//     new (...args: ConstructorArgs): Instance & { ["constructor"]: AsClass<Class, Instance, ConstructorArgs>; };
+// };
+
+
 // - General - //
 
 // Common JS things.
@@ -7,18 +36,11 @@ export type Awaited<T> = T extends PromiseLike<infer U> ? U : T
 /** Type for holding keys as a dictionary, array or set. */
 export type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
 
-// Classes and mixins.
-/** Get the type for class constructor arguments. */
-export type GetConstructorArgs<T> = T extends new (...args: infer U) => any ? U : never;
-/** Get the type for class constructor return. */
-export type GetConstructorReturn<T> = T extends new (...args: any[]) => infer U ? U : never;
-/** Get the type for class from class instance - the opposite of `InstanceType`. Optionally define constructor args. */
-export type ClassType<T = {}, Args extends any[] = any[]> = new (...args: Args) => T;
-/** Typing to extend mixins.
- * @param TExtends Should refer to the class type of the mixin.
- * @returns The returned type is a mixin creator, essentially: `(Base: TBase) => TBase & TExtends`.
- */
-export type ClassMixer<TExtends extends ClassType> = <TBase extends ClassType>(Base: TBase) => Omit<TBase & TExtends, "new"> & { new (...args: GetConstructorArgs<TExtends>): GetConstructorReturn<TBase> & GetConstructorReturn<TExtends>; };
+// // Intersect.
+// /** Convert union to intersection. */
+// export type Intersect<T> = (T extends any ? ((x: T) => 0) : never) extends ((x: infer R) => 0) ? R : never;
+// /** Convert array values to intersection type. */
+// export type IntersectArray<Arr extends any[], Index extends number = Arr["length"], Intersected extends any = {}> = Index extends 0 ? Intersected : IntersectArray<Arr, IterateBackwards[Index], Intersected & Arr[IterateBackwards[Index]]>;
 
 
 // - Get deep value - //
@@ -62,11 +84,6 @@ export type PropTypeArray<T extends Record<string, any>, Paths extends Array<str
 
 
 // - Get dotted data keys from nested data - //
-
-/** Iterate down from 20 to 0. If iterates at 0 returns never. If higher than 20, returns 0. (With negative returns all numeric options type.)
- * - When used, should not input negative, but go down from, say, `Arr["length"]`, and stop after 0.
- */
-export type IterateBackwards = [never, 0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, ...0[]];
 
 /** Collect structural data keys from a deep dictionary as dotted strings.
  * - Does not go inside arrays, sets, maps, immutable objects nor classes or class instances.

@@ -1,15 +1,17 @@
 
 // - Imports - //
 
+// Depedency.
+import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { PropType, RecordableType, GetJoinedDataKeysFrom, ClassType } from "../library/typing";
+import { PropType, RecordableType, GetJoinedDataKeysFrom } from "../library/typing";
 import { buildRecordable } from "../library/library";
 // Classes.
-import { SignalDataBoy } from "./SignalDataBoy";
 import { Context } from "./Context";
 // Typing.
-import { SignalsRecord, SignalSendAsReturn, SignalManType } from "./SignalMan";
-import { DataBoyType } from "./DataBoy";
+import { SignalsRecord } from "./SignalBoy";
+import { SignalSendAsReturn, SignalManType, addSignalMan, SignalMan } from "./SignalMan";
+import { addDataBoy, DataBoy, DataBoyType } from "./DataBoy";
 
 
 // - Helper types - //
@@ -38,7 +40,7 @@ export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string
 // - Class - //
 
 /** Class type of ContextAPI. */
-export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends ClassType<ContextAPI<Contexts>>, DataBoyType<Partial<GetDataFromContexts<Contexts>>>, SignalManType<GetSignalsFromContexts<Contexts>> { 
+export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [contexts?: Partial<Contexts>]> { 
     // Static simple-typed helpers.
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
     parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
@@ -47,16 +49,17 @@ export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends C
     /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
+export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetDataFromContexts<Contexts>>, SignalMan<GetSignalsFromContexts<Contexts>> { }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:
  *      * SignalMan: Send and listen to signals in the named contexts.
  *      * DataBoy: Listen to data changes, but also to set/get data in the contexts.
  * - All data keys and signal names should start with `${contextName}.${keyOrName}`.
  *      * For example: "settings.something.deep" data key (for "settings" context) or "navigation.onFocus" signal (for "navigation" context).
- * - Importantly, the ContextAPI's `awaitRefresh` method can be overridden externally to affect the syncing of all the connected contexts.
- *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitRefresh`.
+ * - Importantly, the ContextAPI's `awaitDelay` method can be overridden externally to affect the syncing of all the connected contexts.
+ *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitDelay`.
  */
-export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDataBoy<Partial<GetDataFromContexts<Contexts>>, GetSignalsFromContexts<Contexts>> {
+export class ContextAPI<Contexts extends ContextsAllType = {}> extends (addDataBoy(addSignalMan(Object)) as any as ClassType) {
     
 
     // - Members - //
@@ -85,24 +88,24 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
 
     /** This (triggers a refresh and) returns a promise that is resolved when the "pre-delay" or "delay" cycle is completed.
      * - At the level of ContextAPI there's nothing to refresh (no data held, just read from contexts).
-     *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitRefresh` method.
-     * - Note that this method is overrideable. On the basic implementation it resolves immediately.
+     *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitDelay` method.
+     * - Note that this method is overrideable. On the basic implementation it resolves immediately due to that there's no awaitDelay.
      *      * But on an external layer, the awaiting might be synced to provide the bridging for syncing the "delay" signals of many contexts together.
+     * - Note that the timing of this method should always reflect awaitDelay - it should just provide triggering refresh in addition to awaiting the promise.
+     *      * So if awaitDelay is not present, this method should resolve instantly as well.
      */
     public afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
     public afterRefresh(_fullDelay: boolean = false, _forceTimeout?: number | null): Promise<void> {
         // Let's do an instant "pre-delay" - so, nothing.
-        // And then, let's resolve by the awaitRefresh.
-        return this.awaitRefresh();
+        // And then, let's resolve by the awaitDelay.
+        return this.awaitDelay ? this.awaitDelay() : Promise.resolve();
     }
-    /** At the level of ContextAPI the `awaitRefresh` resolves instantly.
+    /** At the level of ContextAPI the `awaitDelay` resolves instantly (it's not defined).
      * - Importantly, this method determines when the "delay" cycle of the connected Contexts is resolved. (That's why defaults to instant.)
-     * - Accordingly, you can override this method (externally or by extending class) to customize the syncing.
+     * - Accordingly, you can set / override this method (externally or by extending class) to customize the syncing.
      * - Note that this method should not be _called_ externally - only overridden externally (to affect the "delay" cycle timing).
      */
-    awaitRefresh(): Promise<void> {
-        return new Promise<void>(async (resolve) => resolve());
-    }
+    awaitDelay?(): Promise<void>;
  
 
     // - Send signals - //
@@ -171,7 +174,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends SignalDat
         // Handle awaiting and empty value returns without context.
         const m: string[] = typeof modes === "string" ? [modes] : modes;
         const r = m.includes("last") || m.includes("first") || m.includes("first-true") ? undefined : [];
-        return m.includes("await") ? new Promise(resolve => resolve(r)) as any : r as any;
+        return m.includes("await") ? Promise.resolve(r) as any : r as any;
     }
 
 

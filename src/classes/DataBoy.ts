@@ -1,114 +1,16 @@
 
-
 // - Imports - //
 
+// Dependency.
+import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { GetJoinedDataKeysFrom, ClassType, ClassMixer, PropTypesFromDictionary, PropTypeArray, PropTypeFallback } from "../library/typing";
+import { GetJoinedDataKeysFrom, PropTypesFromDictionary, PropTypeArray, PropTypeFallback, PropType } from "../library/typing";
 
 
 // - Helper types - //
 
 /** Technically should return void. But for conveniency can return anything - does not use the return value in any case. */
 export type DataListenerFunc = (...args: any[]) => any | void;
-
-
-// - Mixin - //
-
-function _DataBoyMixin<Data extends Record<string, any> = {}>(Base: ClassType) {
-
-    return class _DataBoy extends Base {
-
-
-        // - Members - //
-
-        /** External data listeners.
-         * - These are called after the data refreshes, though might be tied to update cycles at an external layer - eg. to refresh the whole app in sync.
-         * - The keys are data listener callbacks, and values are: `[fallbackArgs, ...dataNeeds]`.
-         */
-        public dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | Record<string, any> | undefined, ...dataNeeds: string[]]> = new Map();
-        
-
-        // - Data listening - //
-
-        public listenToData(...args: any[]): void {
-            // Parse.
-            let iOffset = 1;
-            const nArgs = args.length;
-            const callImmediately = typeof args[nArgs - iOffset] === "boolean" && args[nArgs - iOffset++];
-            const isDictionary = typeof args[0] === "object";
-            const fallbackArgs: any[] | Record<string, any> | undefined = isDictionary ? args[0] as Record<string, any> : Array.isArray(args[nArgs - iOffset]) ? args[nArgs - iOffset++]?.slice() : undefined;
-            const dataNeeds = isDictionary ? Object.keys(args[0]) : args.slice(0, nArgs - iOffset);
-            const callback: DataListenerFunc = args[nArgs - iOffset];
-            // Add / Override.
-            this.dataListeners.set(callback, [fallbackArgs, ...dataNeeds]);
-            // Call.
-            if (callImmediately)
-                callback(...this.getDataArgsBy(dataNeeds, fallbackArgs));
-        }
-
-        /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
-        public unlistenToData(callback: DataListenerFunc): boolean {
-            // Doesn't have.
-            if (!this.dataListeners.has(callback))
-                return false;
-            // Remove.
-            this.dataListeners.delete(callback);
-            return true;
-        }
-
-
-        // - Get and set data - //
-
-        /** Should be extended. */
-        public getInData(dataKey: string, fallback?: any): any {
-            return undefined;
-        }
-
-        /** Should be extended. */
-        public setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void { }
-
-
-
-        // - Helpers - //
-
-        /** Helper to build data arguments with values fetched using getInData method with the given data needs args.
-         * - For example: `getDataArgsBy(["user.name", "darkMode"])` returns `[userName?, darkMode?]`.
-         * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument with respective order.
-         * - If the fallbackArgs is a dictionary, then returns `[valueDictionary]` picking the fallbacks from the given dictionary.
-         * - Note. This method is used internally but can also be used for custom external purposes.
-         */
-        public getDataArgsBy(needs: GetJoinedDataKeysFrom<Data>[], fallbackArgs?: any[] | Record<string, any>): any[] {
-            // Has fallback.
-            return fallbackArgs ?
-                // Array.
-                Array.isArray(fallbackArgs) ? needs.map((need, i) => this.getInData(need, fallbackArgs[i])) :
-                // Dictionary.
-                [needs.reduce((cum, need) => { cum[need] = this.getInData(need, fallbackArgs[need]); return cum; }, {} as Record<string, any>)] :
-            // No fallback.
-            needs.map((need, i) => this.getInData(need));
-        }
-        /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
-         * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.
-         * - If the refreshKeys is `true` (default), then refreshes as if all data had changed.
-         */
-        public callDataBy(refreshKeys: true | GetJoinedDataKeysFrom<Data>[] = true): void {
-            // Loop each callback, and call if needs to.
-            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
-                if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                    callback(...this.getDataArgsBy(needs as GetJoinedDataKeysFrom<Data>[], fallbackArgs));
-            }
-        }
-
-    }
-}
-
-/** There are two ways you can use this mixin creator:
- * 1. Call this to give basic DataBoy features with advanced typing being empty.
- *      * `class MyMix extends DataBoyMixin(MyBase) {}`
- * 2. If you want to define the Data and Signals types, you can use this trick instead:
- *      * `class MyMix extends (DataBoyMixin as ClassMixer<DataBoyType<Data, Signals>>)(MyBase) {}`
- */
-export const DataBoyMixin = _DataBoyMixin as unknown as ClassMixer<ClassType<DataBoy>>;
 
 
 // - Class - //
@@ -123,14 +25,15 @@ export interface DataBoyType<Data extends Record<string, any> = {}> extends Clas
  *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... }, [...fallbackArgs])`
  *      * Set data: `dataMan.setInData("something.deep", somedata)`
  */
-export class DataBoy<Data extends Record<string, any> = {}> extends (_DataBoyMixin(Object) as ClassType) { }
-export interface DataBoy<Data extends Record<string, any> = {}> { 
-    
+export class DataBoy<Data extends Record<string, any> = {}> extends (addDataBoy(Object) as any as ClassType) { }
+export interface DataBoy<Data extends Record<string, any> = {}> {
+
 
     // - Members - //
 
     // Constructor type.
     ["constructor"]: DataBoyType<Data>;
+
     /** External data listeners.
      * - These are called after the data refreshes, though might be tied to update cycles at an external layer - to refresh the whole app in sync.
      * - The keys are data listener callbacks, and values are: `[fallbackArgs, ...dataNeeds]`.
@@ -140,7 +43,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      */
     dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | Record<string, any> | undefined, ...needs: string[]]>;
 
-    
+
     // - Data listening - //
 
     // Using dictionary.
@@ -237,9 +140,18 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>, val2: PropTypeFallback<Data, Key2, Fallback[1]>, val3: PropTypeFallback<Data, Key3, Fallback[2]>, val4: PropTypeFallback<Data, Key4, Fallback[3]>, val5: PropTypeFallback<Data, Key5, Fallback[4]>, val6: PropTypeFallback<Data, Key6, Fallback[5]>, val7: PropTypeFallback<Data, Key7, Fallback[6]>, val8: PropTypeFallback<Data, Key8, Fallback[7]>) => void,
         Fallback extends [any?, any?, any?, any?, any?, any?, any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
-
     /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
     unlistenToData(callback: DataListenerFunc): boolean;
+
+
+    // - Get and set data - //
+
+    /** Should be extended. */
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
+
+    /** Should be extended. */
+    setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
 
 
     // - Helpers - //
@@ -262,4 +174,99 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      */
     callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
 
+}
+
+
+// - Mixin - //
+
+/** Add DataBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
+ * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+*/
+export function addDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+    // Static.
+    DataBoyType<Data> & BaseClass,
+    // Instanced.
+    DataBoy<Data> & InstanceType<BaseClass>,
+    // Constructor args. Just allow to pass in any, not used.
+    any[]
+> {
+    // We just use the same internal JS method.
+    // .. For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
+    return class DataBoy extends (Base as ClassType) {
+
+
+        // - Members - //
+
+        /** External data listeners.
+         * - These are called after the data refreshes, though might be tied to update cycles at an external layer - to refresh the whole app in sync.
+         * - The keys are data listener callbacks, and values are: `[fallbackArgs, ...dataNeeds]`.
+         * - If the fallbackArgs is a dictionary, then the `getDataArgsBy´ handler actually returns only a single argument: `[valueDictionary]`.
+         *      * The fallbackArgs dictionary is then used for fallback values as a dictionary instead.
+         *      * Note that this does imply that the keys are held both in fallbackArgs and in the needs array. But for fluency left as is.
+         */
+        public dataListeners: Map<DataListenerFunc, [fallbackArgs: any[] | Record<string, any> | undefined, ...needs: string[]]> = new Map();
+
+
+        // - Data listening - //
+
+        public listenToData(...args: any[]): void {
+            // Parse.
+            let iOffset = 1;
+            const nArgs = args.length;
+            const callImmediately = typeof args[nArgs - iOffset] === "boolean" && args[nArgs - iOffset++];
+            const isDictionary = typeof args[0] === "object";
+            const fallbackArgs: any[] | Record<string, any> | undefined = isDictionary ? args[0] as Record<string, any> : Array.isArray(args[nArgs - iOffset]) ? args[nArgs - iOffset++]?.slice() : undefined;
+            const dataNeeds = isDictionary ? Object.keys(args[0]) : args.slice(0, nArgs - iOffset);
+            const callback: DataListenerFunc = args[nArgs - iOffset];
+            // Add / Override.
+            this.dataListeners.set(callback, [fallbackArgs, ...dataNeeds]);
+            // Call.
+            if (callImmediately)
+                callback(...this.getDataArgsBy(dataNeeds as any, fallbackArgs));
+        }
+
+        /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
+        public unlistenToData(callback: DataListenerFunc): boolean {
+            // Doesn't have.
+            if (!this.dataListeners.has(callback))
+                return false;
+            // Remove.
+            this.dataListeners.delete(callback);
+            return true;
+        }
+
+
+        // - Get and set data - //
+
+        /** Should be extended. */
+        public getInData(ctxDataKey: string, fallback: any = undefined): any {
+            return undefined;
+        }
+
+        /** Should be extended. */
+        public setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void { }
+
+
+        // - Helpers - //
+
+        public getDataArgsBy(needs: string[], fallbackArgs?: any[] | Record<string, any>): any[] {
+            // Has fallback.
+            return fallbackArgs ?
+                // Array.
+                Array.isArray(fallbackArgs) ? needs.map((need, i) => this.getInData(need, fallbackArgs[i])) :
+                // Dictionary.
+                [needs.reduce((cum, need) => { cum[need] = this.getInData(need, fallbackArgs[need]); return cum; }, {} as Record<string, any>)] :
+            // No fallback.
+            needs.map((need, i) => this.getInData(need));
+        }
+
+        public callDataBy(refreshKeys: true | string[] = true): void {
+            // Loop each callback, and call if needs to.
+            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+                if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
+                    callback(...this.getDataArgsBy(needs as any, fallbackArgs));
+            }
+        }
+
+    } as any; // We're detached from the return type.
 }

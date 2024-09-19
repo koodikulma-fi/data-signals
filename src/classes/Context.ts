@@ -1,13 +1,17 @@
 
 // - Imports - //
 
+// Dependency.
+import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { ClassType, GetJoinedDataKeysFrom } from "../library/typing";
-import { updateCallTimer } from "../library/library";
+import { GetJoinedDataKeysFrom } from "../library/typing";
 // Classes.
-import { SignalDataMan } from "./SignalDataMan";
+import { RefreshCycle } from "./RefreshCycle";
+import { addSignalMan, SignalMan } from "./SignalMan";
+import { addDataMan, DataMan } from "./DataMan";
 // Typing.
-import { SignalListener, SignalManType, SignalsRecord } from "./SignalMan";
+import { SignalListener, SignalsRecord } from "./SignalBoy";
+import { SignalManType } from "./SignalMan";
 import { DataManType } from "./DataMan";
 import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - would be cyclical).
 
@@ -30,16 +34,22 @@ export interface ContextSettings {
 // - Class - //
 
 /** Class type for Context class. */
-export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, Settings extends ContextSettings = ContextSettings> extends ClassType<Context<Data, Signals>, [Data?, Partial<ContextSettings>?]>, DataManType<Data>, SignalManType<Signals> {
+export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> {
     /** Extendable static default settings getter. */
-    getDefaultSettings<CtxSettings extends Settings & ContextSettings = Settings>(): CtxSettings;
+    getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
+    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
+    initializeCyclesFor(context: Context): void;
+    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
+    runPreDelayFor(context: Context): void;
 }
+
+export interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> { }
 
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
  * - Contexts provide data listening and signalling features.
  *      - Extending SignalMan they allow to send typed signals with special options available through sendSignalAs.
  *          * Furthermore, the "pre-delay" and "delay" signals are synced to the refresh cycles of the context.
- *          * The "pre-delay" signals are triggered right before calling data listeners, and "delay" once all related ContextAPI's have resolved their `awaitRefresh`.
+ *          * The "pre-delay" signals are triggered right before calling data listeners, and "delay" once all related ContextAPI's have resolved their `awaitDelay`.
  *      - Extending DataMan they assume a data structure of nested dictionaries.
  *          * For example: `{ something: { deep: boolean; }; simple: string; }`
  *          * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
@@ -52,7 +62,7 @@ export interface ContextType<Data extends Record<string, any> = {}, Signals exte
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, Settings extends ContextSettings = ContextSettings> extends SignalDataMan<Data, Signals> {
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends (addDataMan(addSignalMan(Object)) as any as ClassType) {
 
 
     // - Members - //
@@ -63,34 +73,32 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     ["constructor"]: ContextType<Data, Signals>;
     
     // Settings.
-    public settings: Settings;
+    public settings: ContextSettings;
 
-    // Connected.
+    // State.
+    /** Handle for refresh cycles. */
+    public preDelayCycle: RefreshCycle;
+    public delayCycle: RefreshCycle;
     /** The keys are the ContextAPIs this context is attached to with a name, and the values are the names (typically only one). They are used for refresh related purposes. */
     public contextAPIs: Map<ContextAPI, string[]>;
-
-    // Internal.
-    /** Temporary internal timer marker for refreshing. */
-    private _refreshTimer: number | NodeJS.Timeout | null;
-    /** Temporary internal callbacks that will be called when the update cycle is done - at the moment of "pre-delay" cycle (after refreshTimeout). */
-    private _afterPre?: Array<() => void>;
-    /** Temporary internal callbacks that will be called after the update cycle and the related external refreshes (by contextAPIs) have been flushed - at the moment of "delay" cycle. */
-    private _afterPost?: Array<() => void>;
 
 
     // - Construct - //
 
-    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<Settings> | null | undefined] : [data: Data, settings?: Partial<Settings> | null | undefined]);
-    constructor(data: Data, settings?: Partial<Settings> | null | undefined) {
+    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
+    constructor(data: Data, settings?: Partial<ContextSettings> | null | undefined) {
         // Base.
         super(data);
-        // Public settings.
+        // Set up.
+        this.settings = this.constructor.getDefaultSettings();
         this.contextAPIs = new Map();
-        this.settings = this.constructor.getDefaultSettings<Settings>();
-        this._refreshTimer = null;
+        this.preDelayCycle = new RefreshCycle();
+        this.delayCycle = new RefreshCycle();
         // Update settings.
         if (settings)
             this.modifySettings(settings);
+        // Hook up cycle interconnections.
+        this.constructor.initializeCyclesFor(this as Context);
     }
 
 
@@ -104,8 +112,9 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
 
-    // - SignalMan sending extensions - //
+    // - Signal related methods. - //
     
+    // Overridden.
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
     public getListenersFor(signalName: string): SignalListener[] | undefined {
         // Collect all.
@@ -121,42 +130,46 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
 
-    // - SignalDataMan-like methods. - //
+    // - Data related methods. - //
+
+    // Added method.
+    /** Trigger a ("pre-delay") refresh in the context. Once finished, the "delay" cycle is refreshed. The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
+    public triggerRefresh(forceTimeout?: number | null): void {
+        // Start the pre delay cycle.
+        this.preDelayCycle.start(this.settings.refreshTimeout, forceTimeout);
+    }
 
     // Overridden.
     /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
      * - If there's nothing pending, then will resolve immediately (by the design of the flow).
      * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
      *      * The "pre-delay" (fullDelay = false) uses the time out from settings { refreshTimeout }.
-     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitRefresh`.
-     *          - The `awaitRefresh` is in turn synced to awaiting the `awaitRefresh` of all the connected contextAPIs.
+     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitDelay`.
+     *          - The `awaitDelay` is in turn synced to awaiting the `awaitDelay` of all the connected contextAPIs.
      * - Note that technically, the system at Context level simply collects an array (per delay type) of one-time promise resolve funcs and calls them at the correct time.
+     *      * Note that if used with fullDelay true and forceTimeout, this will effectively not wait for contextAPIs to refresh - or if they refresh earlier, will be triggered earlier.
      * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
      */
     public afterRefresh(fullDelay: boolean = false, forceTimeout?: number | null): Promise<void> {
-        // Add to delayed.
-        return new Promise<void>(async (resolve) => {
-            // Prepare.
-            const delayType = fullDelay ? "_afterPost" : "_afterPre";
-            if (!this[delayType])
-                this[delayType] = [];
-            // Add timer.
-            (this[delayType] as any[]).push(() => resolve()); // We don't use any params - we have no signal name, we just wait until a general refresh has happened.
-            // Trigger refresh.
-            this.triggerRefresh(forceTimeout);
-        });
+        if (fullDelay)
+            return this.delayCycle.start(undefined, forceTimeout);
+        return this.preDelayCycle.start(this.settings.refreshTimeout, forceTimeout);
     }
-    /** At the level of Context the `awaitRefresh` is tied to waiting the refresh from all contexts.
-     * - It's called by the data refreshing flow after calling the "pre-delay" actions and the data listeners.
+
+    /** At the level of Context the `awaitDelay` is tied to waiting the refresh from all connected contextAPIs.
+     * - It's used by the data refreshing flow (after "pre-delay") to mark the "delay" cycle. When the promise resolves, the "delay" is resolved.
      * - Note that this method should not be _called_ externally, but can be overridden externally to affect when "delay" cycle is resolved.
+     * - Note that you can still externally delete the method, if needing to customize context. (Or override it to tie to other things.)
      */
-    async awaitRefresh() {
+    awaitDelay?(): Promise<void>;
+    async awaitDelay?() {
         // Add an await refresh listener on all connected contextAPIs.
         // .. Note that we don't specify which contextAPIs actually were refreshed in relation to the actions and pending data.
-        // .. We simply await before all the contextAPIs attached to us have refreshed. It's much simpler and feels more stable when actually used.
-        const toWait: Promise<void>[] = [];
+        // .... We simply await before all the contextAPIs attached to us have refreshed - they can return same promise if associated, then skipped here.
+        // .... This way, the feature set and technical side is much simpler and feels more stable/predictable when actually used.
+        const toWait: Set<Promise<void>> = new Set();
         for (const contextAPI of this.contextAPIs.keys())
-            toWait.push(contextAPI.afterRefresh(true));
+            toWait.add(contextAPI.afterRefresh(true));
         // Wait.
         await Promise.all(toWait);
     }
@@ -173,77 +186,55 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         this.triggerRefresh(forceTimeout);
     }
 
-    // Added method.
-    /** Trigger a refresh in the context. Refreshes all pending after a timeout. */
-    public triggerRefresh(forceTimeout?: number | null): void {
-        this._refreshTimer = updateCallTimer(() => this.refreshPending(), this._refreshTimer, this.settings.refreshTimeout, forceTimeout) as any;
-    }
-
-
-    // - Refresh state getters - //
-
-    /** Check whether is waiting to be refreshed. */
-    public isWaitingForRefresh(): boolean {
-        return this._refreshTimer !== null;
-    }
-    /** Check whether has any reason to be refreshed: checks if there are any pending data keys or signals on the "pre-delay" or "delay" cycle. */
-    public isPendingRefresh(): boolean {
-        return !!(this._afterPre || this._afterPost || this.dataKeysPending);
-    }
-
-    
-    // - Private helpers - //
-
-    /** This refreshes the context immediately.
-     * - This is assumed to be called only by the .refresh function above.
-     * - So it will mark the timer as cleared, without using clearTimeout for it.
-     */
-    private refreshPending(): void {
-        // Get.
-        const refreshKeys = this.dataKeysPending;
-        let afterPre = this._afterPre;
-        let afterPost = this._afterPost;
-        // Clear.
-        this._refreshTimer = null;
-        this.dataKeysPending = null;
-        delete this._afterPre;
-        delete this._afterPost;
-        // Call signals on delayed listeners.
-        if (afterPre) {
-            for (const callback of afterPre)
-                callback();
-        }
-        // Call data listeners.
-        if (refreshKeys) {
-            // Call direct.
-            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
-                if (refreshKeys === true || refreshKeys.some(dataKey => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                    callback(...this.getDataArgsBy(needs as any, fallbackArgs as any));
-            }
-            // Call on related contextAPIs.
-            // .. Only call the ones not colliding with our direct, or call all.
-            for (const [contextAPI, ctxNames] of this.contextAPIs.entries())
-                (contextAPI[contextAPI.callDataListenersFor ? "callDataListenersFor" : "callDataBy"] as typeof contextAPI["callDataBy"] | typeof contextAPI["callDataListenersFor"])!
-                    (refreshKeys === true ? ctxNames : ctxNames.reduce((cum, ctxName) => cum.concat(refreshKeys.map(rKey => rKey ? ctxName + "." + rKey : ctxName)), [] as string[]) as any);
-        }
-        // Trigger updates for contextAPIs and wait after they've flushed.
-        if (afterPost) {
-            (async () => {
-                // Wait.
-                await this.awaitRefresh();
-                // Resolve all afterPost awaiters.
-                for (const callback of afterPost)
-                    callback();
-            })();
-        }
-    }
-    
     
     // - Static - //
     
     /** Extendable static default settings getter. */
     public static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings {
         return { refreshTimeout: 0 } as Settings;
+    }
+
+    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
+    public static initializeCyclesFor(context: Context): void {
+        // Hook up cycle interconnections.
+        // .. Do the actual pre-delay update part.
+        context.preDelayCycle.listenTo("onRefresh", () => context.constructor.runPreDelayFor(context));
+        // .. Make sure "delay" is run when "pre-delay" finishes, and the "delay"-related awaitDelay is awaited only then.
+        context.preDelayCycle.listenTo("onFinish", () => {
+            // Start delay cycle if was idle.
+            context.delayCycle.start();
+            // Resolve "delay" cycle - unless was already "resolving" (or had become "fulfilled").
+            if (context.delayCycle.state === "waiting")
+                context.awaitDelay ? context.awaitDelay().then(() => context.delayCycle.resolve()) : context.delayCycle.resolve();
+        });
+        // .. Make sure to start "pre-delay" when "delay" is started. We need the finishing part of "pre-delay" to correctly run "delay".
+        context.delayCycle.listenTo("onStart", () => context.preDelayCycle.start());
+        // .. Make sure "pre-delay" is always resolved right before "delay".
+        context.delayCycle.listenTo("onResolve", () => context.preDelayCycle.resolve());
+    }
+    
+    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
+    public static runPreDelayFor(context: Context): void {
+
+        // Clear data keys from context.
+        const refreshKeys = context.dataKeysPending;
+        context.dataKeysPending = null;
+
+        // Call data listeners.
+        if (refreshKeys) {
+            // Call direct.
+            for (const [callback, [fallbackArgs, ...needs]] of context.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+                if (refreshKeys === true || refreshKeys.some(dataKey => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
+                    callback(...context.getDataArgsBy(needs as any, fallbackArgs as any));
+            }
+            // Call on related contextAPIs.
+            // .. Only call the ones not colliding with our direct, or call all.
+            for (const [contextAPI, ctxNames] of context.contextAPIs.entries())
+                // Call method.
+                (contextAPI[contextAPI.callDataListenersFor ? "callDataListenersFor" : "callDataBy"] as typeof contextAPI["callDataBy"] | typeof contextAPI["callDataListenersFor"])!
+                    // With one argument.
+                    (refreshKeys === true ? ctxNames : ctxNames.reduce((cum, ctxName) => cum.concat(refreshKeys.map(rKey => rKey ? ctxName + "." + rKey : ctxName)), [] as string[]) as any);
+        }
     }
     
 }
