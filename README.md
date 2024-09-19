@@ -1,18 +1,11 @@
 
 ## TODO (docs):
 
-- HEy.
-    * MAybe shoujld now use FULL TYPING INSID adDataMan and such ... for .. EXTERNAL CASES.... Tho.. too deep..?
-
 - Add tiny to docs:
     * numberRange, buildRecordable
-- Add RefreshCycles and ContextCycles.
+- Add RefreshCycles and ContextCycles to docs.
 - Add about the static methods in ContextAPI.
-- Maybe rename the repo to "refresh-cycle" .. ?  
-    - --> MAYBE RENAME .. To ... "data-mix" ..! .. we also provide mixin tools..
-- HEy.. WE 'D BASICALLY LIKE... SIGNALBOY..
-    * For example.... RefreshCycle wants to just have that.. It's confusing for it to have the more complex features... and awaitSync and such.
-    * So.. Add that, and remove the combos: SignalDataMan and SignalDataBoy. Can just do it through the mixin.
+- Maybe drop the dependency from "mixin-types", since the only imports are 3 extremely simple TS functions.
 
 
 ## WHAT
