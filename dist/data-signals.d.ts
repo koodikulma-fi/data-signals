@@ -203,9 +203,9 @@ interface SignalBoy<Signals extends SignalsRecord = {}> {
     getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
 }
 /** Add SignalBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
  */
-declare function addSignalBoy<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalBoyType<Signals> & BaseClass, SignalBoy<Signals> & InstanceType<BaseClass>, any[]>;
+declare function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalBoyType<Signals> & BaseClass, SignalBoy<Signals> & InstanceType<BaseClass>, any[]>;
 
 type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extends boolean, RetVal = true extends HasAwait ? Awaited<OrigReturnVal> : OrigReturnVal, ReturnVal = true extends IsSingle ? RetVal | undefined : RetVal[]> = true extends HasAwait ? Promise<ReturnVal> : ReturnVal;
 /** Emits the signal and collects the answers given by each listener ignoring `undefined` as an answer.
@@ -264,9 +264,9 @@ interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signal
     awaitDelay?(): Promise<void>;
 }
 /** Add SignalMan features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
  */
-declare function addSignalMan<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalManType<Signals> & BaseClass, SignalMan<Signals> & InstanceType<BaseClass>, any[]>;
+declare function mixinSignalMan<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalManType<Signals> & BaseClass, SignalMan<Signals> & InstanceType<BaseClass>, any[]>;
 
 /** Technically should return void. But for conveniency can return anything - does not use the return value in any case. */
 type DataListenerFunc = (...args: any[]) => any | void;
@@ -335,9 +335,9 @@ interface DataBoy<Data extends Record<string, any> = {}> {
     callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
 }
 /** Add DataBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
 */
-declare function addDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataBoyType<Data> & BaseClass, DataBoy<Data> & InstanceType<BaseClass>, any[]>;
+declare function mixinDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataBoyType<Data> & BaseClass, DataBoy<Data> & InstanceType<BaseClass>, any[]>;
 
 /** Class type for DataMan. */
 interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [Data?] : [Data]> {
@@ -396,19 +396,19 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
  * // Type data.
  * type MyData = { something: boolean; };
  *
- * // Example #1: Create a class extending addDataMan with <MyData>.
- * class Test extends addDataMan<MyData>(Object) {
+ * // Example #1: Create a class extending mixinDataMan with <MyData>.
+ * class Test extends mixinDataMan<MyData>(Object) {
  *
  *    test() {
  *        this.listenToData("something", (something) => {});
  *    }
  * }
  *
- * // Example #2: Create a class extending addDataMan<MyData> and a custom class as the base.
+ * // Example #2: Create a class extending mixinDataMan<MyData> and a custom class as the base.
  * class MyBase {
  *     public someMember: number = 0;
  * }
- * class Test2a extends addDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
+ * class Test2a extends mixinDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
  *
  *    test2() {
  *        this.someMember = 1;
@@ -416,7 +416,7 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
  *    }
  * }
  * // Or alternatively.
- * class Test2b extends (addDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
+ * class Test2b extends (mixinDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
  *
  *     test2() {
  *         this.someMember = 1;
@@ -428,7 +428,7 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
  * // .. Declare an interface extending what we want to extend, supporting passing generic <Data> further.
  * interface Test3<Data extends Record<string, any> = {}> extends DataMan<Data>, MyBase {}
  * // .. Declare a class with base `as ClassType`, so that the interface can fully define the base.
- * class Test3<Data extends Record<string, any> = {}> extends (addDataMan(MyBase) as ClassType) {
+ * class Test3<Data extends Record<string, any> = {}> extends (mixinDataMan(MyBase) as ClassType) {
  *
  *    // // Just pass. You need to redefine constructor for the class inside the class for it to be effective.
  *    // constructor(...args: GetConstructorArgs<DataManType<Data>>) {
@@ -452,7 +452,7 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
  *
  * ```
  */
-declare function addDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data> & BaseClass, DataMan<Data> & InstanceType<BaseClass>, {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]>;
+declare function mixinDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data> & BaseClass, DataMan<Data> & InstanceType<BaseClass>, {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]>;
 
 type RefreshCycleSignals<PendingOutput extends Record<string, any> = {}> = {
     /** Called when a new cycle starts. Perfect place to trigger start-up-dependencies (from other cycles). */
@@ -786,4 +786,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runPreDelayFor(context: Context): void;
 }
 
-export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, addDataBoy, addDataMan, addSignalBoy, addSignalMan, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, numberRange };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange };

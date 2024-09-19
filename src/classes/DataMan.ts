@@ -6,7 +6,7 @@ import { ClassType, AsClass } from "mixin-types";
 // Library.
 import { PropType, GetJoinedDataKeysFrom } from "../library/typing";
 // Base.
-import { DataBoy, DataBoyType, addDataBoy } from "./DataBoy";
+import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 
 
 // - Class - //
@@ -26,7 +26,7 @@ export interface DataManType<Data extends Record<string, any> = {}> extends AsCl
  * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
  *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
  */
-export class DataMan<Data extends Record<string, any> = {}> extends (addDataMan(Object) as any as ClassType) {
+export class DataMan<Data extends Record<string, any> = {}> extends (mixinDataMan(Object) as any as ClassType) {
     
     // // Allow without data if data is set to {}, then we can fall it back automatically.
     // constructor(...args: {} extends Data ? [Data?] : [Data, ...any[]]);
@@ -91,19 +91,19 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
  * // Type data.
  * type MyData = { something: boolean; };
  * 
- * // Example #1: Create a class extending addDataMan with <MyData>.
- * class Test extends addDataMan<MyData>(Object) {
+ * // Example #1: Create a class extending mixinDataMan with <MyData>.
+ * class Test extends mixinDataMan<MyData>(Object) {
  * 
  *    test() {
  *        this.listenToData("something", (something) => {});
  *    }
  * }
  * 
- * // Example #2: Create a class extending addDataMan<MyData> and a custom class as the base.
+ * // Example #2: Create a class extending mixinDataMan<MyData> and a custom class as the base.
  * class MyBase {
  *     public someMember: number = 0;
  * }
- * class Test2a extends addDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
+ * class Test2a extends mixinDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
  * 
  *    test2() {
  *        this.someMember = 1;
@@ -111,7 +111,7 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
  *    }
  * }
  * // Or alternatively.
- * class Test2b extends (addDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
+ * class Test2b extends (mixinDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
  *     
  *     test2() {
  *         this.someMember = 1;
@@ -123,7 +123,7 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
  * // .. Declare an interface extending what we want to extend, supporting passing generic <Data> further.
  * interface Test3<Data extends Record<string, any> = {}> extends DataMan<Data>, MyBase {}
  * // .. Declare a class with base `as ClassType`, so that the interface can fully define the base.
- * class Test3<Data extends Record<string, any> = {}> extends (addDataMan(MyBase) as ClassType) {
+ * class Test3<Data extends Record<string, any> = {}> extends (mixinDataMan(MyBase) as ClassType) {
  * 
  *    // // Just pass. You need to redefine constructor for the class inside the class for it to be effective.
  *    // constructor(...args: GetConstructorArgs<DataManType<Data>>) {
@@ -147,7 +147,7 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
  * 
  * ```
  */
-export function addDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
     DataManType<Data> & BaseClass,
     // Instanced.
@@ -156,7 +156,7 @@ export function addDataMan<Data extends Record<string, any> = {}, BaseClass exte
     {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]
 > {
     // For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
-    return class DataMan extends (addDataBoy(Base) as DataBoyType) {
+    return class DataMan extends (mixinDataBoy(Base) as DataBoyType) {
 
 
         // - Members - //

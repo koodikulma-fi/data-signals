@@ -7,8 +7,8 @@ import { ClassType, AsClass } from "mixin-types";
 import { GetJoinedDataKeysFrom } from "../library/typing";
 // Classes.
 import { RefreshCycle } from "./RefreshCycle";
-import { addSignalMan, SignalMan } from "./SignalMan";
-import { addDataMan, DataMan } from "./DataMan";
+import { mixinSignalMan, SignalMan } from "./SignalMan";
+import { mixinDataMan, DataMan } from "./DataMan";
 // Typing.
 import { SignalListener, SignalsRecord } from "./SignalBoy";
 import { SignalManType } from "./SignalMan";
@@ -62,7 +62,7 @@ export interface Context<Data extends Record<string, any> = {}, Signals extends 
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends (addDataMan(addSignalMan(Object)) as any as ClassType) {
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends (mixinDataMan(mixinSignalMan(Object)) as any as ClassType) {
 
 
     // - Members - //

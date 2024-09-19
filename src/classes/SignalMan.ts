@@ -6,7 +6,7 @@ import { ClassType, AsClass } from "mixin-types";
 // Library.
 import { Awaited } from "../library/typing";
 // Base class.
-import { callListeners, SignalBoy, addSignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalsRecord } from "./SignalBoy";
+import { callListeners, SignalBoy, mixinSignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalsRecord } from "./SignalBoy";
 
 
 // - Types - //
@@ -77,7 +77,7 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
 export interface SignalManType<Signals extends SignalsRecord = {}> extends AsClass<SignalBoyType<Signals>, SignalBoy<Signals> & SignalMan<Signals>, []> { }
 // export interface SignalManType<Signals extends SignalsRecord = {}> extends SignalBoyType<Signals>, ClassType<SignalMan<Signals>, []> { }
 /** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
-export class SignalMan<Signals extends SignalsRecord = {}> extends (addSignalMan(Object) as any as ClassType) { }
+export class SignalMan<Signals extends SignalsRecord = {}> extends (mixinSignalMan(Object) as any as ClassType) { }
 export interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signals> {
 
 
@@ -150,9 +150,9 @@ export interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy
 // - Mixin - //
 
 /** Add SignalMan features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
  */
-export function addSignalMan<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinSignalMan<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
     SignalManType<Signals> & BaseClass,
     // Instanced.
@@ -161,7 +161,7 @@ export function addSignalMan<Signals extends SignalsRecord = {}, BaseClass exten
     any[]
 > {
     // For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
-    return class _SignalMan extends (addSignalBoy(Base) as SignalBoyType) {
+    return class SignalMan extends (mixinSignalBoy(Base) as SignalBoyType) {
 
 
         // // - Members - //

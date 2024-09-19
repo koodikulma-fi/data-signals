@@ -224,13 +224,3 @@ export class RefreshCycle<
     }
 
 }
-
-
-// // - Testing - //
-//
-// type PendingInput = { actions: any[]; test: Record<string, any>; };
-// type PendingOutput = { actions: Set<any>; test: Record<string, any>; };
-// // new RefreshCycle<PendingInput, PendingOutput>({ actions: "array" });
-// const  c = new RefreshCycle<PendingInput, PendingOutput>({ actions: "set", test: "object" });
-// new RefreshCycle();
-

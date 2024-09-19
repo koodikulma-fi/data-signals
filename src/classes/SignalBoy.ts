@@ -55,7 +55,7 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
 
 export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> { }
 /** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
-export class SignalBoy<Signals extends SignalsRecord = {}> extends (addSignalBoy(Object) as any as ClassType) { }
+export class SignalBoy<Signals extends SignalsRecord = {}> extends (mixinSignalBoy(Object) as any as ClassType) { }
 export interface SignalBoy<Signals extends SignalsRecord = {}> {
 
 
@@ -99,9 +99,9 @@ export interface SignalBoy<Signals extends SignalsRecord = {}> {
 // - Mixin - //
 
 /** Add SignalBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
  */
-export function addSignalBoy<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
     SignalBoyType<Signals> & BaseClass,
     // Instanced.
@@ -110,7 +110,7 @@ export function addSignalBoy<Signals extends SignalsRecord = {}, BaseClass exten
     any[]
 > {
     // For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
-    return class _SignalBoy extends (Base as ClassType) {
+    return class SignalBoy extends (Base as ClassType) {
 
         
         // - Members - //

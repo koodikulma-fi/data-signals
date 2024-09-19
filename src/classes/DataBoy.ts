@@ -25,7 +25,7 @@ export interface DataBoyType<Data extends Record<string, any> = {}> extends Clas
  *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... }, [...fallbackArgs])`
  *      * Set data: `dataMan.setInData("something.deep", somedata)`
  */
-export class DataBoy<Data extends Record<string, any> = {}> extends (addDataBoy(Object) as any as ClassType) { }
+export class DataBoy<Data extends Record<string, any> = {}> extends (mixinDataBoy(Object) as any as ClassType) { }
 export interface DataBoy<Data extends Record<string, any> = {}> {
 
 
@@ -180,9 +180,9 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
 // - Mixin - //
 
 /** Add DataBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
- * - For examples of how to use mixins see `addDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
+ * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
 */
-export function addDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
     DataBoyType<Data> & BaseClass,
     // Instanced.

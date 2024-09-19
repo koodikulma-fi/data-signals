@@ -10,8 +10,8 @@ import { buildRecordable } from "../library/library";
 import { Context } from "./Context";
 // Typing.
 import { SignalsRecord } from "./SignalBoy";
-import { SignalSendAsReturn, SignalManType, addSignalMan, SignalMan } from "./SignalMan";
-import { addDataBoy, DataBoy, DataBoyType } from "./DataBoy";
+import { SignalSendAsReturn, SignalManType, mixinSignalMan, SignalMan } from "./SignalMan";
+import { mixinDataBoy, DataBoy, DataBoyType } from "./DataBoy";
 
 
 // - Helper types - //
@@ -59,7 +59,7 @@ export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataB
  * - Importantly, the ContextAPI's `awaitDelay` method can be overridden externally to affect the syncing of all the connected contexts.
  *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitDelay`.
  */
-export class ContextAPI<Contexts extends ContextsAllType = {}> extends (addDataBoy(addSignalMan(Object)) as any as ClassType) {
+export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDataBoy(mixinSignalMan(Object)) as any as ClassType) {
     
 
     // - Members - //
