@@ -5,6 +5,8 @@
     * numberRange, buildRecordable
 - Add RefreshCycles and ContextCycles to docs.
 - Add about the static methods in ContextAPI.
+- Update docs about HOW TO USE MIXINS. And refer to "mixin-types" docs for complex examples.
+    * Mainly one local example from DataMan. Otherwise "mixin-types".
 - Maybe drop the dependency from "mixin-types", since the only imports are 3 extremely simple TS functions.
 
 
