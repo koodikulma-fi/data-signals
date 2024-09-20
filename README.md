@@ -59,9 +59,9 @@ Provides a quick guide to using mixins. For a comprehensive guide, see ["mixin-t
 - `SignalBoy` provides signalling features, from simple instant void signals to complex synced awaiting getters.
 - The extending classes may also define an optional static methods:
     * `onListener?(signalBoy: SignalBoy<Signals>, name: string & keyof Signals, index: number, wasAdded: boolean): void`
-        - Optional method to keep track of added / removed listeners. Called right after adding and right before removing.
+        - To keep track of added / removed listeners. Called right after adding and right before removing.
     * `getListenersFor?(signalBoy: SignalBoy<Signals>, signalName: string & keyof Signals): SignalListener[] | undefined`
-        - Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything.
+        - To get the listeners for the given signal. If not present, uses signalBoy.signals[name] instead.
 
 ```typescript
 
@@ -109,7 +109,7 @@ const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsL
 - `DataBoy` simply provides data listening basis without having any data.
     * The class should always be extended by another class to actually hook up to the data.
     * The extending class should also implement the methods for `setInData` nor `getInData`.
-- The extending classes may also define an optional static method `callDataListenersFor?(dataBoy, dataKeys): boolean`.
+- The extending classes may also define a static method `callDataListenersFor?(dataBoy, dataKeys): boolean`.
     * If the method is not defined, or returns `true`, performs the default flow using `callDataBy(dataKeys)`.
 
 ```typescript
@@ -141,7 +141,7 @@ dataBoy.setInData("something.deep", false);
 
 ### DataMan
 
-- `DataMan` extends `DataBoy` to complete the concept with `data` member and implementations for setting and getting data.
+- `DataMan` extends `DataBoy` to complete the concept with `data` member and data set get methods.
     * Note that when nested data is set (with setInData), all the parenting data dictionaries are shallow copied.
 
 ```typescript
