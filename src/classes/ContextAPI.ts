@@ -353,7 +353,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
             delete this.contexts[name];
         // Refresh.
         if (callDataIfChanged)
-            this.callDataListenersFor ? this.callDataListenersFor([name] as any) : this.callDataBy([name] as any);
+            this.callDataBy([name] as any);
         return true;
     }
 
@@ -368,18 +368,9 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
             didChange = this.setContext(name, contexts[name] as any, false) || didChange;
         // Refresh.
         if (callDataIfChanged && didChange)
-            this.callDataListenersFor ? this.callDataListenersFor(Object.keys(contexts) as any) : this.callDataBy(Object.keys(contexts) as any);
+            this.callDataBy(Object.keys(contexts) as any);
         return didChange;
     }
-
-
-    // - Optional assignable getter - //
-
-    /** Assignable getter to call more data listeners when specific contexts are refreshed.
-     * - Used internally after setting contexts. If not used, calls `this.callDataBy(ctxNames)` instead.
-     * - If ctxDataKeys is true (or undefined), then should refresh all data in all contexts. (Not used internally, but to mirror callDataBy.)
-     */
-    public callDataListenersFor?(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
 
 
     // - Static data/signal key helpers - //

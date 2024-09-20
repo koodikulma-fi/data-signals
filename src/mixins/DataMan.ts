@@ -11,8 +11,8 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 
 // - Class - //
 
-/** Class type for DataMan. */
-export interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [Data?] : [Data]> { }
+/** Class type for DataMan - including the constructor arguments when used as a standalone class (or for the mixin in the flow). */
+export interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [data?: Data] : [data: Data]> { }
 /** DataMan provides data setting and listening features with dotted strings.
  * - Examples for usage:
  *      * Create: `const dataMan = new DataMan({ ...initData });`
@@ -26,15 +26,7 @@ export interface DataManType<Data extends Record<string, any> = {}> extends AsCl
  * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
  *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
  */
-export class DataMan<Data extends Record<string, any> = {}> extends (mixinDataMan(Object) as any as ClassType) {
-    
-    // // Allow without data if data is set to {}, then we can fall it back automatically.
-    // constructor(...args: {} extends Data ? [Data?] : [Data, ...any[]]);
-    // constructor(...args: any[]) {
-    //     super(...args);
-    // }
-
-}
+export class DataMan<Data extends Record<string, any> = {}> extends (mixinDataMan(Object) as any as ClassType) { }
 export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
     
 

@@ -46,9 +46,9 @@ A couple of data reusing concepts in the form of library methods.
     * `createCachedSource` is like createDataSource but creates a new data source for each cacheKey.
 
 
-### [4. HOW TO USE MIXINS](#4-how-to-use-mixins-doc)
+### [+ HOW TO USE MIXINS](#-how-to-use-mixins-doc)
 
-Provides a quick guide to using the mixins. For a comprehensive guide, see ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types).
+Provides a quick guide to using mixins. For a comprehensive guide, see ["mixin-types" README](https://www.npmjs.com/package/mixin-types).
 
 ---
 
@@ -57,6 +57,11 @@ Provides a quick guide to using the mixins. For a comprehensive guide, see ["mix
 ### SignalBoy
 
 - `SignalBoy` provides signalling features, from simple instant void signals to complex synced awaiting getters.
+- The extending classes may also define an optional static methods:
+    * `onListener?(signalBoy: SignalBoy<Signals>, name: string & keyof Signals, index: number, wasAdded: boolean): void`
+        - Optional method to keep track of added / removed listeners. Called right after adding and right before removing.
+    * `getListenersFor?(signalBoy: SignalBoy<Signals>, signalName: string & keyof Signals): SignalListener[] | undefined`
+        - Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything.
 
 ```typescript
 
@@ -104,6 +109,8 @@ const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsL
 - `DataBoy` simply provides data listening basis without having any data.
     * The class should always be extended by another class to actually hook up to the data.
     * The extending class should also implement the methods for `setInData` nor `getInData`.
+- The extending classes may also define an optional static method `callDataListenersFor?(dataBoy, dataKeys): boolean`.
+    * If the method is not defined, or returns `true`, performs the default flow using `callDataBy(dataKeys)`.
 
 ```typescript
 
@@ -177,6 +184,16 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
     * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
     * The "delay" happens after all the connected `ContextAPI`s have resolved their `awaitDelay` promise.
     * Note that "pre-delay" signals are called right before data listeners, while "delay" always after them.
+- The `Context` class also provides extendable methods on the static side (to keep public instance API clean):
+    * `getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings`
+        - Extendable static default settings getter.
+    * `initializeCyclesFor(context: Context): void`
+        - Extendable static helper to hook up context refresh cycles together.
+    * `runPreDelayFor(context: Context): void`
+        - Extendable static helper to run "pre-delay" cycle.
+    * `runDelayFor(context: Context): void`
+        - Extendable static helper to run "delay" cycle.
+        - By default there's nothing to run at "delay": promises are resolved automatically.
 
 ```typescript
 
@@ -647,13 +664,13 @@ val2 = mySource(state2a, state2b, "anotherKey");
 
 ---
 
-## 4. HOW TO USE MIXINS (doc)
+## + HOW TO USE MIXINS (doc)
 
 ### Intro
 
 - Often you can just go and extend the class directly. But where you can't, mixins can make things very convenient.
-- For more examples and guidelines, see the ["mixin-types"](https://github.com/koodikulma-fi/mixin-types). (The module is used by `data-signals` internally.)
-- Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types".
+- For thorough examples and guidelines, see the ["mixin-types" README](https://www.npmjs.com/package/mixin-types).
+- Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types". (The module is used by `data-signals` internally.)
 
 ### Basic usage
 
@@ -729,7 +746,7 @@ cMix.someMember; // boolean (as type), false (as JS value)
 
 ### Sequence of mixins
 
-- you can of course mix many mixins, one after the other.
+- You can of course mix many mixins together into a sequence, one after the other.
 
 ```typescript
 
@@ -858,5 +875,7 @@ myMegaMix.sendSignal("test", false);
 const myMegaMix2 = new myMegaMix.constructor({ test: true }, true);
 
 ```
+
+---
 
 [Back to top](#what)

@@ -53,7 +53,12 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
 
 // - Class - //
 
-export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> { }
+export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> {
+    /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
+    onListener?(signalBoy: SignalBoy<Signals>, name: string & keyof Signals, index: number, wasAdded: boolean): void;
+    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
+    getListenersFor?(signalBoy: SignalBoy<Signals>, signalName: string & keyof Signals): SignalListener[] | undefined;
+}
 /** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
 export class SignalBoy<Signals extends SignalsRecord = {}> extends (mixinSignalBoy(Object) as any as ClassType) { }
 export interface SignalBoy<Signals extends SignalsRecord = {}> {
@@ -84,15 +89,6 @@ export interface SignalBoy<Signals extends SignalsRecord = {}> {
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
 
-
-    // - Extras - //
-
-    /** Optional extendable local callback handler to keep track of added / removed listeners. Called right after adding and right before removing.
-     * - Note. To fluently support any possible middleware, always call `super.onListener(name, index, wasAdded)` (unless specifically wanting to ignore them).
-     */
-    onListener(name: string & keyof Signals, index: number, wasAdded: boolean): void;
-    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
 }
 
 
@@ -139,7 +135,7 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
             if (listener[2] & SignalListenerFlags.OneShot)
                 listener.push(listeners);
             // Call.
-            this.onListener(name, listeners.indexOf(listener), true);
+            (this.constructor as SignalBoyType).onListener?.(this, name as never, listeners.indexOf(listener), true);
         }
 
         public unlistenTo(names?: string | string[] | null, callback?: SignalListenerFunc | null, groupId?: any | null) {
@@ -163,7 +159,7 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
                     if (hasGroupId && connections[i][3] !== groupId)
                         continue;
                     // Remove.
-                    this.onListener(thisName, i, false);
+                    (this.constructor as SignalBoyType).onListener?.(this, thisName as never, i, false);
                     connections.splice(i, 1);
                 }
                 // Empty.
@@ -193,7 +189,7 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
         // - Sending signals - //
 
         public sendSignal(name: string, ...args: any[]): void {
-            const listeners = this.getListenersFor ? this.getListenersFor(name) : this.signals[name];
+            const listeners = (this.constructor as SignalBoyType).getListenersFor ? (this.constructor as SignalBoyType).getListenersFor!(this, name as never) : this.signals[name];
             if (listeners)
                 callListeners(listeners, args);
         }
@@ -201,11 +197,11 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
 
         // - Optional inner listeners (for extending classes) - //
 
-        /** Extendable. */
-        public onListener(name: string, index: number, wasAdded: boolean): void {}
+        /** Optional. */
+        public static onListener?(signalBoy: SignalBoy, name: string, index: number, wasAdded: boolean): void {}
         
         /** Optional. */
-        public getListenersFor?(signalName: string): SignalListener[] | undefined;
+        public static getListenersFor?(signalBoy: SignalBoy, signalName: string): SignalListener[] | undefined;
     
     } as any; // We're detached from the return type.
 }

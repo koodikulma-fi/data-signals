@@ -161,6 +161,10 @@ type SignalsRecord = Record<string, SignalListenerFunc>;
  */
 declare function callListeners(listeners: SignalListener[], args?: any[] | null): void;
 interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> {
+    /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
+    onListener?(signalBoy: SignalBoy<Signals>, name: string & keyof Signals, index: number, wasAdded: boolean): void;
+    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
+    getListenersFor?(signalBoy: SignalBoy<Signals>, signalName: string & keyof Signals): SignalListener[] | undefined;
 }
 declare const SignalBoy_base: ClassType<{}, any[]>;
 /** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
@@ -178,12 +182,6 @@ interface SignalBoy<Signals extends SignalsRecord = {}> {
     isListening<Name extends string & keyof Signals>(name?: Name | null, callback?: SignalListenerFunc | null, groupId?: any | null): boolean;
     /** Send a signal. Does not return a value. Use `sendSignalAs(modes, name, ...args)` to refine the behaviour. */
     sendSignal<Name extends string & keyof Signals>(name: Name, ...args: Parameters<Signals[Name]>): void;
-    /** Optional extendable local callback handler to keep track of added / removed listeners. Called right after adding and right before removing.
-     * - Note. To fluently support any possible middleware, always call `super.onListener(name, index, wasAdded)` (unless specifically wanting to ignore them).
-     */
-    onListener(name: string & keyof Signals, index: number, wasAdded: boolean): void;
-    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(signalName: string & keyof Signals): SignalListener[] | undefined;
 }
 /** Add SignalBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
  * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
@@ -253,6 +251,12 @@ declare function mixinSignalMan<Signals extends SignalsRecord = {}, BaseClass ex
 /** Technically should return void. But for conveniency can return anything - does not use the return value in any case. */
 type DataListenerFunc = (...args: any[]) => any | void;
 interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
+    /** Assignable getter to call more data listeners when callDataBy is used.
+     * - If dataKeys is true (or undefined), then should refresh all data.
+     * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `dataBoy.callDataBy(dataKeys, true)`.
+     * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
+     */
+    callDataListenersFor?(dataBoy: DataBoy<Data>, dataKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
 }
 declare const DataBoy_base: ClassType<{}, any[]>;
 /** DataBoy is like DataMan but only provides data listening, not actual data.
@@ -309,19 +313,21 @@ interface DataBoy<Data extends Record<string, any> = {}> {
      * - Note. This method is used internally but can also be used for custom external purposes.
      */
     getDataArgsBy<DataKey extends GetJoinedDataKeysFrom<Data>, Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?], Fallbacks extends Record<string, any> | [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]>(needs: Params, fallbackArgs?: Fallbacks): Fallbacks extends any[] ? PropTypeArray<Data, Params, Fallbacks> : [valueDictionary: PropTypesFromDictionary<Data, Fallbacks>];
-    /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
+    /** Manually trigger an update based on changes in context. Should not be called externally in normal circumstances.
      * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.
      * - If the refreshKeys is `true` (default), then refreshes as if all data had changed.
+     * - The onlyDirect? 2nd argument should be put to true if wanting to skip the callDataListenersFor static method if present.
+     *      * Normally, if the callDataListenersFor static method is defined, will not perform the internal implementation.
      */
-    callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
+    callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[], onlyDirect?: boolean): void;
 }
 /** Add DataBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
  * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
 */
 declare function mixinDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataBoyType<Data> & BaseClass, DataBoy<Data> & InstanceType<BaseClass>, any[]>;
 
-/** Class type for DataMan. */
-interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [Data?] : [Data]> {
+/** Class type for DataMan - including the constructor arguments when used as a standalone class (or for the mixin in the flow). */
+interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [data?: Data] : [data: Data]> {
 }
 declare const DataMan_base: ClassType<{}, any[]>;
 /** DataMan provides data setting and listening features with dotted strings.
@@ -673,11 +679,6 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
     setContexts(contexts: Partial<{
         [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
     }>, callDataIfChanged?: boolean): boolean;
-    /** Assignable getter to call more data listeners when specific contexts are refreshed.
-     * - Used internally after setting contexts. If not used, calls `this.callDataBy(ctxNames)` instead.
-     * - If ctxDataKeys is true (or undefined), then should refresh all data in all contexts. (Not used internally, but to mirror callDataBy.)
-     */
-    callDataListenersFor?(ctxDataKeys?: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>>[]): void;
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
     static parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
     /** Read context names from contextual data keys or signals. */
@@ -705,6 +706,8 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
     initializeCyclesFor(context: Context): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
     runPreDelayFor(context: Context): void;
+    /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
+    runDelayFor(context: Context): void;
 }
 declare const Context_base: ClassType<{}, any[]>;
 interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
@@ -770,6 +773,8 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static initializeCyclesFor(context: Context): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     static runPreDelayFor(context: Context): void;
+    /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
+    static runDelayFor(context: Context): void;
 }
 
 export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, RefreshCycleType, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };

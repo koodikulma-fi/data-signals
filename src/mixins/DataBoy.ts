@@ -15,7 +15,15 @@ export type DataListenerFunc = (...args: any[]) => any | void;
 
 // - Class - //
 
-export interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> { }
+export interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
+    // Static extendables.
+    /** Assignable getter to call more data listeners when callDataBy is used.
+     * - If dataKeys is true (or undefined), then should refresh all data.
+     * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `dataBoy.callDataBy(dataKeys, true)`.
+     * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
+     */
+    callDataListenersFor?(dataBoy: DataBoy<Data>, dataKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
+}
 /** DataBoy is like DataMan but only provides data listening, not actual data.
  * - Regardless of having no data, it assumes a custom data structure of nested dictionaries.
  *      * For example: `{ something: { deep: boolean; }; simple: string; }`
@@ -168,11 +176,13 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Fallbacks extends Record<string, any> | [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]
     >(needs: Params, fallbackArgs?: Fallbacks): Fallbacks extends any[] ? PropTypeArray<Data, Params, Fallbacks> : [valueDictionary: PropTypesFromDictionary<Data, Fallbacks>];
 
-    /** Manually trigger an update based on changes in context. Should not be used in normal circumstances.
+    /** Manually trigger an update based on changes in context. Should not be called externally in normal circumstances.
      * - Only calls / triggers for refresh by needs related to the given contexts. If ctxNames is true, then all.
      * - If the refreshKeys is `true` (default), then refreshes as if all data had changed.
+     * - The onlyDirect? 2nd argument should be put to true if wanting to skip the callDataListenersFor static method if present.
+     *      * Normally, if the callDataListenersFor static method is defined, will not perform the internal implementation.
      */
-    callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
+    callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[], onlyDirect?: boolean): void;
 
 }
 
@@ -260,13 +270,28 @@ export function mixinDataBoy<Data extends Record<string, any> = {}, BaseClass ex
             needs.map((need, i) => this.getInData(need));
         }
 
-        public callDataBy(refreshKeys: true | string[] = true): void {
+        public callDataBy(refreshKeys: true | string[] = true, onlyDirect?: boolean): void {
+            // Use external flow.
+            if (!onlyDirect && (this.constructor as DataBoyType).callDataListenersFor) {
+                (this.constructor as DataBoyType).callDataListenersFor!(this as any, refreshKeys as any);
+                return;
+            }
             // Loop each callback, and call if needs to.
             for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
                 if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
                     callback(...this.getDataArgsBy(needs as any, fallbackArgs));
             }
         }
+
+
+        // - Optional assignable static getter - //
+
+        /** Assignable getter to call more data listeners when callDataBy is used.
+         * - If dataKeys is true (or undefined), then should refresh all data.
+         * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `dataBoy.callDataBy(dataKeys, true)`.
+         * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
+         */
+        public static callDataListenersFor?(dataBoy: DataBoy, dataKeys?: true | string[]): boolean;
 
     } as any; // We're detached from the return type.
 }

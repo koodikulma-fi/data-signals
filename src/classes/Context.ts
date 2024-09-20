@@ -10,7 +10,7 @@ import { RefreshCycle } from "./RefreshCycle";
 import { mixinSignalMan, SignalMan } from "../mixins/SignalMan";
 import { mixinDataMan, DataMan } from "../mixins/DataMan";
 // Typing.
-import { SignalListener, SignalsRecord } from "../mixins/SignalBoy";
+import { SignalBoy, SignalListener, SignalsRecord } from "../mixins/SignalBoy";
 import { SignalManType } from "../mixins/SignalMan";
 import { DataManType } from "../mixins/DataMan";
 import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - would be cyclical).
@@ -41,6 +41,8 @@ export interface ContextType<Data extends Record<string, any> = {}, Signals exte
     initializeCyclesFor(context: Context): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
     runPreDelayFor(context: Context): void;
+    /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
+    runDelayFor(context: Context): void;
 }
 
 export interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> { }
@@ -121,7 +123,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         let allListeners: SignalListener[] = this.signals[signalName] || [];
         for (const [contextAPI, ctxNames] of this.contextAPIs) {
             for (const ctxName of ctxNames) {
-                const listeners = contextAPI.getListenersFor ? contextAPI.getListenersFor(ctxName + "." + signalName as never) : contextAPI.signals[ctxName + "." + signalName];
+                const listeners = contextAPI.constructor.getListenersFor ? contextAPI.constructor.getListenersFor(contextAPI as SignalBoy<Signals>, ctxName + "." + signalName as never) : contextAPI.signals[ctxName + "." + signalName];
                 if (listeners)
                     allListeners = allListeners.concat(listeners);
             }
@@ -199,6 +201,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         // Hook up cycle interconnections.
         // .. Do the actual pre-delay update part.
         context.preDelayCycle.listenTo("onRefresh", () => context.constructor.runPreDelayFor(context));
+        context.delayCycle.listenTo("onRefresh", () => context.constructor.runDelayFor(context));
         // .. Make sure "delay" is run when "pre-delay" finishes, and the "delay"-related awaitDelay is awaited only then.
         context.preDelayCycle.listenTo("onFinish", () => {
             // Start delay cycle if was idle.
@@ -231,10 +234,11 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
             // .. Only call the ones not colliding with our direct, or call all.
             for (const [contextAPI, ctxNames] of context.contextAPIs.entries())
                 // Call method.
-                (contextAPI[contextAPI.callDataListenersFor ? "callDataListenersFor" : "callDataBy"] as typeof contextAPI["callDataBy"] | typeof contextAPI["callDataListenersFor"])!
-                    // With one argument.
-                    (refreshKeys === true ? ctxNames : ctxNames.reduce((cum, ctxName) => cum.concat(refreshKeys.map(rKey => rKey ? ctxName + "." + rKey : ctxName)), [] as string[]) as any);
+                contextAPI.callDataBy((refreshKeys === true ? ctxNames : ctxNames.reduce((cum, ctxName) => cum.concat(refreshKeys.map(rKey => rKey ? ctxName + "." + rKey : ctxName)), [] as string[])) as any);
         }
     }
-    
+
+    /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
+    public static runDelayFor(context: Context): void { }
+
 }

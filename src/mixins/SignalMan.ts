@@ -164,12 +164,6 @@ export function mixinSignalMan<Signals extends SignalsRecord = {}, BaseClass ext
     return class SignalMan extends (mixinSignalBoy(Base) as SignalBoyType) {
 
 
-        // // - Members - //
-        //
-        // // Static.
-        // ["constructor"]: SignalManType<Signals>;
-
-
         // - Sending signals - //
 
         // Note. This method assumes modes won't be modified during the call (in case uses delay or await).
@@ -187,7 +181,7 @@ export function mixinSignalMan<Signals extends SignalsRecord = {}, BaseClass ext
                     if (isDelayed)
                         await this.afterRefresh(m.includes("delay"));
                     // No listeners.
-                    const listeners = this.getListenersFor ? this.getListenersFor(name as never) : this.signals[name];
+                    const listeners = (this.constructor as SignalManType).getListenersFor ? (this.constructor as SignalManType).getListenersFor!(this, name as never) : this.signals[name];
                     if (!listeners)
                         return multi ? resolve([]) : resolve(undefined);
                     // Resolve with answers.
@@ -208,13 +202,13 @@ export function mixinSignalMan<Signals extends SignalsRecord = {}, BaseClass ext
                 });
             // No promise, nor delay.
             if (!isDelayed) {
-                const listeners = this.getListenersFor ? this.getListenersFor(name as never) : this.signals[name];
+                const listeners = (this.constructor as SignalManType).getListenersFor ? (this.constructor as SignalManType).getListenersFor!(this, name as never) : this.signals[name];
                 return listeners ? askListeners(listeners, args, m as any[]) : m.includes("last") || stopFirst ? undefined : [];
             }
             // Delayed without a promise - no return value.
             (async () => {
                 await this.afterRefresh(m.includes("delay"));
-                const listeners = this.getListenersFor ? this.getListenersFor(name as never) : this.signals[name];
+                const listeners = (this.constructor as SignalManType).getListenersFor ? (this.constructor as SignalManType).getListenersFor!(this, name as never) : this.signals[name];
                 if (listeners) {
                     // Stop at first. Rarity, so we just support it through askListeners without getting the value.
                     if (stopFirst)
