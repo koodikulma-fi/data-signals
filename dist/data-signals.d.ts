@@ -1,9 +1,9 @@
 /// <reference types="node" />
-import { IterateBackwards, ClassType, AsClass } from 'mixin-types';
+import { IterateBackwards, ClassType, AsClass, GetConstructorArgs } from 'mixin-types';
 
 /** Awaits the value from a promise. */
 type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
-/** Type for holding keys as a dictionary, array or set. */
+/** Type for holding keys as a dictionary, array or set. Useful for name checking. */
 type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
 /** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`. If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path. */
 type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | never = false> = string extends Path ? Unknown : Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : T[Path] : Path extends `${infer K}.${infer R}` ? K extends keyof T ? PropType<T[K] & {}, R, Unknown, IsPartial extends never ? never : undefined extends T[K] ? true : IsPartial> : Unknown : Unknown;
@@ -37,22 +37,6 @@ type GetJoinedDataKeysFrom<Data extends Record<string, any>, Pre extends string 
     } ? `${PreVal}${Key}` : string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` : `${PreVal}${Key}`;
 }[string & keyof Data];
 
-/** Builds a record of `{ [key]: trueFalseLike }` from arrays, sets or dictionaries. The outcome is useful for internal quick checks. */
-declare function buildRecordable<T extends string = any>(types: RecordableType<T>, trueFalseLike?: any): Partial<Record<T, any>>;
-/** Creates a numeric range with whole numbers.
- * - With end smaller than start, will give the same result but in reverse.
- * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
- * - Works for integers and floats. Of course floats might do what they do even with simple adding / subtraction.
- * Examples:
- * ```
- * numberRange(3); // [0, 1, 2]
- * numberRange(1, 3); // [1, 2]
- * numberRange(3, 1); // [2, 1]
- * numberRange(1, -2); // [0, -1, -2]
- * numberRange(-3); // [-1, -2, -3]
- * ```
- */
-declare function numberRange(start: number, end?: number | null, stepSize?: number): number[];
 /** General data comparison function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
  * - About arguments:
@@ -183,7 +167,6 @@ declare const SignalBoy_base: ClassType<{}, any[]>;
 declare class SignalBoy<Signals extends SignalsRecord = {}> extends SignalBoy_base {
 }
 interface SignalBoy<Signals extends SignalsRecord = {}> {
-    ["constructor"]: SignalBoyType<Signals>;
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
     signals: Record<string, Array<SignalListener>>;
     /** Assign a listener to a signal. You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
@@ -221,7 +204,6 @@ declare const SignalMan_base: ClassType<{}, any[]>;
 declare class SignalMan<Signals extends SignalsRecord = {}> extends SignalMan_base {
 }
 interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signals> {
-    ["constructor"]: SignalManType<Signals>;
     /** The sendSignalAs method exposes various signalling features through its first arg: string or string[]. The features are listed below:
      * - `"delay"`:
      *      * Delays sending the signal. To also collect returned values must include "await".
@@ -285,7 +267,6 @@ declare const DataBoy_base: ClassType<{}, any[]>;
 declare class DataBoy<Data extends Record<string, any> = {}> extends DataBoy_base {
 }
 interface DataBoy<Data extends Record<string, any> = {}> {
-    ["constructor"]: DataBoyType<Data>;
     /** External data listeners.
      * - These are called after the data refreshes, though might be tied to update cycles at an external layer - to refresh the whole app in sync.
      * - The keys are data listener callbacks, and values are: `[fallbackArgs, ...dataNeeds]`.
@@ -359,7 +340,6 @@ declare const DataMan_base: ClassType<{}, any[]>;
 declare class DataMan<Data extends Record<string, any> = {}> extends DataMan_base {
 }
 interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
-    ["constructor"]: DataManType<Data>;
     readonly data: Data;
     /** The pending data keys - for internal refreshing uses. */
     dataKeysPending: string[] | true | null;
@@ -478,10 +458,16 @@ type RefreshCycleAutoPending<PendingInput extends Record<string, any> = {}, Pend
         PendingOutput[Key]
     ] extends [Iterable<any>, Array<any> | Set<any>] ? "array" | "set" | "" : PendingInput[Key] extends Record<string, any> ? "object" | "" : "";
 };
+/** Class type for RefreshCycle. */
+interface RefreshCycleType<PendingInput extends Record<string, any> = {}, PendingOutput extends {
+    [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
+} = PendingInput, AddSignals extends SignalsRecord = {}> extends AsClass<SignalBoyType<AddSignals>, RefreshCycle<PendingInput, PendingOutput, AddSignals>, GetConstructorArgs<RefreshCycle<PendingInput, PendingOutput, AddSignals>>> {
+}
 /** Class to help manage refresh cycles. */
 declare class RefreshCycle<PendingInput extends Record<string, any> = {}, PendingOutput extends {
     [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
 } = PendingInput, AddSignals extends SignalsRecord = {}> extends SignalBoy<RefreshCycleSignals<PendingOutput> & AddSignals> {
+    ["constructor"]: RefreshCycleType<PendingInput, PendingOutput, AddSignals>;
     /** The `promise` can be used for waiting purposes. It's always present, and if there's nothing to wait it's already fulfilled. */
     promise: Promise<void>;
     /** State of the cycle. Set to "resolving" right when is finishing (does not matter if reject was called), and to "" right after the promise is resolved. */
@@ -786,4 +772,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runPreDelayFor(context: Context): void;
 }
 
-export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, buildRecordable, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RecordableType, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, RefreshCycleType, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };

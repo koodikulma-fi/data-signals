@@ -6,10 +6,10 @@ export * from "./library/typing";
 export * from "./library/library";
 export * from "./library/selectors";
 // Classes and mixins.
-export * from "./classes/SignalBoy";
-export * from "./classes/SignalMan";
-export * from "./classes/DataBoy";
-export * from "./classes/DataMan";
+export * from "./mixins/SignalBoy";
+export * from "./mixins/SignalMan";
+export * from "./mixins/DataBoy";
+export * from "./mixins/DataMan";
 // Classes.
 export * from "./classes/RefreshCycle";
 export * from "./classes/Context";

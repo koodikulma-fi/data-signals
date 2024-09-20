@@ -7,12 +7,12 @@ import { ClassType, AsClass } from "mixin-types";
 import { GetJoinedDataKeysFrom } from "../library/typing";
 // Classes.
 import { RefreshCycle } from "./RefreshCycle";
-import { mixinSignalMan, SignalMan } from "./SignalMan";
-import { mixinDataMan, DataMan } from "./DataMan";
+import { mixinSignalMan, SignalMan } from "../mixins/SignalMan";
+import { mixinDataMan, DataMan } from "../mixins/DataMan";
 // Typing.
-import { SignalListener, SignalsRecord } from "./SignalBoy";
-import { SignalManType } from "./SignalMan";
-import { DataManType } from "./DataMan";
+import { SignalListener, SignalsRecord } from "../mixins/SignalBoy";
+import { SignalManType } from "../mixins/SignalMan";
+import { DataManType } from "../mixins/DataMan";
 import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - would be cyclical).
 
 

@@ -31,8 +31,8 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
 
     // - Members - //
 
-    // Constructor type.
-    ["constructor"]: DataBoyType<Data>;
+    // // Constructor type. Let's not define it, since we're often used as a mixin - so constructor will be something else.
+    // ["constructor"]: DataBoyType<Data>;
 
     /** External data listeners.
      * - These are called after the data refreshes, though might be tied to update cycles at an external layer - to refresh the whole app in sync.

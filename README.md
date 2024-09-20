@@ -1,13 +1,11 @@
 
 ## TODO (docs):
 
-- Add tiny to docs:
-    * numberRange, buildRecordable
 - Add RefreshCycles and ContextCycles to docs.
 - Add about the static methods in ContextAPI.
 - Update docs about HOW TO USE MIXINS. And refer to "mixin-types" docs for complex examples.
     * Mainly one local example from DataMan. Otherwise "mixin-types".
-- Maybe drop the dependency from "mixin-types", since the only imports are 3 extremely simple TS functions.
+- Maybe drop the dependency from "mixin-types", since the only imports are 3 extremely simple TS types.
 
 
 ## WHAT
@@ -26,28 +24,26 @@ The npm package can be found with: [data-signals](https://www.npmjs.com/package/
 
 There are 3 kinds of tools available.
 
-### 1. BASE CLASSES / MIXINS
+### [1. BASE CLASSES / MIXINS](#1-base-classes--mixins-doc)
 
 A couple of classes and mixins for signalling and data listening features.
-- `SignalMan` provides a service to attach listener callbacks to signals and then emit signals from the class - optionally supporting various data or sync related options.
+- `SignalBoy` provides a simple service to attach listener callbacks to signals and then emit signals from the class.
+- `SignalMan` extends `SignalBoy` to provide signal sending with various getter and syncing related options.
 - `DataBoy` provides data listening services, but without actually having any data.
 - `DataMan` extends `DataBoy` to provide the actual data hosting and related methods.
-- `SignalDataBoy` extends both `SignalMan` and `DataBoy` (through mixins).
-- `SignalDataMan` extends both `SignalMan` and `DataMan` (through mixins).
 
 Note. The mixins simply allow to extend an existing class with the mixin features - the result is a new class.
 
-### 2. CONTEXT CLASSES
+
+### [2. CONTEXT CLASSES](#2-context-classes-doc)
 
 Two classes specialized for complex data sharing situations, like those in modern web apps.
-- `Context` extends `SignalDataMan` with syncing related settings. 
-- `ContextAPI` extends `SignalDataBoy` and allows to listen to data and signals in named contexts.
+- `RefreshCycle` extends `SignalBoy` to provide a helper for performing refresh cycles (used by `Context`).
+- `Context` extends `SignalMan` and `DataMan` (mixins) to create a synced data and action sharing environment. 
+- `ContextAPI` extends `SignalMan` and `DataBoy` (mixins) to help manage named `Context`s (and affect their syncing).
 
-The `ContextAPI` can also affect syncing of `Context` refreshes in regards to the "delay" cycle.
-- For example, consider a state based rendering app, where you first set some data in context to trigger rendering ("pre-delay"), but want to send a signal only once the whole rendering is completed ("delay"). Eg. the signal is meant for a component that was not there before the state refresh.
-- To solve it, the rendering hosts can simply use a connected contextAPI and override its `awaitDelay` method to await until rendering completed, making the "delay" be triggered only once the last of them completed.
 
-### 3. STATIC LIBRARY METHODS
+### [3. STATIC LIBRARY METHODS](#3-static-library-methods-doc)
 
 A couple of data reusing concepts in the form of library methods.
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1).
@@ -58,9 +54,35 @@ A couple of data reusing concepts in the form of library methods.
     * `createDataSource` is like createDataMemo but with an extraction process before the producer callback.
     * `createCachedSource` is like createDataSource but creates a new data source for each cacheKey.
 
+
+### [4. HOW TO USE MIXINS](#4-how-to-use-mixins-doc)
+
+This simply provides a quick guide to using the mixins in part 1.
+- For a comprehensive guide, see ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types/README.md).
+
 ---
 
-## 1. BASE CLASSES / MIXINS
+## 1. BASE CLASSES / MIXINS (doc)
+
+### SignalBoy
+
+- `SignalBoy` provides signalling features, from simple instant void signals to complex synced awaiting getters.
+
+```typescript
+
+// Prepare signal typing.
+type Signals = { doIt: (what: number) => void; };
+
+// Create a SignalBoy instance.
+const signalBoy = new SignalBoy<Signals>();
+
+// Listen to signals.
+signalBoy.listenTo("doIt", (what) => { console.log(what); });
+
+// Send a signal.
+signalBoy.sendSignal("doIt", 5);
+
+```
 
 ### SignalMan
 
@@ -78,7 +100,7 @@ const signalMan = new SignalMan<Signals>();
 signalMan.listenTo("doIt", (what) => { console.log(what); });
 signalMan.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
 
-// Send a signal.
+// Send a simple signal.
 signalMan.sendSignal("doIt", 5);
 
 // Send a more complex signal.
@@ -87,10 +109,42 @@ const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsL
 
 ```
 
-### DataMan & DataBoy
+### DataBoy
 
-- `DataBoy` simply provides data listening basis without having any data. (It's useful eg. for `ContextAPI`s.)
-- `DataMan` completes the concept with the `data` member and related methods for setting and getting data.
+- `DataBoy` simply provides data listening basis without having any data.
+    * The class should always be extended by another class to actually hook up to the data.
+    * The extending class should also implement the methods for `setInData` nor `getInData`.
+
+```typescript
+
+// Note. Just a demo - extending class should implement the actual data connection.
+
+// Create a DataBoy instance.
+type MyData = { something: { deep: boolean; }, simple: string; };
+const dataBoy = new DataBoy<MyData>();
+
+// Listen to data.
+dataBoy.listenToData("something.deep", "simple", (deep, simple) => { console.log(deep, simple); });
+dataBoy.listenToData("something.deep", (deepOrFallback) => { }, [false]); // If "something.deep" would be undefined, use `false`.
+dataBoy.listenToData({ "something.deep": 0 as const, "simple": false }, (values) => {
+    values["something.deep"]; // boolean | 0
+    values["simple"]; // string | boolean
+});
+
+// Trigger changes.
+// .. At DataBoy level, the data is refreshed instantly and optional timeouts are resolved separately.
+dataBoy.refreshData("something.deep"); // Trigger a refresh manually.
+dataBoy.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after 5ms timeout.
+
+// Get/set by nested data key.
+dataBoy.getInData("something.deep"); // The type is boolean, as MyData defines it as boolean.
+dataBoy.setInData("something.deep", false);
+
+```
+
+### DataMan
+
+- `DataMan` extends `DataBoy` to complete the concept with `data` member and implementations for setting and getting data.
     * Note that when nested data is set (with setInData), all the parenting data dictionaries are shallow copied.
 
 ```typescript
@@ -121,85 +175,9 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 
 ```
 
-### How to use mixins
-
-- Often you can just go and extend the class directly.
-- But in situations where you can't, mixins make life so much more convenient.
-
-```typescript
-
-// Let's define some custom class.
-class CustomBase {
-    something: string = "";
-    hasSomething(): boolean {
-        return !!this.something;
-    }
-}
-
-// Let's mix in typed SignalMan features.
-type MySignals = { doSomething: (...things: number[]) => void; };
-class CustomSignalMix extends (SignalManMixin as ClassMixer<SignalManType<MySignals>>)(CustomBase) { }
-// class CustomSignalMix extends SignalManMixin(CustomBase) { } // Without typing.
-
-// Create like any class.
-const cMix = new CustomSignalMix();
-
-// Use.
-cMix.something = "yes";
-cMix.hasSomething(); // true
-cMix.listenTo("doSomething", (...things) => { });
-
-```
-- You can also use constructor arguments.
-- If the mixin uses args, it uses the first arg(s) and pass the rest further as `(...passArgs)`.
-
-```typescript
-
-// Let's define a custom class with constructor args.
-class CustomBase {
-    someMember: boolean;
-    constructor(someMember: boolean) {
-        this.someMember = someMember;
-    }
-}
-
-// Let's mix in typed DataMan features.
-interface MyData { something: { deep: boolean; }; simple: string; }
-class CustomDataMix extends (DataManMixin as ClassMixer<DataManType<MyData>>)(CustomBase) {
-
-    // Optional constructor. If you need a constructor, it could look like this.
-    constructor(data: MyData, someMember: boolean) {
-        super(data, someMember);
-    }
-
-}
-
-// Create like any class.
-const cMix = new CustomDataMix({ something: { deep: true }, simple: "" }, false);
-
-// Use.
-cMix.listenToData("something.deep", "simple", (deep, simple) => { });
-
-
-```
-- And you can of course mix many mixins, one after the other.
-
-```typescript
-
-// Mix DataMan and SignalMan upon CustomBase.
-class MyMultiMix extends DataManMixin(SignalManMixin(CustomBase)) {}
-
-// The same thing as above happens to be also available as a mixin already.
-class MyMultiMix extends SignalDataManMixin(CustomBase) {}
-
-// Note that you can do the same typing tricks as above using the ClassMixer type.
-// .. Note also that you can use ClassMixer for your own custom mixins - see the source code.
-
-```
-
 ---
 
-## 2. CONTEXT CLASSES
+## 2. CONTEXT CLASSES (doc)
 
 ### Context
 
@@ -337,9 +315,20 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 
 ```
 
+As a use case example of `ContextAPI`:
+- Consider a situation in a state based rendering app:
+    - You first set some data in context to trigger rendering ("pre-delay").
+    - But want to send a signal only once the whole rendering is completed ("delay"), so that the component using the signal has been mounted first.
+- To solve it:
+    * The rendering hosts can use a connected contextAPI and override its `awaitDelay` method to await until rendering cycle completed.
+        - This essentially makes the "delay" be triggered only once the last of the promises has been completed.
+    * Optionally, the components can also have a contextAPI, but their `awaitDelay` just directly returns the promise from the host.
+        - This all gets even easier if the host uses a `RefreshCycle`, as it has a `promise` member that can be directly used here.
+
+
 ---
 
-## 3. STATIC LIBRARY METHODS
+## 3. STATIC LIBRARY METHODS (doc)
 
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
@@ -540,3 +529,201 @@ val1 = mySource(state1a, state1b, "someKey");
 val2 = mySource(state2a, state2b, "anotherKey");
 
 ```
+
+---
+
+## 4. HOW TO USE MIXINS (doc)
+
+### Mixins quick guide
+
+- Often you can just go and extend the class directly. But where you can't, mixins can make things very convenient.
+- For thorough examples and guidelines, see the ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types/README.md).
+- Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types".
+
+```typescript
+
+// Imports.
+import { AsMixin } from "mixin-types";
+import { SignalMan, mixinSignalMan } from "./mixins/SignalMan";
+
+// Let's define some custom class.
+class CustomBase {
+    something: string = "";
+    hasSomething(): boolean {
+        return !!this.something;
+    }
+}
+
+// Let's mix in typed SignalMan features.
+type MySignals = { doSomething: (...things: number[]) => void; };
+class CustomSignalMix extends mixinSignalMan<MySignals, typeof CustomBase>(CustomBase) { }
+class CustomSignalMix_alt extends (mixinSignalMan as AsMixin<SignalMan<MySignals>>)(CustomBase) { }
+
+// Create like any class.
+const cMix = new CustomSignalMix();
+
+// Use.
+cMix.something = "yes";
+cMix.hasSomething(); // true
+cMix.listenTo("doSomething", (...things) => { });
+
+```
+- You can also use constructor arguments.
+- If the mixin uses args, it uses the first arg(s) and pass the rest further as `(...passArgs)`.
+
+```typescript
+
+// Imports.
+import { AsMixin } from "mixin-types";
+import { DataManType, mixinDataMan } from "data-signals";
+
+// Let's define a custom class with constructor args.
+class CustomBase {
+    someMember: boolean;
+    constructor(someMember: boolean) {
+        this.someMember = someMember;
+    }
+}
+
+// Let's mix in typed DataMan features.
+interface MyData { something: { deep: boolean; }; simple: string; }
+class CustomDataMix extends (mixinDataMan as AsMixin<DataMan<MyData>>)(CustomBase) {
+    // Define explicitly what the final class constructor args.
+    constructor(data: MyData, someMember: boolean) {
+        super(data, someMember);
+    }
+}
+// Or define them using AsMixin's 2nd arg.
+class CustomDataMix_alt extends
+    (mixinDataMan as AsMixin<DataMan<MyData>, [data: MyData, someMember: boolean]>)(CustomBase) { }
+
+// Create like any class.
+const cMix = new CustomDataMix({ something: { deep: true }, simple: "" }, false);
+
+// Use.
+cMix.listenToData("something.deep", "simple", (deep, simple) => { });
+cMix.someMember; // boolean (as type), false (as JS value)
+
+
+```
+- you can of course mix many mixins, one after the other.
+
+```typescript
+
+// Imports.
+import { mixinsWith, AsMixin } from "mixin-types";
+import { mixinDataMan, mixinSignalMan, DataMan, SignalMan } from "data-signals";
+
+// Base and types from above.
+class CustomBase {
+    someMember: boolean;
+    constructor(someMember: boolean) {
+        this.someMember = someMember;
+    }
+}
+interface MyData { something: { deep: boolean; }; simple: string; }
+type MySignals = { test: (num: number) => void; };
+
+// Mix DataMan and SignalMan upon CustomBase.
+// .. Use `mixinsWith` (or `mixins` without base) method from "mixin-types" module for complex cases.
+// .. It ensures typing for the whole chain, and validates mixin requirements based on the accumulated sequence.
+class MyMultiMix extends mixinsWith(CustomBase, mixinSignalMan<MySignals>, mixinDataMan<MyData>) {
+    // Define args explicitly - knowing DataMan takes 1 arg, SignalMan 0, and CustomBase 1.
+    constructor(data: MyData, someMember: boolean) {
+        super(data, someMember);
+    }
+}
+// This line below will not take into account the whole chain: CustomBase and SignalMan gets lost.
+class MyMultiMix_Incorrect extends mixinDataMan<MyData>(mixinSignalMan<MySignals>(CustomBase)) {}
+// To do it all manually with constr. args, should use AsMixin (though the chain won't be evaluated for dependencies.)
+class MyMultiMix_Manually extends
+    (mixinDataMan as AsMixin<DataMan<MyData>, [data: MyData, someMember: boolean]>)( // Define constr. args here.
+        (mixinSignalMan as AsMixin<SignalMan<MySignals>>)(CustomBase)) {}
+
+// Test.
+const myMultiMix = new MyMultiMix({ something: { deep: true }, simple: "" }, false);
+myMultiMix.listenToData("something.deep", (deep) => {});
+myMultiMix.someMember = true;
+myMultiMix.sendSignal("test", 5);
+
+// Test manual.
+const myMultiMix_Manually = new MyMultiMix_Manually({ something: { deep: true }, simple: "" }, false);
+myMultiMix_Manually.listenToData("something.deep", (deep) => {});
+myMultiMix_Manually.someMember = true;
+myMultiMix_Manually.sendSignal("test", 5);
+
+// Test incorrect.
+const myMultiMix_Incorrect = new MyMultiMix_Incorrect({ something: { deep: true }, simple: "" }, "any"); // Only 1st arg typed.
+myMultiMix_Incorrect.listenToData("something.deep", (deep) => {}); // The only line that works.
+myMultiMix_Incorrect.someMember = true; // someMember is red-undlined, not found.
+myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not found.
+
+```
+
+- And you can use generic props on the extending class.
+
+```typescript
+
+// Imports.
+import { ClassType, AsClass } from "mixin-types";
+import { SignalsRecord, mixinSignalMan, SignalMan, DataMan, mixinDataMan } from "data-signals";
+
+// Mix DataMan and SignalMan upon CustomBase with generic + own args.
+class CustomBase {
+    someMember: boolean;
+    constructor(someMember?: boolean) {
+        this.someMember = someMember || false;
+    }
+}
+interface CustomBase {
+    someMember: boolean;
+}
+
+// Define class using `as any as ClassType` for the mixins.
+class MegaMix<
+    Data extends Record<string, any> = {},
+    AddSignals extends SignalsRecord = {},
+> extends (mixinDataMan(mixinSignalMan(CustomBase)) as any as ClassType) {
+    
+    // Define args explicitly for external use.
+    constructor(data: Data, someMember?: boolean, ...args: any[]) {
+        super(data, someMember, ...args);
+    }
+
+    // Add some method.
+    public setSomeMember(value: boolean): void {
+        // This line starts to work once the interface is in place.
+        this.someMember = value;
+        // To use own signals within the class, drop generics first.
+        // .. We can do this `this as MegaMix` - or `this as any as MegaMix` for some cases.
+        (this as MegaMix).sendSignal("mySignal", value ? 1 : 0);
+    }
+}
+
+// Define matching interface using multiple typed extends. No need to retype what class adds.
+type MegaMixSignals = { mySignal: (num: number) => void; };
+interface MegaMix<
+    Data extends Record<string, any> = {},
+    AddSignals extends SignalsRecord = {},
+> extends AsInstance<DataMan<Data> & SignalMan<MegaMixSignals & AddSignals> & CustomBase, [data: Data, someMember?: boolean]> { }
+// Alternatively you can use the line below, but then the myMegaMix.constructor part further below is not typed.
+// > extends DataMan<Data>, SignalMan<MegaMixSignals & AddSignals>, CustomBase { }
+
+// Optionally define the class type, inferring info from the MegaMix interface.
+interface MegaMixType<Data extends Record<string, any> = {}, AddSignals extends SignalsRecord = {}> extends
+    AsClass<ClassType<MegaMix<Data, AddSignals>>, MegaMix<Data, AddSignals>, [data: Data, someMember?: boolean]> {}
+
+// Test.
+type MySignals = { test: (enabled: boolean) => void; };
+type MyData = { test: boolean; };
+const myMegaMix = new MegaMix<MyData, MySignals>({ test: false }, false);
+myMegaMix.setSomeMember(true);
+myMegaMix.sendSignal("mySignal", 5);
+myMegaMix.sendSignal("test", false);
+
+// The constructor and its typing works, _if_ defined with AsInstance.
+const myMegaMix2 = new myMegaMix.constructor({ test: true }, true);
+
+```
+
+[Back to top](#what)

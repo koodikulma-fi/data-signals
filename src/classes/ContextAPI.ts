@@ -5,13 +5,12 @@
 import { ClassType, AsClass } from "mixin-types";
 // Library.
 import { PropType, RecordableType, GetJoinedDataKeysFrom } from "../library/typing";
-import { buildRecordable } from "../library/library";
 // Classes.
 import { Context } from "./Context";
 // Typing.
-import { SignalsRecord } from "./SignalBoy";
-import { SignalSendAsReturn, SignalManType, mixinSignalMan, SignalMan } from "./SignalMan";
-import { mixinDataBoy, DataBoy, DataBoyType } from "./DataBoy";
+import { SignalsRecord } from "../mixins/SignalBoy";
+import { SignalSendAsReturn, SignalManType, mixinSignalMan, SignalMan } from "../mixins/SignalMan";
+import { mixinDataBoy, DataBoy, DataBoyType } from "../mixins/DataBoy";
 
 
 // - Helper types - //
@@ -282,10 +281,10 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
         // Base.
         if (!onlyNames)
             return { ...this.contexts } as Contexts;
-        const okNames = buildRecordable(onlyNames);
+        const okNames = onlyNames.constructor === Set ? onlyNames : onlyNames.constructor === Array ? new Set(onlyNames) : new Set(Object.keys(onlyNames));
         const contexts: Partial<ContextsAllTypeWith<{}, null>> = {};
         for (const name in this.contexts)
-            if (okNames[name] && this.contexts[name] !== undefined && (!skipNulls || this.contexts[name] !== null))
+            if (okNames.has(name) && this.contexts[name] !== undefined && (!skipNulls || this.contexts[name] !== null))
                 contexts[name] = this.contexts[name];
         // Mixed.
         return contexts;

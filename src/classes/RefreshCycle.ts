@@ -1,7 +1,8 @@
 
 // - Imports - //
 
-import { SignalBoy, SignalsRecord } from "./SignalBoy";
+import { AsClass, GetConstructorArgs } from "mixin-types";
+import { SignalBoy, SignalBoyType, SignalsRecord } from "../mixins/SignalBoy";
 
 
 // - Extra typing - //
@@ -32,6 +33,13 @@ export type RefreshCycleAutoPending<
 
 // - Class - //
 
+/** Class type for RefreshCycle. */
+export interface RefreshCycleType<
+    PendingInput extends Record<string, any> = {},
+    PendingOutput extends { [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key] } = PendingInput,
+    AddSignals extends SignalsRecord = {}
+> extends AsClass<SignalBoyType<AddSignals>, RefreshCycle<PendingInput, PendingOutput, AddSignals>, GetConstructorArgs<RefreshCycle<PendingInput, PendingOutput, AddSignals>>> {}
+
 /** Class to help manage refresh cycles. */
 export class RefreshCycle<
     PendingInput extends Record<string, any> = {},
@@ -41,6 +49,9 @@ export class RefreshCycle<
     
 
     // - Members - //
+
+    // Constructor type.
+    ["constructor"]: RefreshCycleType<PendingInput, PendingOutput, AddSignals>;
 
     // Public.
     /** The `promise` can be used for waiting purposes. It's always present, and if there's nothing to wait it's already fulfilled. */

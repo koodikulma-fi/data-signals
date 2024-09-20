@@ -61,8 +61,8 @@ export interface SignalBoy<Signals extends SignalsRecord = {}> {
 
     // - Members - //
 
-    // Constructor type.
-    ["constructor"]: SignalBoyType<Signals>;
+    // // Constructor type. Let's not define it, since we're often used as a mixin - so constructor will be something else.
+    // ["constructor"]: SignalBoyType<Signals>;
 
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
     signals: Record<string, Array<SignalListener>>;

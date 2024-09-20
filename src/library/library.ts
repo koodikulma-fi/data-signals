@@ -3,59 +3,11 @@
 
 // Typing.
 import { ClassType } from "mixin-types";
-// Typing.
-import { RecordableType } from "./typing";
-
-
-// - Misc. static helpers - //
-    
-/** Builds a record of `{ [key]: trueFalseLike }` from arrays, sets or dictionaries. The outcome is useful for internal quick checks. */
-export function buildRecordable<T extends string = any>(types: RecordableType<T>, trueFalseLike: any = true): Partial<Record<T, any>> {
-    if (types.constructor === Object)
-        return types as Partial<Record<T, any>>;
-    const tTypes: Partial<Record<T, any>> = {};
-    for (const type of types as Iterable<T>)
-        tTypes[type] = trueFalseLike;
-    return tTypes;
-}
-
-/** Creates a numeric range with whole numbers.
- * - With end smaller than start, will give the same result but in reverse.
- * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
- * - Works for integers and floats. Of course floats might do what they do even with simple adding / subtraction.
- * Examples:
- * ```
- * numberRange(3); // [0, 1, 2]
- * numberRange(1, 3); // [1, 2]
- * numberRange(3, 1); // [2, 1]
- * numberRange(1, -2); // [0, -1, -2]
- * numberRange(-3); // [-1, -2, -3]
- * ```
- */
-export function numberRange(start: number, end?: number | null, stepSize: number = 1): number[] {
-    // Validate.
-    if (!stepSize || stepSize < 0)
-        stepSize = 1;
-    // Only length given.
-    if (end == null)
-        [end, start] = [start, 0];
-    // Go in reverse.
-    const range: number[] = [];
-    if (end < start) {
-        for (let i=start-1; i>=end; i -= stepSize)
-            range.push(i);
-    }
-    // Fill directly.
-    else
-        for (let i=start; i<end; i += stepSize)
-            range.push(i);
-    // Return range.
-    return range;
-}
 
 
 // - Static data helpers - // 
 
+// Used internally but also meant as a tool for external use.
 /** General data comparison function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
  * - About arguments:
@@ -143,6 +95,7 @@ export function areEqual(a: any, b: any, nDepth = -1): boolean {
     return false;
 }
 
+// Not used internally, only exported as a tool for external use.
 /** General copy function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
  * - About arguments:
@@ -188,3 +141,41 @@ export function deepCopy<T extends any = any>(obj: T, nDepth = -1): T {
         newObj[prop] = deepCopy(obj[prop], nDepth);
     return newObj as T;
 }
+
+
+// // - Misc. static helpers - //
+//
+// // It's lovely, but why should it be included in "data-signals"? It's not really relevant (unlike deepCopy). 
+// /** Creates a numeric range with whole numbers.
+//  * - With end smaller than start, will give the same result but in reverse.
+//  * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
+//  * - Works for integers and floats. Of course floats might do what they do even with simple adding / subtraction.
+//  * Examples:
+//  * ```
+//  * numberRange(3); // [0, 1, 2]
+//  * numberRange(1, 3); // [1, 2]
+//  * numberRange(3, 1); // [2, 1]
+//  * numberRange(1, -2); // [0, -1, -2]
+//  * numberRange(-3); // [-1, -2, -3]
+//  * ```
+//  */
+// export function numberRange(start: number, end?: number | null, stepSize: number = 1): number[] {
+//     // Validate.
+//     if (!stepSize || stepSize < 0)
+//         stepSize = 1;
+//     // Only length given.
+//     if (end == null)
+//         [end, start] = [start, 0];
+//     // Go in reverse.
+//     const range: number[] = [];
+//     if (end < start) {
+//         for (let i=start-1; i>=end; i -= stepSize)
+//             range.push(i);
+//     }
+//     // Fill directly.
+//     else
+//         for (let i=start; i<end; i += stepSize)
+//             range.push(i);
+//     // Return range.
+//     return range;
+// }
