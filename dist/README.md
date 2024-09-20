@@ -46,7 +46,7 @@ Note. The mixins simply allow to extend an existing class with the mixin feature
 Two classes specialized for complex data sharing situations, like those in modern web apps.
 - `RefreshCycle` extends `SignalBoy` to provide a helper for performing refresh cycles (used by `Context`).
 - `Context` extends `SignalMan` and `DataMan` (mixins) to create a synced data and action sharing environment. 
-- `ContextAPI` extends `SignalMan` and `DataBoy` (mixins) to help manage named `Context`s (and affect their syncing).
+- `ContextAPI` extends `SignalMan` and `DataBoy` (mixins) to manage named `Context`s (and affect their syncing).
 
 
 ### [3. STATIC LIBRARY METHODS](#3-static-library-methods-doc)
@@ -63,8 +63,7 @@ A couple of data reusing concepts in the form of library methods.
 
 ### [4. HOW TO USE MIXINS](#4-how-to-use-mixins-doc)
 
-This simply provides a quick guide to using the mixins in part 1.
-- For a comprehensive guide, see ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types).
+Provides a quick guide to using the mixins. For a comprehensive guide, see ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types).
 
 ---
 
