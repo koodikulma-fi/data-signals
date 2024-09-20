@@ -1,19 +1,4 @@
 
-## TODO:
-
-- Hey.. maybe..
-    - We should reorganize ... onListener and getListeners to use STATIC SIDE..?
-    - Because.. Those classes should basically anyway be extended, especially if wants to use such.
-    - But.... then it's confusing.... maybe... at... well.. .. hmm. maybe yes..
-    - Okay.
-        - It looks like it's okay.. At level of Context, ContextAPI but also in MixDOM.
-        - Could use it for: onListener, getListenersFor and callDataListenersFor.
-        - In a way.. It even clarifies the situation.
-        - However. ONE THING..
-            * Eg. in REF in mixdom... And the supposed MIDDLE-WARE....
-            * We can't use super. ....  So think it thru firts..
-
-
 ## WHAT
 
 `data-signals` is a light weight library containing a few simple but carefully designed JS/TS classes, mixins and tools for managing complex state and action flow in sync.
@@ -340,8 +325,8 @@ As a use case example of `ContextAPI`:
 ### RefreshCycle
 
 - `RefreshCycles` extends `SignalBoy` and serves as a helper class to manage refresh cycles.
-- For example, the `Context` class uses two RefreshCycles, one for the `"pre-delay"` and another for the `"delay"` cycle.
-    * Furthermore, `Context` has hooked up them up so that "pre-delay" is always triggered with "delay", and always resolved before "delay".
+- For example, `Context` class uses two RefreshCycles, one for `"pre-delay"` and another for `"delay"` cycle.
+    * Furthermore, `Context` has hooked up them up so that "pre-delay" is always triggered with "delay", and always resolved before "delay". Below is a similar example.
 
 ```typescript
 
@@ -664,11 +649,13 @@ val2 = mySource(state2a, state2b, "anotherKey");
 
 ## 4. HOW TO USE MIXINS (doc)
 
-### Mixins quick guide
+### Intro
 
 - Often you can just go and extend the class directly. But where you can't, mixins can make things very convenient.
 - For thorough examples and guidelines, see the ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types).
 - Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types".
+
+### Basic usage
 
 ```typescript
 
@@ -698,6 +685,9 @@ cMix.hasSomething(); // true
 cMix.listenTo("doSomething", (...things) => { });
 
 ```
+
+### Constructor arguments
+
 - You can also use constructor arguments.
 - If the mixin uses args, it uses the first arg(s) and pass the rest further as `(...passArgs)`.
 
@@ -736,6 +726,9 @@ cMix.someMember; // boolean (as type), false (as JS value)
 
 
 ```
+
+### Sequence of mixins
+
 - you can of course mix many mixins, one after the other.
 
 ```typescript
@@ -790,7 +783,9 @@ myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not f
 
 ```
 
-- And you can use generic props on the extending class.
+### Generic params on the extending class
+
+- And you can use generic params on the extending class.
 
 ```typescript
 
