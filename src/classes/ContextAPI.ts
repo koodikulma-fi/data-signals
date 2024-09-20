@@ -397,7 +397,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
             const iSplit = ctxDataKey.indexOf(".");
             const ctxName = iSplit === -1 ? ctxDataKey : ctxDataKey.slice(0, iSplit);
             // Add unique.
-            if (!cum.includes(ctxName) && ctxName)
+            if (ctxName && !cum.includes(ctxName))
                 cum.push(ctxName);
             return cum;
         }, [] as string[]);

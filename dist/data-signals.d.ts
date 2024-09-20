@@ -741,7 +741,7 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     modifySettings(settings: Partial<ContextSettings>): void;
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
     getListenersFor(signalName: string): SignalListener[] | undefined;
-    /** Trigger a ("pre-delay") refresh in the context. Once finished, the "delay" cycle is refreshed. The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
+    /** Trigger a refresh in the context. Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs). The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
     triggerRefresh(forceTimeout?: number | null): void;
     /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
      * - If there's nothing pending, then will resolve immediately (by the design of the flow).
@@ -766,9 +766,9 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     /** Extendable static default settings getter. */
     static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
-    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
+    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     static initializeCyclesFor(context: Context): void;
-    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
+    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     static runPreDelayFor(context: Context): void;
 }
 

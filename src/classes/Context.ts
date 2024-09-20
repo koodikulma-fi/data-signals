@@ -133,7 +133,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // - Data related methods. - //
 
     // Added method.
-    /** Trigger a ("pre-delay") refresh in the context. Once finished, the "delay" cycle is refreshed. The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
+    /** Trigger a refresh in the context. Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs). The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
     public triggerRefresh(forceTimeout?: number | null): void {
         // Start the pre delay cycle.
         this.preDelayCycle.start(this.settings.refreshTimeout, forceTimeout);
@@ -194,7 +194,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         return { refreshTimeout: 0 } as Settings;
     }
 
-    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
+    /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     public static initializeCyclesFor(context: Context): void {
         // Hook up cycle interconnections.
         // .. Do the actual pre-delay update part.
@@ -203,7 +203,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         context.preDelayCycle.listenTo("onFinish", () => {
             // Start delay cycle if was idle.
             context.delayCycle.start();
-            // Resolve "delay" cycle - unless was already "resolving" (or had become "fulfilled").
+            // Resolve "delay" cycle - unless was already "resolving" (or had become "").
             if (context.delayCycle.state === "waiting")
                 context.awaitDelay ? context.awaitDelay().then(() => context.delayCycle.resolve()) : context.delayCycle.resolve();
         });
@@ -213,7 +213,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         context.delayCycle.listenTo("onResolve", () => context.preDelayCycle.resolve());
     }
     
-    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
+    /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     public static runPreDelayFor(context: Context): void {
 
         // Clear data keys from context.

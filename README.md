@@ -1,11 +1,17 @@
 
-## TODO (docs):
+## TODO:
 
-- Add RefreshCycles and ContextCycles to docs.
-- Add about the static methods in ContextAPI.
-- Update docs about HOW TO USE MIXINS. And refer to "mixin-types" docs for complex examples.
-    * Mainly one local example from DataMan. Otherwise "mixin-types".
-- Maybe drop the dependency from "mixin-types", since the only imports are 3 extremely simple TS types.
+- Hey.. maybe..
+    - We should reorganize ... onListener and getListeners to use STATIC SIDE..?
+    - Because.. Those classes should basically anyway be extended, especially if wants to use such.
+    - But.... then it's confusing.... maybe... at... well.. .. hmm. maybe yes..
+    - Okay.
+        - It looks like it's okay.. At level of Context, ContextAPI but also in MixDOM.
+        - Could use it for: onListener, getListenersFor and callDataListenersFor.
+        - In a way.. It even clarifies the situation.
+        - However. ONE THING..
+            * Eg. in REF in mixdom... And the supposed MIDDLE-WARE....
+            * We can't use super. ....  So think it thru firts..
 
 
 ## WHAT
@@ -58,7 +64,7 @@ A couple of data reusing concepts in the form of library methods.
 ### [4. HOW TO USE MIXINS](#4-how-to-use-mixins-doc)
 
 This simply provides a quick guide to using the mixins in part 1.
-- For a comprehensive guide, see ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types/README.md).
+- For a comprehensive guide, see ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types).
 
 ---
 
@@ -313,6 +319,13 @@ const lifeIsAfterAll = await cApi.sendSignalAs(["delay", "await", "first"], "use
 //
 // <-- Using "pre-delay" is synced to context's refresh cycle, while "delay" to once all related contextAPIs have refreshed.
 
+// Use static methods.
+ContextAPI.parseContextDataKey("settings.something.deep"); // ["settings", "something.deep"];
+ContextAPI.parseContextDataKey("settings"); // ["settings", ""];
+ContextAPI.readContextNamesFrom(["settings", "settings.simple", "user.loggedIn", ""]); // ["settings", "user"];
+ContextAPI.readContextDictionaryFrom(["settings.something.deep", "settings.simple", "user"]);
+// { settings: ["something.deep", "simple"], user: true }
+
 ```
 
 As a use case example of `ContextAPI`:
@@ -325,6 +338,124 @@ As a use case example of `ContextAPI`:
     * Optionally, the components can also have a contextAPI, but their `awaitDelay` just directly returns the promise from the host.
         - This all gets even easier if the host uses a `RefreshCycle`, as it has a `promise` member that can be directly used here.
 
+### RefreshCycle
+
+- `RefreshCycles` extends `SignalBoy` and serves as a helper class to manage refresh cycles.
+- For example, the `Context` class uses two RefreshCycles, one for the `"pre-delay"` and another for the `"delay"` cycle.
+    * Furthermore, `Context` has hooked up them up so that "pre-delay" is always triggered with "delay", and always resolved before "delay".
+
+```typescript
+
+// - Class - //
+
+// Typing.
+interface MyMainCycleInput {
+    sources: Array<Object>;
+    infos: { name: string; }[];
+}
+interface MyMainCycleOutput {
+    sources: Set<Object>;
+    infos: { name: string; }[];
+}
+
+// Example class. A somewhat similar set up is used for the Context class.
+class MyCycles {
+
+
+    // - Members - //
+
+    public preTimeout: number | null = null;
+    private preCycle: RefreshCycle;
+    private mainCycle: RefreshCycle<MyMainCycleInput, MyMainCycleOutput>;
+
+    constructor(preTimeout?: number | null) {
+        this.preTimeout = preTimeout ?? null;
+        this.preCycle = new RefreshCycle();
+        this.mainCycle = new RefreshCycle<MyMainCycleInput, MyMainCycleOutput>({ sources: "set" });
+        this.connectCycles();
+    }
+
+
+    // - Public API - //
+
+    public updateMain(source: Object, ...infos: { name: string; }[]): void {
+        // Update/start up the "main" cycle. Due to our hook up will start "pre" first.
+        this.mainCycle.update({ sources: [source], infos });
+    }
+
+    public afterMain(): Promise<void> {
+        // Make sure main cycle is started. The method also return the promise.
+        return this.mainCycle.start();
+        // return this.mainCycle.promise; // The promise is always available a class member as well.
+    }
+
+
+    // - Private helpers - //
+
+    private connectCycles() {
+
+        // Do the actual "pre" and "main" update parts.
+        this.preCycle.listenTo("onRefresh", () => this.runPreCycle());
+        this.mainCycle.listenTo("onRefresh", (pending) => this.runMainCycle(pending));
+
+        // Make sure to start "pre" when "main" is started. We use the finishing part of "pre" to correctly run "main".
+        this.mainCycle.listenTo("onStart", () => this.preCycle.start());
+
+        // Make sure "pre" is always resolved right before "main".
+        this.mainCycle.listenTo("onResolve", () => this.preCycle.resolve());
+
+        // Make sure "main" is run when "pre" finishes, and the "main"-related awaitMain is awaited only then.
+        this.preCycle.listenTo("onFinish", () => {
+            // Start main cycle if was idle. (If was already started, nothing changed.)
+            this.mainCycle.start();
+            // Resolve the "main" cycle - unless was already "resolving" (or had already become "").
+            if (this.mainCycle.state === "waiting")
+                this.awaitMain ? this.awaitMain().then(() => this.mainCycle.resolve()) : this.mainCycle.resolve();
+        });
+
+    }
+
+    private awaitMain(): Promise<void> {
+        // Could do some complex waiting process here.
+        // .. But let's just in this example resolve instantly.
+        return Promise.resolve();
+    }
+
+    private runPreCycle() {
+        // Run the "pre" update.
+    }
+
+    private runMainCycle(pending: Partial<MyMainCycleOutput>) {
+        // Run the "main" update - using pending info from updates.
+        pending.sources; // Set<Object> | undefined;
+        pending.infos; // { name: string; }[] | undefined;
+    }
+}
+
+
+// - Test use - //
+
+// Create.
+const myCycles = new MyCycles();
+// Add some updates.
+const a = {};
+myCycles.updateMain(a);
+const b = {};
+const upd1 = { name: "test" };
+const upd2 = { name: "again" };
+myCycles.updateMain(b, upd1, upd2);
+myCycles.updateMain(b); // Won't add anything, `b` is already in the set.
+myCycles.updateMain(a, upd2); // Won't add `a`, but adds another upd2.
+myCycles.afterMain().then(() => { }); // Resolved after the main cycle.
+
+// Once the cycle is resolved, it will have the corresponding pending infos as below:
+const result = {
+    sources: new Set<Object>([a, b]),
+    infos: [ upd1, upd2, upd2 ]
+};
+
+
+```
 
 ---
 
@@ -537,7 +668,7 @@ val2 = mySource(state2a, state2b, "anotherKey");
 ### Mixins quick guide
 
 - Often you can just go and extend the class directly. But where you can't, mixins can make things very convenient.
-- For thorough examples and guidelines, see the ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types/README.md).
+- For thorough examples and guidelines, see the ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types).
 - Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types".
 
 ```typescript
@@ -665,7 +796,7 @@ myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not f
 ```typescript
 
 // Imports.
-import { ClassType, AsClass } from "mixin-types";
+import { ClassType, AsClass, AsInstance } from "mixin-types";
 import { SignalsRecord, mixinSignalMan, SignalMan, DataMan, mixinDataMan } from "data-signals";
 
 // Mix DataMan and SignalMan upon CustomBase with generic + own args.
@@ -678,6 +809,9 @@ class CustomBase {
 interface CustomBase {
     someMember: boolean;
 }
+
+// Custom type.
+type MegaMixSignals = { mySignal: (num: number) => void; };
 
 // Define class using `as any as ClassType` for the mixins.
 class MegaMix<
@@ -701,7 +835,6 @@ class MegaMix<
 }
 
 // Define matching interface using multiple typed extends. No need to retype what class adds.
-type MegaMixSignals = { mySignal: (num: number) => void; };
 interface MegaMix<
     Data extends Record<string, any> = {},
     AddSignals extends SignalsRecord = {},
@@ -709,9 +842,15 @@ interface MegaMix<
 // Alternatively you can use the line below, but then the myMegaMix.constructor part further below is not typed.
 // > extends DataMan<Data>, SignalMan<MegaMixSignals & AddSignals>, CustomBase { }
 
-// Optionally define the class type, inferring info from the MegaMix interface.
-interface MegaMixType<Data extends Record<string, any> = {}, AddSignals extends SignalsRecord = {}> extends
-    AsClass<ClassType<MegaMix<Data, AddSignals>>, MegaMix<Data, AddSignals>, [data: Data, someMember?: boolean]> {}
+// Optionally define the class type, reusing info from MegaMix interface defined above.
+interface MegaMixType<Data extends Record<string, any> = {}, AddSignals extends SignalsRecord = {}> extends AsClass<
+    // Static.
+    MegaMix["constructor"], // Alternatively: DataManType<Data> & SignalManType<MegaMixSignals & AddSignals>,
+    // Instance.
+    MegaMix<Data, MegaMixSignals & AddSignals>,
+    // Constructor args.
+    [data: Data, someMember?: boolean]
+> {}
 
 // Test.
 type MySignals = { test: (enabled: boolean) => void; };
