@@ -652,7 +652,7 @@ val2 = mySource(state2a, state2b, "anotherKey");
 ### Intro
 
 - Often you can just go and extend the class directly. But where you can't, mixins can make things very convenient.
-- For thorough examples and guidelines, see the ["mixin-types" README](https://github.com/koodikulma-fi/mixin-types). (The module is used by `data-signals` internally.)
+- For more examples and guidelines, see the ["mixin-types"](https://github.com/koodikulma-fi/mixin-types). (The module is used by `data-signals` internally.)
 - Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types".
 
 ### Basic usage
