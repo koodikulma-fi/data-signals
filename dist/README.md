@@ -242,10 +242,10 @@ const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"],
 - `ContextAPI` provides communication with multiple _named_ `Context`s.
 - When a ContextAPI is hooked up to a context, it can use its data and signalling services.
     * In this sense, ContextAPI provides a stable reference to potentially changing set of contexts.
-- The ContextAPI's optional `awaitDelay` method affects the "delay" refresh cycle of Contexts (by the returned promise).
+- The ContextAPI's `awaitDelay` method affects the "delay" refresh cycle of Contexts (by the returned promise).
     * The default implementation resolves the promise instantly, but can be overridden (for external syncing).
     * The Context's "delay" cycle is resolved once all the connected ContextAPIs have been awaited.
-    * I's totally fine to override the method externally: `myContextAPI.awaitDelay = async () => await someProcess()`.
+    * I's fine to override the method externally: `myContextAPI.awaitDelay = async () => await someProcess()`.
 
 ```typescript
 
@@ -334,10 +334,8 @@ As a use case example of `ContextAPI`:
     - You first set some data in context to trigger rendering ("pre-delay").
     - But want to send a signal only once the whole rendering is completed ("delay"), so that the component using the signal has been mounted first.
 - To solve it:
-    * The rendering hosts can use a connected contextAPI and override its `awaitDelay` method to await until rendering cycle completed.
-        - This essentially makes the "delay" be triggered only once the last of the promises has been completed.
-    * Optionally, the components can also have a contextAPI, but their `awaitDelay` just directly returns the promise from the host.
-        - This all gets even easier if the host uses a `RefreshCycle`, as it has a `promise` member that can be directly used here.
+    * The rendering hosts can use a connected contextAPI and override its `awaitDelay` method to await until rendering cycle completed. Essentially, "delay" is then completed when the last promise is completed.
+    * Optionally, the components can also have a contextAPI, but their `awaitDelay` just directly returns the promise from the host. Or just directly the promise of a `RefreshCycle`.
 
 ### RefreshCycle
 
