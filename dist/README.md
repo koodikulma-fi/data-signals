@@ -460,7 +460,7 @@ const result = {
 
 ## 3. STATIC LIBRARY METHODS (doc)
 
-- The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` compare or copy data with custom level of depth.
+- The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` compare or copy data to a level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ### library: areEqual
@@ -800,7 +800,7 @@ myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not f
 
 ### Generic params on the extending class
 
-- You can also use generic params on the extending class, but needs to type things carefully.
+- You can also use generic params on the extending class, but have to type things carefully.
 
 ```typescript
 
