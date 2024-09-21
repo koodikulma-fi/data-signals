@@ -114,24 +114,6 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
 
-    // - Signal related methods. - //
-    
-    // Overridden.
-    /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
-    public getListenersFor(signalName: string): SignalListener[] | undefined {
-        // Collect all.
-        let allListeners: SignalListener[] = this.signals[signalName] || [];
-        for (const [contextAPI, ctxNames] of this.contextAPIs) {
-            for (const ctxName of ctxNames) {
-                const listeners = contextAPI.constructor.getListenersFor ? contextAPI.constructor.getListenersFor(contextAPI as SignalBoy<Signals>, ctxName + "." + signalName as never) : contextAPI.signals[ctxName + "." + signalName];
-                if (listeners)
-                    allListeners = allListeners.concat(listeners);
-            }
-        }
-        return allListeners[0] && allListeners;
-    }
-
-
     // - Data related methods. - //
 
     // Added method.
@@ -191,6 +173,21 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     
     // - Static - //
     
+    // Overridden.
+    /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
+    public static getListenersFor(context: Context, signalName: string): SignalListener[] | undefined {
+        // Collect all.
+        let allListeners: SignalListener[] = context.signals[signalName] || [];
+        for (const [contextAPI, ctxNames] of context.contextAPIs) {
+            for (const ctxName of ctxNames) {
+                const listeners = contextAPI.constructor.getListenersFor ? contextAPI.constructor.getListenersFor(contextAPI as SignalBoy, ctxName + "." + signalName as never) : contextAPI.signals[ctxName + "." + signalName];
+                if (listeners)
+                    allListeners = allListeners.concat(listeners);
+            }
+        }
+        return allListeners[0] && allListeners;
+    }
+
     /** Extendable static default settings getter. */
     public static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings {
         return { refreshTimeout: 0 } as Settings;

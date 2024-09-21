@@ -613,8 +613,9 @@ type RefreshCycleSignals<PendingInfo = undefined> = {
     onResolve: () => void;
     /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates.
      * - Also contains resolvePromise(), which is called right after synchronously. But can be called earlier if wanted.
+     * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
-    onRefresh: (pending: PendingInfo, resolvePromise: () => void) => void;
+    onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;
     /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles). */
     onFinish: (cancelled: boolean) => void;
 };
@@ -630,17 +631,17 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
     state: "waiting" | "resolving" | "";
     /** Optional collection of things to update when the cycle finished.
      * - When the cycle is finished calls `onRefresh(pending: PendingInfo)` using this info.
-     * - Initialized by initializer given on constructor. Can then add manually to the cycle externally.
+     * - Initialized by pendingInitializer given on constructor. Can then add manually to the cycle externally.
      *      * The pending is re-inited at the moment of clearing pending. The first one on instantiating the class.
-     *      * If no initializer given then is undefined.
+     *      * If no pendingInitializer given then is undefined.
      */
     pending: PendingInfo;
     /** The current timer if any. */
     timer?: number | NodeJS.Timeout;
-    initializer?: () => PendingInfo;
+    pendingInitializer?: () => PendingInfo;
     /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
     private _resolvePromise?;
-    constructor(...args: PendingInfo extends undefined ? [initializer?: () => PendingInfo] : [initializer: () => PendingInfo]);
+    constructor(...args: PendingInfo extends undefined ? [pendingInitializer?: () => PendingInfo] : [pendingInitializer: () => PendingInfo]);
     /** Starts the cycle if wasn't started: goes to "waiting" state unless was "resolving".
      * - If forceTimeout given modifies the timeout, the defaultTimeout is only used when starting up the cycle.
      * - The cycle is finished by calling "resolve" or "reject", or by the timeout triggering "resolve".
@@ -651,11 +652,13 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
      * - If given `number`, then sets it as the new timeout.
      * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
      * - If given `undefined´ will only clear the timer and not set up a new one.
-     * - Note that does _not_ start up a cycle - only extends an active one in the "waiting" state.
+     * - If a cycle wasn't started, starts it up - unless was "resolving", or allowStartUp is set to false.
      */
-    extend(timeout: number | null | undefined): void;
+    extend(timeout: number | null | undefined, allowStartUp?: boolean): void;
     /** Clears the timer. Mostly used internally, but can be used externally as well. Does not affect the state of the cycle. */
     clearTimer(): void;
+    /** Get and clear the pending info. */
+    resetPending(): PendingInfo;
     /** Resolve the refresh cycle (and promise) manually. Results in clearing the entry from bookkeeping and calling `onRefresh`. Resolving again results in nothing. */
     resolve(): void;
     /** Cancel the whole refresh cycle. Note that this will clear the entry from refreshTimers bookkeeping along with its updates. */
@@ -884,8 +887,6 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
     /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     modifySettings(settings: Partial<ContextSettings>): void;
-    /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
-    getListenersFor(signalName: string): SignalListener[] | undefined;
     /** Trigger a refresh in the context. Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs). The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
     triggerRefresh(forceTimeout?: number | null): void;
     /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
@@ -909,6 +910,8 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
      * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
      */
     refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
+    /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
+    static getListenersFor(context: Context, signalName: string): SignalListener[] | undefined;
     /** Extendable static default settings getter. */
     static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */

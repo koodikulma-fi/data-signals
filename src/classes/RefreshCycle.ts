@@ -14,8 +14,9 @@ export type RefreshCycleSignals<PendingInfo = undefined> = {
     onResolve: () => void;
     /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates.
      * - Also contains resolvePromise(), which is called right after synchronously. But can be called earlier if wanted.
+     * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
-    onRefresh: (pending: PendingInfo, resolvePromise: () => void) => void;
+    onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;
     /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles). */
     onFinish: (cancelled: boolean) => void;
 }
@@ -48,24 +49,24 @@ export class RefreshCycle<
     public state: "waiting" | "resolving" | "" = "";
     /** Optional collection of things to update when the cycle finished.
      * - When the cycle is finished calls `onRefresh(pending: PendingInfo)` using this info.
-     * - Initialized by initializer given on constructor. Can then add manually to the cycle externally.
+     * - Initialized by pendingInitializer given on constructor. Can then add manually to the cycle externally.
      *      * The pending is re-inited at the moment of clearing pending. The first one on instantiating the class.
-     *      * If no initializer given then is undefined.
+     *      * If no pendingInitializer given then is undefined.
      */
     public pending: PendingInfo;
     /** The current timer if any. */
     public timer?: number | NodeJS.Timeout;
-    public initializer?: () => PendingInfo;
+    public pendingInitializer?: () => PendingInfo;
 
     // Private.
     /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
     private _resolvePromise?: () => void;
 
     // Allow without autoPending if didn't require conversion by type.
-    constructor(...args: PendingInfo extends undefined ? [initializer?: () => PendingInfo] : [initializer: () => PendingInfo]) {
+    constructor(...args: PendingInfo extends undefined ? [pendingInitializer?: () => PendingInfo] : [pendingInitializer: () => PendingInfo]) {
         super();
-        this.initializer = args[0];
-        this.pending = this.initializer ? this.initializer() : undefined as PendingInfo;
+        this.pendingInitializer = args[0];
+        this.pending = this.pendingInitializer ? this.pendingInitializer() : undefined as PendingInfo;
     }
 
 
@@ -87,12 +88,12 @@ export class RefreshCycle<
                 res();
             });
             // Set up a timer.
-            defaultTimeout !== undefined && this.extend(defaultTimeout);
+            this.extend(forceTimeout === undefined ? defaultTimeout : forceTimeout);
             // Call up.
             (this as RefreshCycle).sendSignal("onStart");
         }
         // Just extend the timer.
-        else if (this.state === "waiting" && forceTimeout !== undefined)
+        else if (forceTimeout !== undefined)
             this.extend(forceTimeout);
         // Return the promise.
         return this.promise;
@@ -102,19 +103,25 @@ export class RefreshCycle<
      * - If given `number`, then sets it as the new timeout.
      * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
      * - If given `undefined´ will only clear the timer and not set up a new one.
-     * - Note that does _not_ start up a cycle - only extends an active one in the "waiting" state.
+     * - If a cycle wasn't started, starts it up - unless was "resolving", or allowStartUp is set to false.
      */
-    public extend(timeout: number | null | undefined): void {
-        // Not active.
-        if (this.state !== "waiting")
+    public extend(timeout: number | null | undefined, allowStartUp: boolean = true): void {
+        // Not while resolving
+        if (this.state !== "resolving")
             return;
         // Clear.
         this.clearTimer();
         // Execute or set up a timer (or do nothing).
         if (timeout === null)
             this.resolve();
-        else if (timeout !== undefined)
-            this.timer = setTimeout(() => { delete this.timer; this.resolve(); }, timeout);
+        else {
+            // Start.
+            if (!this.state)
+                allowStartUp && this.trigger(timeout);
+            // Extend.
+            else if (timeout !== undefined)
+                this.timer = setTimeout(() => { delete this.timer; this.resolve(); }, timeout);
+        }
     }
 
     /** Clears the timer. Mostly used internally, but can be used externally as well. Does not affect the state of the cycle. */
@@ -123,6 +130,13 @@ export class RefreshCycle<
             clearTimeout(this.timer as any);
             delete this.timer;
         }
+    }
+
+    /** Get and clear the pending info. */
+    public resetPending(): PendingInfo {
+        const pending = this.pending;
+        this.pending = this.pendingInitializer ? this.pendingInitializer() : undefined as PendingInfo;
+        return pending;
     }
 
 
@@ -138,21 +152,25 @@ export class RefreshCycle<
         // Clear timer.
         this.clearTimer();
         // Collect pending.
-        const pending = this.pending;
-        this.pending = this.initializer ? this.initializer() : undefined as PendingInfo;
+        const pending = this.resetPending();
         // Call onResolve.
         (this as RefreshCycle).sendSignal("onResolve");
         // Call onRefresh.
-        let done = false;
-        const resolvePromise = () => {
-            if (!done) {
-                done = true;
-                this.state = "";
+        let done: 0 | 1 | 2 = 0;
+        const resolvePromise = (keepResolving: boolean = false) => {
+            if ((done & 1) === 0) {
+                done |= keepResolving ? 1 : 1 | 2;
+                if (!keepResolving)
+                    this.state = "";
                 this._resolvePromise?.();
+            }
+            else if (!keepResolving && (done & 2) === 0 && this.state === "resolving") {
+                done |= 2;
+                this.state = "";
             }
         }
         (this as RefreshCycle<PendingInfo>).sendSignal("onRefresh", pending, resolvePromise);
-        resolvePromise(); // Make sure the promise is resolved by now.
+        resolvePromise(); // Make sure the promise is resolved by now, and state cleared.
         // Call onFinish.
         (this as RefreshCycle).sendSignal("onFinish", false);
     }
@@ -167,7 +185,7 @@ export class RefreshCycle<
         // Clear timer.
         this.clearTimer();
         // Upon cancelling, clear old pending.
-        this.pending = this.initializer ? this.initializer() : undefined as PendingInfo;
+        this.resetPending();
         // Call onResolve.
         (this as RefreshCycle).sendSignal("onResolve");
         // Clear state and resolve promise.
