@@ -38,7 +38,10 @@ export interface RefreshCycleType<
     PendingInput extends Record<string, any> = {},
     PendingOutput extends { [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key] } = PendingInput,
     AddSignals extends SignalsRecord = {}
-> extends AsClass<SignalBoyType<AddSignals>, RefreshCycle<PendingInput, PendingOutput, AddSignals>, GetConstructorArgs<RefreshCycle<PendingInput, PendingOutput, AddSignals>>> {}
+> extends AsClass<SignalBoyType<AddSignals>, RefreshCycle<PendingInput, PendingOutput, AddSignals>, GetConstructorArgs<RefreshCycle<PendingInput, PendingOutput, AddSignals>>> {
+    /** Clears the timer and resolves the promise if had. During the process has state "resolving", after it "". Meant for internal use only (with resolve and reject). */
+    flushCycle(cycle: RefreshCycle): void;
+}
 
 /** Class to help manage refresh cycles. */
 export class RefreshCycle<
@@ -187,7 +190,7 @@ export class RefreshCycle<
         if (this.state !== "waiting")
             return;
         // Resolve promise.
-        this.flush();
+        this.constructor.flushCycle(this);
         // Collect pending.
         const pending = this.pending;
         this.pending = {};
@@ -205,33 +208,35 @@ export class RefreshCycle<
         // .. Otherwise we continue collecting the pending until the dependencies and the promise have been resolved.
         // .. We resolve the dependencies in any case - the promise flow must stay stable and constant.
         this.pending = {};
-        // Resolve.
-        this.flush();
+        // Resolve promise.
+        this.constructor.flushCycle(this);
         // Emit.
         (this as RefreshCycle).sendSignal("onFinish", true);
     }
 
 
-    // - Private helpers - //
+    // - Static (extendable) helpers - //
 
-    /** Clears the timer and resolves the promise if had. During the process has state "resolving", after it "". Meant for internal use only (with resolve and reject). */
-    private flush(): void {
+    /** Clears the timer and resolves the promise if had. During the process has state "resolving", after it "".
+     * - Put as static so that doesn't pollute the public API of RefreshCycle (nor prevent features of extending classes).
+     */
+    public static flushCycle(cycle: RefreshCycle): void {
         // State.
-        this.state = "resolving";
+        cycle.state = "resolving";
         // Clear timer.
-        if (this.timer !== undefined) {
-            clearTimeout(this.timer as any);
-            delete this.timer;
+        if (cycle.timer !== undefined) {
+            clearTimeout(cycle.timer as any);
+            delete cycle.timer;
         }
         // Resolve and clear promise.
-        if (this._resolvePromise) {
+        if (cycle._resolvePromise) {
             // Emit to resolve dependencies or such.
-            (this as RefreshCycle).sendSignal("onResolve");
+            (cycle as RefreshCycle).sendSignal("onResolve");
             // Resolve promise, if still there after the signal.
-            this._resolvePromise?.();
+            cycle._resolvePromise?.();
         }
         // State.
-        this.state = "";
+        cycle.state = "";
     }
 
 }

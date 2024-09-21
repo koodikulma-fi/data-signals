@@ -4,7 +4,7 @@
 // Depedency.
 import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { PropType, RecordableType, GetJoinedDataKeysFrom } from "../library/typing";
+import { PropType, SetLike, GetJoinedDataKeysFrom } from "../library/typing";
 // Classes.
 import { Context } from "./Context";
 // Typing.
@@ -275,9 +275,9 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
     }
 
     /** Gets the contexts by names. If name not found, not included in the returned dictionary, otherwise the values are Context | null. */
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: RecordableType<Name> | null, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
         // Base.
         if (!onlyNames)
             return { ...this.contexts } as Contexts;

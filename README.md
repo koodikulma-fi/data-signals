@@ -806,7 +806,7 @@ myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not f
 
 // Imports.
 import { ClassType, AsClass, AsInstance } from "mixin-types";
-import { SignalsRecord, mixinSignalMan, SignalMan, DataMan, mixinDataMan } from "data-signals";
+import { SignalsRecord, mixinSignalMan, SignalMan, SignalManType, DataMan, mixinDataMan, DataManType } from "data-signals";
 
 // Mix DataMan and SignalMan upon CustomBase with generic + own args.
 class CustomBase {
@@ -847,30 +847,36 @@ class MegaMix<
 interface MegaMix<
     Data extends Record<string, any> = {},
     AddSignals extends SignalsRecord = {},
-> extends AsInstance<DataMan<Data> & SignalMan<MegaMixSignals & AddSignals> & CustomBase, [data: Data, someMember?: boolean]> { }
-// Alternatively you can use the line below, but then the myMegaMix.constructor part further below is not typed.
-// > extends DataMan<Data>, SignalMan<MegaMixSignals & AddSignals>, CustomBase { }
+// > extends DataMan<Data>, SignalMan<MegaMixSignals & AddSignals>, CustomBase {
+//     // Define constructor: so it works nicely for `.constructor` usage.
+//     ["constructor"]: MegaMixType<Data, AddSignals>;
+// }
+// Alternatively you can use the expression below.
+> extends AsInstance<
+    DataMan<Data> & SignalMan<MegaMixSignals & AddSignals> & CustomBase, // Instance.
+    MegaMixType<Data, AddSignals>, // Static.
+    // [data: Data, someMember?: boolean] // Constructor args, though typescript won't read them from the interface.
+> { }
 
-// Optionally define the class type, reusing info from MegaMix interface defined above.
+// Optionally define the class type. We actually use it above.
 interface MegaMixType<Data extends Record<string, any> = {}, AddSignals extends SignalsRecord = {}> extends AsClass<
-    // Static.
-    MegaMix["constructor"], // Alternatively: DataManType<Data> & SignalManType<MegaMixSignals & AddSignals>,
-    // Instance.
-    MegaMix<Data, MegaMixSignals & AddSignals>,
-    // Constructor args.
-    [data: Data, someMember?: boolean]
+    DataManType<Data> & SignalManType<MegaMixSignals & AddSignals>, // Static.
+    MegaMix<Data, MegaMixSignals & AddSignals>, // Instance.
+    [data: Data, someMember?: boolean] // Constructor args.
 > {}
 
 // Test.
 type MySignals = { test: (enabled: boolean) => void; };
 type MyData = { test: boolean; };
-const myMegaMix = new MegaMix<MyData, MySignals>({ test: false }, false);
-myMegaMix.setSomeMember(true);
-myMegaMix.sendSignal("mySignal", 5);
-myMegaMix.sendSignal("test", false);
+const megaMix = new MegaMix<MyData, MySignals>({ test: false }, false);
+megaMix.setSomeMember(true);
+megaMix.sendSignal("mySignal", 5);
+megaMix.sendSignal("test", false);
 
 // The constructor and its typing works, _if_ defined with AsInstance.
-const myMegaMix2 = new myMegaMix.constructor({ test: true }, true);
+const megaMix2 = new megaMix.constructor({ test: true }, true);
+megaMix.constructor.callDataListenersFor; // Recognized.
+megaMix2.constructor.onListener; // Recognized.
 
 ```
 

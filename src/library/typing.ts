@@ -11,7 +11,7 @@ import { IterateBackwards } from "mixin-types";
 /** Awaits the value from a promise. */
 export type Awaited<T> = T extends PromiseLike<infer U> ? U : T
 /** Type for holding keys as a dictionary, array or set. Useful for name checking. */
-export type RecordableType<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
+export type SetLike<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
 
 // // Intersect.
 // /** Convert union to intersection. */
