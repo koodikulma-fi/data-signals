@@ -800,7 +800,7 @@ myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not f
 
 ### Generic params on the extending class
 
-- And you can use generic params on the extending class.
+- You can also use generic params on the extending class, but needs to type things carefully.
 
 ```typescript
 
