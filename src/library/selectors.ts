@@ -80,6 +80,40 @@ export type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: M
  *      @param memory Defines the initial memory.
  *      @param depth Defines the comparison depth for comparing previous and new memory - to decide whether to run onMount callback.
  *          - Defaults to 1 meaning will perform a shallow comparison on the old and new memory. (By default assumes it's an object.)
+ *
+ * ```
+ * 
+ * // Create a function that can be called to trigger a callback when the reference data is changed from the last time
+ * type Memory = { id: number; text: string; };
+ * const myTrigger = createDataTrigger<Memory>(
+ *      // 1st arg is an optional (but often used) _mount_ callback.
+ *      (newMem, oldMem) => {
+ *          // Run upon change.
+ *          if (newMem.id !== oldMem.id)
+ *              console.log("Id changed!");
+ *          // Optionally return a callback to do _unmounting_.
+ *          return (currentMem, nextMem) => { console.log("Unmounted!"); }
+ *      },
+ *      // 2nd arg is optional initial memory.
+ *      // .. Use it to delay the first triggering of the mount callback (in case the same on first usages).
+ *      { id: 1, text: "init" },
+ *      // 3rd arg is optional depth, defaults to 1, meaning performs shallow comparison on the memory.
+ *      1
+ * );
+ * 
+ * // Use the trigger.
+ * let didChange = myTrigger({ id: 1, text: "init" }); // false, new memory and init memory have equal contents.
+ * didChange = myTrigger({ id: 1, text: "thing" }); // true
+ * didChange = myTrigger({ id: 2, text: "thing" }); // true, logs: "Id changed!"
+ * didChange = myTrigger({ id: 2, text: "thing" }, true); // true
+ * 
+ * // Change callback.
+ * const newCallback = () => { console.log("Changes!"); };
+ * didChange = myTrigger({ id: 2, text: "thing" }, false, newCallback); // false
+ * didChange = myTrigger({ id: 3, text: "thing" }, false, newCallback); // true, logs: "Unmounted!" and then "Changes!".
+ * didChange = myTrigger({ id: 3, text: "now?" }); // true, logs: "Changes!"
+ * 
+ * ```
  */
 export function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMount<Memory>, memory?: Memory, depth: number | CompareDataDepthMode = 1): (newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory> | null) => boolean {
     // Local memory.
@@ -123,6 +157,30 @@ export function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMou
  *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
  *          - The depth defaults to 0 meaning identity check on args (or if count changed).
  *          - Note that the depth refers to _each_ item in the memory, not the memory argments array as a whole since it's new every time.
+ * 
+ * ```
+ * 
+ * // Create a function that can be called to return updated data if arguments changed.
+ * const myMemo = createDataMemo(
+ *      // 1st arg is the producer callback that should return the desired data.
+ *      // .. It's only triggered when either (a, b) is changed from last time.
+ *      (a, b) => {
+ *          // Do something with the args.
+ *          return a.score > b.score ? { winner: a.name, loser: b.name } :
+ *              a.score < b.score ? { winner: b.name, loser: a.name } : 
+ *              { winner: null, loser: null };
+ *      },
+ *      // 2nd arg is optional and defines the _level of comparison_ referring to each argument.
+ *      // .. For DataMemo it defaults to 0, meaning identity comparison on each argument: oldArg[i] !== newArg[i].
+ *      // .. To do a deep comparison set to -1. Setting of 1 means shallow comparison (on each arg), and from there up.
+ *      0,
+ * );
+ * 
+ * // Use the memo.
+ * const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "beta" }); // { winner: "beta", loser: "alpha" }
+ * 
+ * ```
+ * 
  */
 export function createDataMemo<Data extends any, MemoryArgs extends any[]>(producer: (...memory: MemoryArgs) => Data, depth: number | CompareDataDepthMode = 0): (...memory: MemoryArgs) => Data {
     // Local memory.
@@ -159,6 +217,49 @@ export function createDataMemo<Data extends any, MemoryArgs extends any[]>(produ
  *      * To control the level of comparsion, pass in the optional last arg for "depth". Defaults to 0: identity check on each argument (+ checks argment count).
  * - The producer callback directly receives the arguments returned by the extractor, and it should return the output data solely based on them (other sources of data should be constant).
  * - The whole point of this abstraction, is to trigger the presumably expensive producer callback only when the cheap extractor func tells there's a change.
+ * 
+ * ```
+ * 
+ * // Prepare.
+ * type MyParams = [ colorTheme: { mode?: "light" | "dark" }, specialMode?: boolean];
+ * type MyData = { theme: "dark" | "light"; special: boolean; }
+ * 
+ * // With pre-typing.
+ * const mySource = (createDataSource as CreateDataSource<MyParams, MyData>)(
+ *      // Extractor - showcases the usage for contexts.
+ *      // .. For example, if has many usages with similar context data needs.
+ *      (colorTheme, specialMode) => [
+ *          colorTheme?.mode || "dark",
+ *          specialMode || false,
+ *      ],
+ *      // Producer - it's only called if the extracted data items were changed from last time.
+ *      (theme, special) => ({ theme, special }),
+ *      // Optional depth of comparing each argument.
+ *      // .. Defaults to 0: if any arg (or arg count) is changed, triggers the producer.
+ *      0
+ * );
+ * 
+ * // With manual typing.
+ * const mySource_MANUAL = createDataSource(
+ *      // Extractor.
+ *      (...[colorTheme, specialMode]: MyParams) => [
+ *          colorTheme?.mode || "dark",
+ *          specialMode || false,
+ *      ],
+ *      // Producer.
+ *      (theme, special): MyData => ({ theme, special }),
+ *      // Optional depth of comparing each argument.
+ *      0
+ * );
+ * 
+ * // Test.
+ * const val = mySource({ mode: "dark" }, true);
+ * const val_FAIL = mySource({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
+ * const val_MANUAL = mySource_MANUAL({ mode: "dark" }, true);
+ * const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
+ * 
+ * 
+ * ```
  */
 export function createDataSource<
     Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[],
@@ -207,6 +308,49 @@ export function createDataSource<
  *      * So in practice, the producer callback would be triggered every time the _asker changes_ - even if data in both sets would stay identical.
  *      * To solve this, you simply define unique keys for each use case. For example: "grid1" and "grid2" in our simple example here.
  * - Like in createDataSource the optional last argument "depth" can be used to define the level of comparison for each argument. Defaults to 0: identity check.
+ * 
+ * ```
+ * 
+ * // Let' use the same MyData as with createDataSource, but add cacheKey to args.
+ * type MyCachedParams = [
+ *      colorTheme: { mode?: "light" | "dark" },
+ *      specialMode: boolean | undefined,
+ *      cacheKey: string
+ * ];
+ * 
+ * // With pre-typing.
+ * const mySource = (createDataSource as CreateCachedSource<MyCachedParams, MyData>)(
+ *      // Extractor.
+ *      (colorTheme, specialMode) => [colorTheme?.mode || "dark", specialMode || false],
+ *      // Producer.
+ *      (theme, special) => ({ theme, special }),
+ *      // Cache key generator.
+ *      (_theme, _special, cacheKey) => cacheKey,
+ *      // Optional depth.
+ *      0
+ * );
+ * 
+ * // With manual typing.
+ * const mySource_MANUAL = createCachedDataSource(
+ *      // Extractor.
+ *      (...[colorTheme, specialMode]: MyCachedParams) => [colorTheme?.mode || "dark", specialMode || false],
+ *      // Producer.
+ *      (theme, special): MyData => ({ theme, special }),
+ *      // Cache key generator.
+ *      (_theme, _special, cacheKey) => cacheKey,
+ *      // Optional depth.
+ *      0
+ * );
+ * 
+ * // Test. Let's say state1 and state2 variants come from somewhere.
+ * let val1 = mySource(state1a, state1b, "someKey"); // In one place.
+ * let val2 = mySource(state2a, state2b, "anotherKey"); // In another place with similar data.
+ * // We can do it again, and the producers won't be retriggered (unlike without caching).
+ * val1 = mySource(state1a, state1b, "someKey");
+ * val2 = mySource(state2a, state2b, "anotherKey");
+ * 
+ * 
+ * ```
  */
 export function createCachedSource<
     Extracted extends [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?] | readonly any[],

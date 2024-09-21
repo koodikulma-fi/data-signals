@@ -15,6 +15,17 @@ import { ClassType } from "mixin-types";
  *      @param b Second object for comparison. (Order of a and b makes no difference in the outcome.)
  *      @param nDepth Set the depth of comparison. Defaults to -1 (deep).
  *          - nDepth of -1 means no limit. 0 means no depth: simple identity check. 1 means shallow comparison, 2 double shallow comparison, and so on.
+ * ```
+ * 
+ * // Basic usage.
+ * const test = { test: true };
+ * areEqual(true, test); // false, clearly not equal.
+ * areEqual(test, { test: true }); // true, contents are equal when deeply check.
+ * areEqual(test, { test: true }, 1); // true, contents are equal when shallow checked.
+ * areEqual(test, { test: true }, 0); // false, not identical objects.
+ * areEqual(test, test, 0); // true, identical objects.
+ * 
+ * ```
  */
 export function areEqual(a: any, b: any, nDepth = -1): boolean {
     // Identical.
@@ -102,6 +113,17 @@ export function areEqual(a: any, b: any, nDepth = -1): boolean {
  *      @param obj The value to copy, typically a complex object (but can of course be a simple value as well).
  *      @param nDepth Set the depth of copy level. Defaults to -1 (deep).
  *          - nDepth of -1 means no limit. 0 means no depth: simple identity check. 1 means shallow copy, 2 double shallow copy, and so on.
+ * ```
+ * 
+ * // Prepare.
+ * const original = { something: { deep: true }, simple: "yes" };
+ * let copy: typeof original;
+ * // Basic usage.
+ * copy = deepCopy(original); // Copied deeply.
+ * copy = deepCopy(original, 1); // Copied one level, so original.something === copy.something.
+ * copy = deepCopy(original, 0); // Did not copy, so original === copy.
+ * 
+ * ```
  */
 export function deepCopy<T extends any = any>(obj: T, nDepth = -1): T {
     // Simple.
@@ -145,7 +167,7 @@ export function deepCopy<T extends any = any>(obj: T, nDepth = -1): T {
 
 // // - Misc. static helpers - //
 //
-// // It's lovely, but why should it be included in "data-signals"? It's not really relevant (unlike deepCopy). 
+// // This doesn't really have anything to do with "data-signals".
 // /** Creates a numeric range with whole numbers.
 //  * - With end smaller than start, will give the same result but in reverse.
 //  * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
