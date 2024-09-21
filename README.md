@@ -873,7 +873,7 @@ megaMix.setSomeMember(true);
 megaMix.sendSignal("mySignal", 5);
 megaMix.sendSignal("test", false);
 
-// The constructor and its typing works, _if_ defined with AsInstance.
+// The constructor and its typing works, too - if defined (as we have above).
 const megaMix2 = new megaMix.constructor({ test: true }, true);
 megaMix.constructor.callDataListenersFor; // Recognized.
 megaMix2.constructor.onListener; // Recognized.
