@@ -674,6 +674,11 @@ declare class RefreshCycle<PendingInput extends Record<string, any> = {}, Pendin
     update(addToPending?: Partial<PendingInput> | null, defaultTimeout?: number | null, forceTimeout?: number | null): void;
     /** Absorbs the pending info updates without triggering the cycle. Can be automated with "autoPending" member. */
     absorb(addToPending: Partial<PendingInput>): void;
+    /** The opposite of absorb.
+     * - Removes from pending info (without triggering the cycle). Can be automated with "autoPending" member.
+     * - If the key is defined but its value is undefined, deletes the key.
+     */
+    eject(removeFromPending: Partial<PendingInput>): void;
     /** Extend the timeout - clearing old timeout (if had).
      * - If given `number`, then sets it as the new timeout.
      * - If given `null`, then will immediaty resolve it - same as calling `resolve`.

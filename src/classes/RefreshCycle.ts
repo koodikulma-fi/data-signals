@@ -159,6 +159,52 @@ export class RefreshCycle<
         }
     }
 
+    /** The opposite of absorb.
+     * - Removes from pending info (without triggering the cycle). Can be automated with "autoPending" member.
+     * - If the key is defined but its value is undefined, deletes the key.
+     */
+    public eject(removeFromPending: Partial<PendingInput>): void {
+        // Loop each propery.
+        for (const p in removeFromPending) {
+            // Not found.
+            if (this.pending[p] === undefined) {
+                // Make sure is really deleted.
+                delete this.pending[p];
+                continue;
+            }
+            // Automation.
+            switch(this.autoPending[p] || "" as "set" | "array" | "object" | "") {
+                // Add to a set.
+                case "set": {
+                    const set = this.pending[p] as Set<any>;
+                    for (const s of removeFromPending[p] as Iterable<any>)
+                        set.delete(s);
+                    break;
+                }
+                // Add to an array.
+                case "array": {
+                    const arr = this.pending[p] as any[] || ((this.pending as Record<string, any[]>)[p] = []);
+                    for (const s of removeFromPending[p] as Iterable<any>) {
+                        const i = arr.indexOf(s);
+                        i !== -1 && arr.splice(i, 1);
+                    }
+                    break;
+                }
+                // Add to / override in a dictionary.
+                case "object": {
+                    const dictionary = this.pending[p] = { ...this.pending[p] };
+                    for (const key in removeFromPending)
+                        delete dictionary[key as any];
+                    break;
+                }
+                // Just delete.
+                default:
+                    delete this.pending[p];
+                    break;
+            }
+        }
+    }
+
     /** Extend the timeout - clearing old timeout (if had).
      * - If given `number`, then sets it as the new timeout.
      * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
