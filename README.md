@@ -847,16 +847,16 @@ class MegaMix<
 interface MegaMix<
     Data extends Record<string, any> = {},
     AddSignals extends SignalsRecord = {},
-// > extends DataMan<Data>, SignalMan<MegaMixSignals & AddSignals>, CustomBase {
-//     // Define constructor: so it works nicely for `.constructor` usage.
-//     ["constructor"]: MegaMixType<Data, AddSignals>;
-// }
-// Alternatively you can use the expression below.
 > extends AsInstance<
     DataMan<Data> & SignalMan<MegaMixSignals & AddSignals> & CustomBase, // Instance.
     MegaMixType<Data, AddSignals>, // Static.
     // [data: Data, someMember?: boolean] // Constructor args, though typescript won't read them from the interface.
 > { }
+// Alternatively can use multiple extends as below.
+// > extends DataMan<Data>, SignalMan<MegaMixSignals & AddSignals>, CustomBase {
+//     // Define constructor: so it works nicely for `.constructor` usage.
+//     ["constructor"]: MegaMixType<Data, AddSignals>;
+// }
 
 // Optionally define the class type. We actually use it above.
 interface MegaMixType<Data extends Record<string, any> = {}, AddSignals extends SignalsRecord = {}> extends AsClass<
