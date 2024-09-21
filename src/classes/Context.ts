@@ -138,7 +138,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     /** Trigger a refresh in the context. Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs). The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
     public triggerRefresh(forceTimeout?: number | null): void {
         // Start the pre delay cycle.
-        this.preDelayCycle.start(this.settings.refreshTimeout, forceTimeout);
+        this.preDelayCycle.trigger(this.settings.refreshTimeout, forceTimeout);
     }
 
     // Overridden.
@@ -153,9 +153,9 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
      * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
      */
     public afterRefresh(fullDelay: boolean = false, forceTimeout?: number | null): Promise<void> {
-        if (fullDelay)
-            return this.delayCycle.start(undefined, forceTimeout);
-        return this.preDelayCycle.start(this.settings.refreshTimeout, forceTimeout);
+        return fullDelay ?
+            this.delayCycle.trigger(undefined, forceTimeout) :
+            this.preDelayCycle.trigger(this.settings.refreshTimeout, forceTimeout);
     }
 
     /** At the level of Context the `awaitDelay` is tied to waiting the refresh from all connected contextAPIs.
@@ -199,19 +199,19 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     public static initializeCyclesFor(context: Context): void {
         // Hook up cycle interconnections.
-        // .. Do the actual pre-delay update part.
+        // .. Do the actual updating.
         context.preDelayCycle.listenTo("onRefresh", () => context.constructor.runPreDelayFor(context));
         context.delayCycle.listenTo("onRefresh", () => context.constructor.runDelayFor(context));
         // .. Make sure "delay" is run when "pre-delay" finishes, and the "delay"-related awaitDelay is awaited only then.
         context.preDelayCycle.listenTo("onFinish", () => {
             // Start delay cycle if was idle.
-            context.delayCycle.start();
+            context.delayCycle.trigger();
             // Resolve "delay" cycle - unless was already "resolving" (or had become "").
             if (context.delayCycle.state === "waiting")
                 context.awaitDelay ? context.awaitDelay().then(() => context.delayCycle.resolve()) : context.delayCycle.resolve();
         });
         // .. Make sure to start "pre-delay" when "delay" is started. We need the finishing part of "pre-delay" to correctly run "delay".
-        context.delayCycle.listenTo("onStart", () => context.preDelayCycle.start());
+        context.delayCycle.listenTo("onStart", () => context.preDelayCycle.trigger());
         // .. Make sure "pre-delay" is always resolved right before "delay".
         context.delayCycle.listenTo("onResolve", () => context.preDelayCycle.resolve());
     }

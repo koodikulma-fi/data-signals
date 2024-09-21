@@ -345,113 +345,87 @@ As a use case example of `ContextAPI`:
 
 ```typescript
 
-// - Class - //
+// - Prepare - //
 
 // Typing.
-interface MyMainCycleInput {
-    sources: Array<Object>;
-    infos: { name: string; }[];
-}
-interface MyMainCycleOutput {
+interface MainCyclePendingInfo {
     sources: Set<Object>;
     infos: { name: string; }[];
 }
 
-// Example class. A somewhat similar set up is used for the Context class.
-class MyCycles {
+// Prepare cycles.
+const preCycle = new RefreshCycle();
+const mainCycle = new RefreshCycle<MainCyclePendingInfo>(() => ({ sources: new Set(), infos: [] }));
+
+// Prepare timeouts.
+const preTimeout: number | null | undefined = 0;
+const awaitMain = (): Promise<void> => Promise.resolve();
+
+// Helper - as if a public API method.
+const refreshCycles = () => preCycle.trigger(preTimeout);
+
+// Hook up.
+// .. Do the actual "pre" and "main" update parts.
+preCycle.listenTo("onRefresh", (_pending, resolvePromise) => {
+    // Nothing to do. The resolvePromise will be automatically resolved synchronously right after.
+});
+mainCycle.listenTo("onRefresh", (pending, resolvePromise) => {
+    // Let's resolve the promise before our things.
+    // .. Effectively all that were awaiting for it, will be resolved now.
+    resolvePromise();
+    // Run the "main" update - using pending info from updates.
+    // .. Would do something here with the pending info.
+    pending.sources; // Set<Object> | undefined;
+    pending.infos; // { name: string; }[] | undefined;
+});
+
+// Make sure to start "pre" when "main" is started. We use the finishing part of "pre" to correctly run "main".
+mainCycle.listenTo("onStart", () => preCycle.trigger(preTimeout));
+
+// Make sure "pre" is always resolved right before "main".
+mainCycle.listenTo("onResolve", () => preCycle.resolve());
+
+// Make sure "main" is run when "pre" finishes, and the "main"-related awaitMain is awaited only then.
+preCycle.listenTo("onFinish", () => {
+    // Start main cycle if was idle. (If was already started, nothing changed.)
+    mainCycle.trigger(); // As there's no timeout, will be "waiting" until resolved manually.
+    // Resolve the "main" cycle - unless was already "resolving" (or had already become "").
+    if (mainCycle.state === "waiting")
+        awaitMain().then(() => mainCycle.resolve());
+});
 
 
-    // - Members - //
+// - Use -  //
 
-    public preTimeout: number | null = null;
-    private preCycle: RefreshCycle;
-    private mainCycle: RefreshCycle<MyMainCycleInput, MyMainCycleOutput>;
-
-    constructor(preTimeout?: number | null) {
-        this.preTimeout = preTimeout ?? null;
-        this.preCycle = new RefreshCycle();
-        this.mainCycle = new RefreshCycle<MyMainCycleInput, MyMainCycleOutput>({ sources: "set" });
-        this.connectCycles();
-    }
-
-
-    // - Public API - //
-
-    public updateMain(source: Object, ...infos: { name: string; }[]): void {
-        // Update/start up the "main" cycle. Due to our hook up will start "pre" first.
-        this.mainCycle.update({ sources: [source], infos });
-    }
-
-    public afterMain(): Promise<void> {
-        // Make sure main cycle is started. The method also return the promise.
-        return this.mainCycle.start();
-        // return this.mainCycle.promise; // The promise is always available a class member as well.
-    }
-
-
-    // - Private helpers - //
-
-    private connectCycles() {
-
-        // Do the actual "pre" and "main" update parts.
-        this.preCycle.listenTo("onRefresh", () => this.runPreCycle());
-        this.mainCycle.listenTo("onRefresh", (pending) => this.runMainCycle(pending));
-
-        // Make sure to start "pre" when "main" is started. We use the finishing part of "pre" to correctly run "main".
-        this.mainCycle.listenTo("onStart", () => this.preCycle.start());
-
-        // Make sure "pre" is always resolved right before "main".
-        this.mainCycle.listenTo("onResolve", () => this.preCycle.resolve());
-
-        // Make sure "main" is run when "pre" finishes, and the "main"-related awaitMain is awaited only then.
-        this.preCycle.listenTo("onFinish", () => {
-            // Start main cycle if was idle. (If was already started, nothing changed.)
-            this.mainCycle.start();
-            // Resolve the "main" cycle - unless was already "resolving" (or had already become "").
-            if (this.mainCycle.state === "waiting")
-                this.awaitMain ? this.awaitMain().then(() => this.mainCycle.resolve()) : this.mainCycle.resolve();
-        });
-
-    }
-
-    private awaitMain(): Promise<void> {
-        // Could do some complex waiting process here.
-        // .. But let's just in this example resolve instantly.
-        return Promise.resolve();
-    }
-
-    private runPreCycle() {
-        // Run the "pre" update.
-    }
-
-    private runMainCycle(pending: Partial<MyMainCycleOutput>) {
-        // Run the "main" update - using pending info from updates.
-        pending.sources; // Set<Object> | undefined;
-        pending.infos; // { name: string; }[] | undefined;
-    }
-}
-
-
-// - Test use - //
-
-// Create.
-const myCycles = new MyCycles();
-// Add some updates.
+// Do an update.
 const a = {};
-myCycles.updateMain(a);
-const b = {};
-const upd1 = { name: "test" };
-const upd2 = { name: "again" };
-myCycles.updateMain(b, upd1, upd2);
-myCycles.updateMain(b); // Won't add anything, `b` is already in the set.
-myCycles.updateMain(a, upd2); // Won't add `a`, but adds another upd2.
-myCycles.afterMain().then(() => { }); // Resolved after the main cycle.
+mainCycle.pending.sources.add(a);
+refreshCycles(); // Use our helper to handle default timing.
 
-// Once the cycle is resolved, it will have the corresponding pending infos as below:
-const result = {
-    sources: new Set<Object>([a, b]),
-    infos: [ upd1, upd2, upd2 ]
-};
+// Do another.
+preCycle.promise.then(() => console.log("Pre done!"));
+mainCycle.promise.then(() => console.log("Main done!"));
+mainCycle.pending.infos.push({ name: "test" }, { name: "again" });
+refreshCycles(); // Use our helper to handle default timing.
+
+// One more.
+const b = {};
+mainCycle.pending.sources.add(b);
+mainCycle.pending.sources.add(a);
+
+// Test.
+// .. Because we used 0 timeout for pre all above are part of same update.
+// .. Because mainCycle is resolved only after preCycle (and has no internal timer), it's not resolved yet.
+mainCycle.pending; // Has `{ sources: new Set([a, b]), infos: [{ name: "test" }, { name: "again" }] }`
+
+// Extend timeout.
+preCycle.extend(5); // null would resolve instantly, undefined just clear timer.
+
+// Or decide to resolve immediately.
+preCycle.resolve(); // Console logs: "Pre done!", and then "Main done!".
+
+// Because the main cycle is set up to resolve instantly (after pre), by this time all are done.
+mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 
 
 ```

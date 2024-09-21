@@ -606,93 +606,60 @@ interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
  */
 declare function mixinDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data> & BaseClass, DataMan<Data> & InstanceType<BaseClass>, {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]>;
 
-type RefreshCycleSignals<PendingOutput extends Record<string, any> = {}> = {
+type RefreshCycleSignals<PendingInfo = undefined> = {
     /** Called when a new cycle starts. Perfect place to trigger start-up-dependencies (from other cycles). */
     onStart: () => void;
     /** Called right before resolving the promise. Perfect place to trigger resolve-dependencies (from other cycles). */
     onResolve: () => void;
-    /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates. */
-    onRefresh: (pending: Partial<PendingOutput>) => void;
+    /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates.
+     * - Also contains resolvePromise(), which is called right after synchronously. But can be called earlier if wanted.
+     */
+    onRefresh: (pending: PendingInfo, resolvePromise: () => void) => void;
     /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles). */
     onFinish: (cancelled: boolean) => void;
 };
-type RefreshCycleAutoPending<PendingInput extends Record<string, any> = {}, PendingOutput extends {
-    [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
-} = PendingInput> = {
-    [Key in keyof PendingInput & string]?: [
-        PendingInput[Key],
-        PendingOutput[Key]
-    ] extends [Iterable<any>, Array<any>] ? "array" | "" : [
-        PendingInput[Key],
-        PendingOutput[Key]
-    ] extends [Iterable<any>, Set<any>] ? "set" | "" : [
-        PendingInput[Key],
-        PendingOutput[Key]
-    ] extends [Iterable<any>, Array<any> | Set<any>] ? "array" | "set" | "" : PendingInput[Key] extends Record<string, any> ? "object" | "" : "";
-};
 /** Class type for RefreshCycle. */
-interface RefreshCycleType<PendingInput extends Record<string, any> = {}, PendingOutput extends {
-    [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
-} = PendingInput, AddSignals extends SignalsRecord = {}> extends AsClass<SignalBoyType<AddSignals>, RefreshCycle<PendingInput, PendingOutput, AddSignals>, GetConstructorArgs<RefreshCycle<PendingInput, PendingOutput, AddSignals>>> {
-    /** Clears the timer and resolves the promise if had. During the process has state "resolving", after it "". Meant for internal use only (with resolve and reject). */
-    flushCycle(cycle: RefreshCycle): void;
+interface RefreshCycleType<PendingInfo = undefined, AddSignals extends SignalsRecord = {}> extends AsClass<SignalBoyType<AddSignals>, RefreshCycle<PendingInfo, AddSignals>, GetConstructorArgs<RefreshCycle<PendingInfo, AddSignals>>> {
 }
 /** Class to help manage refresh cycles. */
-declare class RefreshCycle<PendingInput extends Record<string, any> = {}, PendingOutput extends {
-    [Key in keyof PendingInput & string]: PendingInput[Key] extends Iterable<any> ? Set<any> | Array<any> | PendingInput[Key] : PendingInput[Key];
-} = PendingInput, AddSignals extends SignalsRecord = {}> extends SignalBoy<RefreshCycleSignals<PendingOutput> & AddSignals> {
-    ["constructor"]: RefreshCycleType<PendingInput, PendingOutput, AddSignals>;
+declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRecord = {}> extends SignalBoy<RefreshCycleSignals<PendingInfo> & AddSignals> {
+    ["constructor"]: RefreshCycleType<PendingInfo, AddSignals>;
     /** The `promise` can be used for waiting purposes. It's always present, and if there's nothing to wait it's already fulfilled. */
     promise: Promise<void>;
     /** State of the cycle. Set to "resolving" right when is finishing (does not matter if reject was called), and to "" right after the promise is resolved. */
     state: "waiting" | "resolving" | "";
     /** Optional collection of things to update when the cycle finished.
-     * - When the cycle is finished calls `onRefresh(pending: Partial<PendingOutput>)` using this info.
-     * - Collected by providing `addToPending` spread argument when using the `update` or `add` methods.
-     * - You can automate part of the adding process using "autoPending" member.
+     * - When the cycle is finished calls `onRefresh(pending: PendingInfo)` using this info.
+     * - Initialized by initializer given on constructor. Can then add manually to the cycle externally.
+     *      * The pending is re-inited at the moment of clearing pending. The first one on instantiating the class.
+     *      * If no initializer given then is undefined.
      */
-    pending: Partial<PendingOutput>;
-    /** Custom auto-handlers for incoming pending info.
-     * - These can be assigned on the constructor or through setAutoPending method.
-     * - For each main property tell how to assign. The default is "".
-     *      * If uses "object" performs `{ ...oldPending[propery], ...newPending[property] }`.
-     *      * If uses "array" creates a new Array on the first run and then pushes to it from an iterable.
-     *      * If uses "set" creates a new Set on the first run and then adds to it from an iterable.
-     *      * If uses "" simply replace the old value with the new.
-     * - For example: `{ actions: "array", settings: "object", targets: "set" }` results in `{ actions: any[]; settings: Record<string, any>; targets: Set<any>; }`.
-     *      * Note that using this feature with typing requires providing the PendingOutput - it's then reflected in the constructor.
-     */
-    autoPending: RefreshCycleAutoPending<PendingInput, PendingOutput>;
+    pending: PendingInfo;
     /** The current timer if any. */
     timer?: number | NodeJS.Timeout;
+    initializer?: () => PendingInfo;
     /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
     private _resolvePromise?;
-    constructor(...args: PendingInput extends PendingOutput ? [RefreshCycleAutoPending<PendingInput, PendingOutput>?] : [RefreshCycleAutoPending<PendingInput, PendingOutput>]);
-    /** Start up the cycle. Goes to "waiting" state, unless is "resolving". Only starts if wasn't started already. If uses forceTimeout modifies the timeout. */
-    start(defaultTimeout?: number | null, forceTimeout?: number | null): Promise<void>;
-    /** Starts the cycle if wasn't started, and adds pending info, and modifies the timeout. The defaultTimeout is only used when starting up the cycle. */
-    update(addToPending?: Partial<PendingInput> | null, defaultTimeout?: number | null, forceTimeout?: number | null): void;
-    /** Absorbs the pending info updates without triggering the cycle. Can be automated with "autoPending" member. */
-    absorb(addToPending: Partial<PendingInput>): void;
-    /** The opposite of absorb.
-     * - Removes from pending info (without triggering the cycle). Can be automated with "autoPending" member.
-     * - If the key is defined but its value is undefined, deletes the key.
-     */
-    eject(removeFromPending: Partial<PendingInput>): void;
+    constructor(...args: PendingInfo extends undefined ? [initializer?: () => PendingInfo] : [initializer: () => PendingInfo]);
+    /** Starts the cycle if wasn't started: goes to "waiting" state unless was "resolving".
+     * - If forceTimeout given modifies the timeout, the defaultTimeout is only used when starting up the cycle.
+     * - The cycle is finished by calling "resolve" or "reject", or by the timeout triggering "resolve".
+     * - Returns the promise in any case - might be fulfilled already.
+    */
+    trigger(defaultTimeout?: number | null, forceTimeout?: number | null): Promise<void>;
     /** Extend the timeout - clearing old timeout (if had).
      * - If given `number`, then sets it as the new timeout.
      * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
      * - If given `undefined´ will only clear the timer and not set up a new one.
+     * - Note that does _not_ start up a cycle - only extends an active one in the "waiting" state.
      */
     extend(timeout: number | null | undefined): void;
+    /** Clears the timer. Mostly used internally, but can be used externally as well. Does not affect the state of the cycle. */
+    clearTimer(): void;
     /** Resolve the refresh cycle (and promise) manually. Results in clearing the entry from bookkeeping and calling `onRefresh`. Resolving again results in nothing. */
     resolve(): void;
     /** Cancel the whole refresh cycle. Note that this will clear the entry from refreshTimers bookkeeping along with its updates. */
     reject(): void;
-    /** Clears the timer and resolves the promise if had. During the process has state "resolving", after it "".
-     * - Put as static so that doesn't pollute the public API of RefreshCycle (nor prevent features of extending classes).
-     */
-    static flushCycle(cycle: RefreshCycle): void;
 }
 
 /** Typing to hold named contexts as a dictionary. */
@@ -952,4 +919,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context): void;
 }
 
-export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleAutoPending, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };
