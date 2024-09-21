@@ -54,10 +54,11 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
 // - Class - //
 
 export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> {
+    // Static extendables - we use very loose types here.
     /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(signalBoy: SignalBoy<Signals>, name: string & keyof Signals, index: number, wasAdded: boolean): void;
+    onListener?(signalBoy: SignalBoy, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(signalBoy: SignalBoy<Signals>, signalName: string & keyof Signals): SignalListener[] | undefined;
+    getListenersFor?(signalBoy: SignalBoy, signalName: string): SignalListener[] | undefined;
 }
 /** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
 export class SignalBoy<Signals extends SignalsRecord = {}> extends (mixinSignalBoy(Object) as any as ClassType) { }

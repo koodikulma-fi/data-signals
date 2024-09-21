@@ -16,13 +16,13 @@ export type DataListenerFunc = (...args: any[]) => any | void;
 // - Class - //
 
 export interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
-    // Static extendables.
+    // Static extendables - we use very loose types here.
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `dataBoy.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(dataBoy: DataBoy<Data>, dataKeys?: true | GetJoinedDataKeysFrom<Data>[]): void;
+    callDataListenersFor?(dataBoy: DataBoy<Record<string, any>>, dataKeys?: true | string[]): void;
 }
 /** DataBoy is like DataMan but only provides data listening, not actual data.
  * - Regardless of having no data, it assumes a custom data structure of nested dictionaries.
