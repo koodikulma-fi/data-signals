@@ -40,9 +40,9 @@ export interface ContextType<Data extends Record<string, any> = {}, Signals exte
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
     initializeCyclesFor(context: Context): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
-    runPreDelayFor(context: Context): void;
+    runPreDelayFor(context: Context, resolvePromise: () => void): void;
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    runDelayFor(context: Context): void;
+    runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 
 export interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> { }
@@ -200,8 +200,8 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     public static initializeCyclesFor(context: Context): void {
         // Hook up cycle interconnections.
         // .. Do the actual updating.
-        context.preDelayCycle.listenTo("onRefresh", () => context.constructor.runPreDelayFor(context));
-        context.delayCycle.listenTo("onRefresh", () => context.constructor.runDelayFor(context));
+        context.preDelayCycle.listenTo("onRefresh", (_pending, resolvePromise) => context.constructor.runPreDelayFor(context, resolvePromise));
+        context.delayCycle.listenTo("onRefresh", (_pending, resolvePromise) => context.constructor.runDelayFor(context, resolvePromise));
         // .. Make sure "delay" is run when "pre-delay" finishes, and the "delay"-related awaitDelay is awaited only then.
         context.preDelayCycle.listenTo("onFinish", () => {
             // Start delay cycle if was idle.
@@ -217,11 +217,14 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
     
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    public static runPreDelayFor(context: Context): void {
+    public static runPreDelayFor(context: Context, resolvePromise: () => void): void {
 
         // Clear data keys from context.
         const refreshKeys = context.dataKeysPending;
         context.dataKeysPending = null;
+
+        // Resolve the promise to trigger action calls now (before data listener calls).
+        resolvePromise();
 
         // Call data listeners.
         if (refreshKeys) {
@@ -239,6 +242,6 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    public static runDelayFor(context: Context): void { }
+    public static runDelayFor(context: Context, resolvePromise: () => void): void { }
 
 }

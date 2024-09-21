@@ -847,9 +847,9 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
     initializeCyclesFor(context: Context): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
-    runPreDelayFor(context: Context): void;
+    runPreDelayFor(context: Context, resolvePromise: () => void): void;
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    runDelayFor(context: Context): void;
+    runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 declare const Context_base: ClassType<{}, any[]>;
 interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
@@ -914,9 +914,9 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     static initializeCyclesFor(context: Context): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    static runPreDelayFor(context: Context): void;
+    static runPreDelayFor(context: Context, resolvePromise: () => void): void;
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    static runDelayFor(context: Context): void;
+    static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 
 export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };
