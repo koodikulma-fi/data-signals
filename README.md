@@ -460,7 +460,7 @@ const result = {
 
 ## 3. STATIC LIBRARY METHODS (doc)
 
-- The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` are fairly self explanatory: they compare or copy data with custom level of depth.
+- The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` compare or copy data with custom level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ### library: areEqual
@@ -616,7 +616,7 @@ const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" i
 
 - `createCachedSource` is like multiple `createDataSource`s together separated by the unique cache key.
 - The key key for caching is derived from an extra "cacher" function dedicated to this purpose - it should return the cache key (string).
-- The cacher receives the same arguments as the extractor, but also the cached dictionary as an extra argument `(...args, cached) => string`.
+- The cacher receives the same args as the extractor, but also the cached dictionary as an extra arg `(...args, cached) => string`.
 
 ```typescript
 
