@@ -37,6 +37,10 @@ Two classes specialized for complex data sharing situations, like those in moder
 ### [3. STATIC LIBRARY METHODS](#3-static-library-methods-doc)
 
 A couple of data reusing concepts in the form of library methods.
+- Numeric helpers:
+    * `numberRange(start, end?, stepSize?)` helps to produce a range of numbers (whole or fractional).
+    * `getCleanIndex(index, newCount)` helps to get a clean insertion index for adding/moving.
+    * `orderArray(array, orderOrProp)` sorts an array by 3 order categories: `>= 0`, `null|undefined`, `< 0`
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1).
     * The methods support native JS Objects, Arrays, Maps, Sets and handling classes.
 - Data selector features:
@@ -434,10 +438,72 @@ mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 
 ## 3. STATIC LIBRARY METHODS (doc)
 
+- The numeric helpers (`numberRange`, `cleanIndex`, `orderArray`) help with simple but common array related needs.
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` compare or copy data to a level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
-### library: areEqual
+### library - numeric: `numberRange`
+
+- Creates a numeric array: `numberRange(start: number, end?: number | null, stepSize: number = 1?): number[]`
+
+```typescript
+
+numberRange(3); // [0, 1, 2]
+numberRange(1, 3); // [1, 2]
+numberRange(3, 1); // [2, 1]
+numberRange(1, -2); // [0, -1, -2]
+numberRange(-3); // [-1, -2, -3]
+
+```
+
+### library - numeric: `orderArray`
+
+- `orderArray` returns a new sorted array using 3 categories of sorting: `>= 0`, `null|undefined`, `< 0`.
+- The form is: `orderArray(arr: T[], orderOrPropery: Array<number | null | undefined> | string): T[]`
+
+```typescript
+
+// Arrays.
+orderArray(["a", "b", "c"], [20, 10, 0]);             // ["c", "b", "a"]
+orderArray(["a", "b", "c"], [-1, -2, -3]);            // ["c", "b", "a"]
+orderArray(["a", "b", "c"], [-1, null, 0]);           // ["c", "b", "a"]
+orderArray(["a", "b", "c"], [null, 0]);               // ["b", "a", "c"]
+orderArray(["a", "b", "c"], [undefined, 0, null]);    // ["b", "a", "c"]
+orderArray(["a", "b", "c"], [-1, 0, null]);           // ["b", "c", "a"]
+orderArray(["a", "b", "c", "d"], [null, 0, -.5, -1]); // ["b", "a", "d", "c"]
+
+// Objects.
+const a = { name: "a", order: -1 };
+const b = { name: "b", order: 0 };
+const c = { name: "c" };
+orderArray([a, b, c], "order") // [b, c, a]
+
+```
+
+### library - numeric: `cleanIndex`
+
+- `cleanIndex(index, newCount): number` helps to get a clean insertion index useful for moving/adding.
+- The returned value is a whole number >= 0, unless newCount is 0 (or negative), then -1.
+- Supports one cycle of negatives (and positives) and then clamps to the end.
+- If index is `null | undefined`, then defaults to same as -1: insert as the last one.
+
+```typescript
+
+// Examples with a count of 3.
+cleanIndex(undefined, 3); // 2
+cleanIndex(null, 3);      // 2
+cleanIndex(3, 3);         // 2
+cleanIndex(2, 3);         // 2
+cleanIndex(1, 3);         // 1
+cleanIndex(0, 3);         // 0
+cleanIndex(-1, 3);        // 2
+cleanIndex(-2, 3);        // 1
+cleanIndex(-3, 3);        // 0
+cleanIndex(-4, 3);        // 0
+
+```
+
+### library - deep: `areEqual`
 
 - The `areEqual(a, b, depth?)` compares data with custom level of depth.
 - If depth is under 0, checks deeply. Defaults to -1.
@@ -454,7 +520,7 @@ areEqual(test, test, 0); // true, identical objects.
 
 ```
 
-### library: deepCopy
+### library - deep: `deepCopy`
 
 - The `deepCopy(anything, depth?)` copies the data with custom level of depth.
 - If depth is under 0, copies deeply. Defaults to -1.
@@ -471,7 +537,7 @@ copy = deepCopy(original, 0); // Did not copy, so original === copy.
 
 ```
 
-### library: createDataMemo
+### library - data: `createDataMemo`
 
 - `createDataMemo` helps to reuse data in simple local usages. By default, it only computes the data if any of the arguments have changed.
 
@@ -498,7 +564,7 @@ const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "
 
 ```
 
-### library: createDataTrigger
+### library - data: `createDataTrigger`
 
 - `createDataTrigger` is similar to DataMemo, but its purpose is to trigger a callback on mount.
 - In addition, the mount callback can return another callback for unmounting, which is called if the mount callback gets overridden upon usage (= when memory changed and a new callback was provided).
@@ -537,7 +603,7 @@ didChange = myTrigger({ id: 3, text: "now?" }); // true, logs: "Changes!"
 
 ```
 
-### library: createDataSource
+### library - data: `createDataSource`
 
 - `createDataSource` returns a function for reusing/recomputing data.
 - The function receives custom arguments and uses an extractor to produce final arguments for the producer.
@@ -586,7 +652,7 @@ const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" i
 
 ```
 
-### library: createCachedSource
+### library - data: `createCachedSource`
 
 - `createCachedSource` is like multiple `createDataSource`s together separated by the unique cache key.
 - The key key for caching is derived from an extra "cacher" function dedicated to this purpose - it should return the cache key (string).

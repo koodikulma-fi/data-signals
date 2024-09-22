@@ -3,6 +3,7 @@
 
 import { AsClass, GetConstructorArgs } from "mixin-types";
 import { SignalBoy, SignalBoyType, SignalsRecord } from "../mixins/SignalBoy";
+import { NodeJSTimeout } from "../library/typing";
 
 
 // - Extra typing - //
@@ -55,7 +56,7 @@ export class RefreshCycle<
      */
     public pending: PendingInfo;
     /** The current timer if any. */
-    public timer?: number | NodeJS.Timeout;
+    public timer?: number | NodeJSTimeout;
     public pendingInitializer?: () => PendingInfo;
 
     // Private.
@@ -107,7 +108,7 @@ export class RefreshCycle<
      */
     public extend(timeout: number | null | undefined, allowStartUp: boolean = true): void {
         // Not while resolving
-        if (this.state !== "resolving")
+        if (this.state === "resolving")
             return;
         // Clear.
         this.clearTimer();

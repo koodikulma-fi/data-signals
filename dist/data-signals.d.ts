@@ -1,6 +1,12 @@
-/// <reference types="node" />
 import { IterateBackwards, ClassType, AsClass, GetConstructorArgs } from 'mixin-types';
 
+interface NodeJSTimeout {
+    ref(): this;
+    unref(): this;
+    hasRef(): boolean;
+    refresh(): this;
+    [Symbol.toPrimitive](): number;
+}
 /** Awaits the value from a promise. */
 type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
 /** Type for holding keys as a dictionary, array or set. Useful for name checking. */
@@ -36,6 +42,77 @@ type GetJoinedDataKeysFrom<Data extends Record<string, any>, Pre extends string 
         asMutable(): Data[Key];
     } ? `${PreVal}${Key}` : string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` : `${PreVal}${Key}`;
 }[string & keyof Data];
+
+/** Get cleaned index suitable for finding or inserting children items in an array.
+ * - If you're adding a new kid, use kids.length + 1 for newCount. Normally use kids.length directly.
+ * - This allows one cycle of negative. So has a range of: [-newCount + 1, newCount - 1], which it turns into [0, newCount - 1].
+ * - Only returns -1 if the newCount is 0, otherwise integer of at least 0 and lower than newCount.
+ *
+ * ```
+ *
+ * // Examples with a count of 3.
+ * cleanIndex(undefined, 3); // 2
+ * cleanIndex(null, 3);      // 2
+ * cleanIndex(3, 3);         // 2
+ * cleanIndex(2, 3);         // 2
+ * cleanIndex(1, 3);         // 1
+ * cleanIndex(0, 3);         // 0
+ * cleanIndex(-1, 3);        // 2
+ * cleanIndex(-2, 3);        // 1
+ * cleanIndex(-3, 3);        // 0
+ * cleanIndex(-4, 3);        // 0
+ *
+ * ```
+ *
+ */
+declare function cleanIndex(index: number | null | undefined, newCount: number): number;
+/** Order an array by matching `order` array consisting of numbers or null | undefined.
+ * - Ordering happens in 3 categories: 1. near front (>= 0), 2. near end (< 0), 3. don't care (null | undefined).
+ * @param arr The original array to sort.
+ * @param order The relative order in three categories.
+ *      - If a string, then uses it as a property of the array item to ready data.
+ *      - If a number in `order` array is `>= 0`, then closer to 0, the more in the front it will be.
+ *      - If a number in `order` array is `< 0`, then closer to 0, the later will be.
+ *      - If a value in `order` array is `null | undefined`, then does not care: after >= 0, but before any < 0.
+ *      - For cases with matching order uses keeps the original order.
+ * @returns A new sorted array.
+ *
+ * ```
+ *
+ * // Arrays.
+ * orderArray(["a", "b", "c"], [20, 10, 0]);             // ["c", "b", "a"]
+ * orderArray(["a", "b", "c"], [-1, -2, -3]);            // ["c", "b", "a"]
+ * orderArray(["a", "b", "c"], [-1, null, 0]);           // ["c", "b", "a"]
+ * orderArray(["a", "b", "c"], [null, 0]);               // ["b", "a", "c"]
+ * orderArray(["a", "b", "c"], [undefined, 0, null]);    // ["b", "a", "c"]
+ * orderArray(["a", "b", "c"], [-1, 0, null]);           // ["b", "c", "a"]
+ * orderArray(["a", "b", "c", "d"], [null, 0, -.5, -1]); // ["b", "a", "d", "c"]
+ *
+ * // Objects.
+ * const a = { name: "a", order: -1 };
+ * const b = { name: "b", order: 0 };
+ * const c = { name: "c" };
+ * orderArray([a, b, c], "order") // [b, c, a]
+ *
+ * ```
+ *
+ */
+declare function orderArray<Key extends string & keyof T, T extends Partial<Record<Key, number | null>>>(arr: T[], property: Key): T[];
+declare function orderArray<T extends any>(arr: T[], order: Array<number | null | undefined>): T[];
+/** Creates a numeric range with whole numbers.
+ * - With end smaller than start, will give the same result but in reverse.
+ * - If you use stepSize, always give it a positive number. Otherwise use 1 as would loop forever.
+ * - Works for integers and floats. Of course floats might do what they do even with simple adding / subtraction.
+ * Examples:
+ * ```
+ * numberRange(3); // [0, 1, 2]
+ * numberRange(1, 3); // [1, 2]
+ * numberRange(3, 1); // [2, 1]
+ * numberRange(1, -2); // [0, -1, -2]
+ * numberRange(-3); // [-1, -2, -3]
+ * ```
+ */
+declare function numberRange(start: number, end?: number | null, stepSize?: number): number[];
 
 /** General data comparison function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
@@ -637,7 +714,7 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
      */
     pending: PendingInfo;
     /** The current timer if any. */
-    timer?: number | NodeJS.Timeout;
+    timer?: number | NodeJSTimeout;
     pendingInitializer?: () => PendingInfo;
     /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
     private _resolvePromise?;
@@ -922,4 +999,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 
-export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, cleanIndex, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange, orderArray };

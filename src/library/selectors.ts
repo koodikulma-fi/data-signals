@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Library.
-import { areEqual } from "./library";
+import { areEqual } from "./deep";
 
 
 // - Data selector depth (enum and type) - //

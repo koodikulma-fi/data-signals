@@ -7,6 +7,15 @@ import { IterateBackwards } from "mixin-types";
 
 // - General - //
 
+// NodeJS side timer.
+export interface NodeJSTimeout {
+    ref(): this;
+    unref(): this;
+    hasRef(): boolean;
+    refresh(): this;
+    [Symbol.toPrimitive](): number;
+}
+
 // Common JS things.
 /** Awaits the value from a promise. */
 export type Awaited<T> = T extends PromiseLike<infer U> ? U : T

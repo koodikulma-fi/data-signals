@@ -202,9 +202,6 @@ export function mixinDataMan<Data extends Record<string, any> = {}, BaseClass ex
         }
 
         public setInData(dataKey: string, subData: any, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
-            // Special cases.
-            if (!this.data)
-                return;
             // No data key.
             if (!dataKey) {
                 (this.data as Record<string, any>) = extend && this.data ? { ...this.data, ...subData } : subData;
@@ -218,7 +215,7 @@ export function mixinDataMan<Data extends Record<string, any> = {}, BaseClass ex
                 if (!lastKey)
                     return;
                 // Get data parent, and take copies of all dictionary types along the way until the leaf.
-                let data = { ...this.data as Record<string, any> } = this.data as Record<string, any>;
+                let data = (this.data as Record<string, any>) = { ...this.data as Record<string, any> };
                 for (const key of dataKeys)
                     data = data[key] = data[key]?.constructor === Object ? { ...data[key] } : data[key] || {};
                 // Extend or replace the data at the leaf.
