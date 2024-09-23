@@ -834,7 +834,7 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
 }
 
 /** Typing to hold named contexts as a dictionary. */
-type ContextsAllType = Record<string, Context<any, SignalsRecord>>;
+type ContextsAllType = Record<string, Context<Record<string, any>, SignalsRecord>>;
 /** Typing to hold named contexts as a dictionary with optional UnionType and optionally only using certain keys. */
 type ContextsAllTypeWith<AllContexts extends ContextsAllType = {}, UnifyWith extends any = undefined, OnlyKeys extends keyof AllContexts & string = keyof AllContexts & string> = {
     [Name in OnlyKeys]: never extends UnifyWith ? AllContexts[Name] : AllContexts[Name] | UnifyWith;
@@ -879,7 +879,7 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * - Note that can also set `null` value here - for purposefully excluding an inherited context (when using one contextAPI to inherit contexts from another).
      *      * But `undefined` will never be found in here - if gives to the setContext, it means deleting the entry from the record.
      */
-    contexts: Partial<Record<string, Context<any, SignalsRecord> | null>>;
+    contexts: Partial<Record<string, Context<Record<string, any>, SignalsRecord> | null>>;
     constructor(contexts?: Partial<Contexts>);
     /** This (triggers a refresh and) returns a promise that is resolved when the "pre-delay" or "delay" cycle is completed.
      * - At the level of ContextAPI there's nothing to refresh (no data held, just read from contexts).
@@ -978,7 +978,7 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
         [Name in keyof Ctxs & string]: Ctxs[Name]["data"];
     }>(allData: AllData, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Ctxs;
     newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<{
-        [Name in keyof Contexts & string]: Contexts[Name]["data"];
+        [Name in keyof Contexts & string]: Contexts[Name];
     }>;
     /** Attach the context to this ContextAPI by name. Returns true if did attach, false if was already there.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.

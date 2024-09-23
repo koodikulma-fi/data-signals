@@ -17,7 +17,7 @@ import { mixinDataBoy, DataBoy, DataBoyType } from "../mixins/DataBoy";
 
 // All contexts.
 /** Typing to hold named contexts as a dictionary. */
-export type ContextsAllType = Record<string, Context<any, SignalsRecord>>;
+export type ContextsAllType = Record<string, Context<Record<string, any>, SignalsRecord>>;
 /** Typing to hold named contexts as a dictionary with optional UnionType and optionally only using certain keys. */
 export type ContextsAllTypeWith<
     AllContexts extends ContextsAllType = {},
@@ -71,7 +71,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      * - Note that can also set `null` value here - for purposefully excluding an inherited context (when using one contextAPI to inherit contexts from another).
      *      * But `undefined` will never be found in here - if gives to the setContext, it means deleting the entry from the record.
      */
-    public contexts: Partial<Record<string, Context<any, SignalsRecord> | null>>;
+    public contexts: Partial<Record<string, Context<Record<string, any>, SignalsRecord> | null>>;
 
 
     // - Initialize - //
@@ -308,8 +308,8 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
      */
     public newContexts<Ctxs extends { [Name in keyof AllData & string]: Context<AllData[Name] & {}> }, AllData extends Record<keyof Ctxs & string, Record<string, any>> = { [Name in keyof Ctxs & string]: Ctxs[Name]["data"] }>(allData: AllData, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Ctxs;
-    public newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<{ [Name in keyof Contexts & string]: Contexts[Name]["data"]; }>;
-    public newContexts(allData: Partial<Record<string, Record<string, any>>>, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Partial<Record<string, Context>> {
+    public newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<{ [Name in keyof Contexts & string]: Contexts[Name]; }>;
+    public newContexts(allData: Partial<Record<string, Record<string, any>>>, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Partial<Record<string, Context<Record<string, any>, SignalsRecord>>> {
         // Create contexts.
         const contexts: Record<string, Context> = {};
         for (const name in allData)
