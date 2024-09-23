@@ -198,6 +198,8 @@ declare function orderArray<T extends any>(arr: T[], orderBy: Array<number | nul
  * numberRange(2, 1, -0.25, true);  // [1, 1.25, 1.5, 1.75, 2]
  * numberRange(3, null, 0.5);       // [0, 0.5, 1, 1.5, 2, 2.5]
  * numberRange(3, null, -0.5);      // [0, -0.5, -1, -1.5, -2, -2.5]
+ * numberRange(1, 2, 0.33);         // [1, 1.33, 1.66, 1.99] // Or what fracts do.
+ * numberRange(1, 2, -0.33);        // [1.99, 1.66, 1.33, 1] // Or what fracts do.
  *
  * ```
  */
