@@ -28,6 +28,26 @@ export type SetLike<K extends string> = Partial<Record<K, any>> | Array<K> | Set
 // /** Convert array values to intersection type. */
 // export type IntersectArray<Arr extends any[], Index extends number = Arr["length"], Intersected extends any = {}> = Index extends 0 ? Intersected : IntersectArray<Arr, IterateBackwards[Index], Intersected & Arr[IterateBackwards[Index]]>;
 
+// // Tuple helpers.
+// /** Get the sub array before an index. For example: `TupleBefore<[0, 1, 2, 3], 2>` returns `[0, 1]`. */
+// export type TupleBefore<Arr extends any[] | readonly any[], Index extends number | never, Result extends any[] = []> =
+//     // Generic or too far.
+//     0 | 1 extends Index ? Arr : Index extends never ? Result :
+//     // Finished.
+//     Index extends 0 ? Result :
+//     // Do this, and then maybe more.
+//     TupleBefore<Arr, IterateBackwards[Index], [Arr[IterateBackwards[Index]], ...Result]>;
+// /** Get the sub array after an index. For example: `TupleBefore<[0, 1, 2, 3], 1>` returns `[2, 3]`. */
+// export type TupleAfter<Arr extends any[] | readonly any[], Index extends number | never, Result extends any[] = []> =
+//     // Generic or too far.
+//     1 | 2 extends Index ? Arr : Index extends never ? Result :
+//     // Finished.
+//     IterateForwards[Index] extends Arr["length"] ? Result :
+//     // Do this, and then maybe more.
+//     TupleAfter<Arr, IterateForwards[Index], [...Result, Arr[IterateForwards[Index]]]>;
+// /** Replace a value in a type array. */
+// export type TupleReplace<Arr extends any[] | readonly any[], Index extends number, Value extends any> = [...TupleBefore<Arr, Index>, Value, ...TupleAfter<Arr, Index>];
+
 
 // - Get deep value - //
 

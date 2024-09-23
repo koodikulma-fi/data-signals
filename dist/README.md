@@ -37,10 +37,11 @@ Two classes specialized for complex data sharing situations, like those in moder
 ### [3. STATIC LIBRARY METHODS](#3-static-library-methods-doc)
 
 A couple of data reusing concepts in the form of library methods.
-- Numeric helpers:
+- Numeric array helpers:
     * `numberRange(start, end?, stepSize?)` helps to produce a range of numbers (whole or fractional).
-    * `getCleanIndex(index, newCount)` helps to get a clean insertion index for adding/moving.
-    * `orderArray(array, orderOrProp)` sorts an array by 3 order categories: `>= 0`, `null|undefined`, `< 0`
+    * `cleanIndex(index, newCount)` helps to get a clean insertion index for adding/moving.
+    * `orderedIndex(order, orderOrPropIndex)` helps to get an ordered insertion index for adding.
+    * `orderArray(array, orderOrPropIndex)` re-orders an array by 3 order categories: `>= 0`, `null|undefined`, `< 0`
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1).
     * The methods support native JS Objects, Arrays, Maps, Sets and handling classes.
 - Data selector features:
@@ -438,45 +439,44 @@ mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 
 ## 3. STATIC LIBRARY METHODS (doc)
 
-- The numeric helpers (`numberRange`, `cleanIndex`, `orderArray`) help with simple but common array related needs.
+- The numeric array helpers (`numberRange`, `cleanIndex`, `orderedIndex`, `orderArray`) help with simple indexing needs.
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` compare or copy data to a level of depth.
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ### library - numeric: `numberRange`
 
-- Creates a numeric array: `numberRange(start: number, end?: number | null, stepSize: number = 1?): number[]`
+- Creates a numeric array using start, end and stepSize.
+- The form is: `numberRange(startOrEnd: number, end?: number | null, stepSize: number = 1?, includeEnd?: boolean): number[]`
+    * If `end` is not defined (or null), then `startOrEnd` is end and starts at 0. 
+    * If `stepSize` is 0 uses 1, if negative flips the order.
+    * If `includeEnd` is set to true includes it as the last value (if stepSize matches).
 
 ```typescript
 
-numberRange(3); // [0, 1, 2]
-numberRange(1, 3); // [1, 2]
-numberRange(3, 1); // [2, 1]
-numberRange(1, -2); // [0, -1, -2]
-numberRange(-3); // [-1, -2, -3]
+// Create whole number ranges.
+numberRange(3);                  // [0, 1, 2]
+numberRange(-3);                 // [0, -1, -2]
+numberRange(1, 3);               // [1, 2]
+numberRange(3, 1);               // [3, 2]
+numberRange(1, 3, 1, true);      // [1, 2, 3]
+numberRange(3, 1, 1, true);      // [3, 2, 1]
+numberRange(3, 1, -1, true);     // [1, 2, 3]
+numberRange(-1, 2);              // [-1, 0, 1]
+numberRange(1, -2);              // [1, 0, -1]
+numberRange(1, -2, -1);          // [-1, 0, 1]
+numberRange(0, 3, -1);           // [2, 1, 0]
+numberRange(3, null, -1);        // [2, 1, 0]
+numberRange(-3, null, -1);       // [-2, -1, 0]
 
-```
-
-### library - numeric: `orderArray`
-
-- `orderArray` returns a new sorted array using 3 categories of sorting: `>= 0`, `null|undefined`, `< 0`.
-- The form is: `orderArray(arr: T[], orderOrPropery: Array<number | null | undefined> | string): T[]`
-
-```typescript
-
-// Arrays.
-orderArray(["a", "b", "c"], [20, 10, 0]);             // ["c", "b", "a"]
-orderArray(["a", "b", "c"], [-1, -2, -3]);            // ["c", "b", "a"]
-orderArray(["a", "b", "c"], [-1, null, 0]);           // ["c", "b", "a"]
-orderArray(["a", "b", "c"], [null, 0]);               // ["b", "a", "c"]
-orderArray(["a", "b", "c"], [undefined, 0, null]);    // ["b", "a", "c"]
-orderArray(["a", "b", "c"], [-1, 0, null]);           // ["b", "c", "a"]
-orderArray(["a", "b", "c", "d"], [null, 0, -.5, -1]); // ["b", "a", "d", "c"]
-
-// Objects.
-const a = { name: "a", order: -1 };
-const b = { name: "b", order: 0 };
-const c = { name: "c" };
-orderArray([a, b, c], "order") // [b, c, a]
+// Create fractional ranges.
+numberRange(1, 2, 0.25);         // [1, 1.25, 1.5, 1.75]
+numberRange(1, 2, -0.25);        // [1.75, 1.5, 1.25, 1]
+numberRange(2, 1, 0.25);         // [2, 1.75, 1.5, 1.25]
+numberRange(1, 2, 0.25, true);   // [1, 1.25, 1.5, 1.75, 2]
+numberRange(2, 1, 0.25, true);   // [2, 1.75, 1.5, 1.25, 1]
+numberRange(2, 1, -0.25, true);  // [1, 1.25, 1.5, 1.75, 2]
+numberRange(3, null, 0.5);       // [0, 0.5, 1, 1.5, 2, 2.5]
+numberRange(3, null, -0.5);      // [0, -0.5, -1, -1.5, -2, -2.5]
 
 ```
 
@@ -500,6 +500,83 @@ cleanIndex(-1, 3);        // 2
 cleanIndex(-2, 3);        // 1
 cleanIndex(-3, 3);        // 0
 cleanIndex(-4, 3);        // 0
+
+```
+
+### library - numeric: `orderedIndex`
+- Get an insertion index using `order` in _pre-sorted_ `orderBy` array.
+- The form is: `orderedIndex(order: NumberLike, orderBy: NumberLike[], orderProp?: string | number): number`, where `NumberLike` is `number | null | undefined`.
+- Note. To instead re-order an array (with the same concept) use `orderArray(arr, orderOrPropIndex)`.
+
+```typescript
+
+// Directly.
+orderedIndex(0, [0, 1, 2]);                  // 1
+orderedIndex(0, [1, 2, null, -2, -1]);       // 0
+orderedIndex(2, [1, 2, null, -2, -1]);       // 2
+orderedIndex(-1, [1, 2, null, -2, -1]);      // -1
+orderedIndex(-1.5, [1, 2, null, -2, -1]);    // 4
+orderedIndex(null, [1, 2, null, -2, -1]);    // 3
+
+// From dictionaries.
+const orderByObj: { name: string; order?: number | null; }[] = [
+    { name: "1st", order: 0 },
+    { name: "2nd" },
+    { name: "3rd", order: -1 },
+];
+orderedIndex(0, orderByObj, "order");         // 1
+orderedIndex(null, orderByObj, "order");      // 2
+orderedIndex(-1, orderByObj, "order");        // -1
+
+// From sub array objects.
+const orderByArr = [
+    ["1st", 0] as const,
+    ["2nd"] as const,
+    ["3rd", -1] as const,
+];
+orderedIndex(0, orderByArr, 1);               // 1
+orderedIndex(null, orderByArr, 1);            // 2
+orderedIndex(-1, orderByArr, 1);              // -1
+
+// Test typeguard.
+orderedIndex(null, orderByObj, "name")  // orderByObj is red-underlined (or the method).
+orderedIndex(null, orderByArr, 0)       // 0 is red-underlined (or the method).
+
+```
+
+### library - numeric: `orderArray`
+
+- `orderArray` returns an ordered array using 3 level sorting: `>= 0`, `null|undefined`, `< 0`.
+- The form is: `orderArray(arr: T[], orderOrPropIndex: Array<number | null | undefined> | string): T[]`
+    * If orderOrPropIndex is a string or number, then reads the order from the item (in the `arr`) with it.
+
+```typescript
+
+// Arrays.
+orderArray(["a", "b", "c"], [20, 10, 0]);             // ["c", "b", "a"]
+orderArray(["a", "b", "c"], [-1, -2, -3]);            // ["c", "b", "a"]
+orderArray(["a", "b", "c"], [-1, null, 0]);           // ["c", "b", "a"]
+orderArray(["a", "b", "c"], [null, 0]);               // ["b", "a", "c"]
+orderArray(["a", "b", "c"], [undefined, 0, null]);    // ["b", "a", "c"]
+orderArray(["a", "b", "c"], [-1, 0, null]);           // ["b", "c", "a"]
+orderArray(["a", "b", "c", "d"], [null, 0, -.5, -1]); // ["b", "a", "d", "c"]
+
+// Dictionaries (with type support).
+type Obj = { name: string; order?: number | null; };
+const a: Obj = { name: "a", order: -1 };
+const b: Obj = { name: "b", order: 0 };
+const c: Obj = { name: "c" };
+orderArray([a, b, c], "order") // [b, c, a]
+
+// Sub array objects (with type support for specific index).
+const d = ["d", -1] as const;
+const e = ["e", 0] as const;
+const f = ["f"] as const;
+orderArray([d, e, f], 1) // [e, f, d]
+
+// Test typeguard.
+orderArray([a, b, c], "name")   // name is red-underlined (or the method).
+orderArray([d, e, f], 0)        // 0 is red-underlined (or the method).
 
 ```
 
