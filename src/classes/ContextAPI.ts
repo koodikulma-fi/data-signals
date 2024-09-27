@@ -17,7 +17,7 @@ import { mixinDataBoy, DataBoy, DataBoyType } from "../mixins/DataBoy";
 
 // All contexts.
 /** Typing to hold named contexts as a dictionary. */
-export type ContextsAllType = Record<string, Context<Record<string, any>, SignalsRecord>>;
+export type ContextsAllType = Record<string, Context<any, any>>;
 /** Typing to hold named contexts as a dictionary with optional UnionType and optionally only using certain keys. */
 export type ContextsAllTypeWith<
     AllContexts extends ContextsAllType = {},

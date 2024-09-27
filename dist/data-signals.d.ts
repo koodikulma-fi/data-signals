@@ -843,7 +843,7 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
 }
 
 /** Typing to hold named contexts as a dictionary. */
-type ContextsAllType = Record<string, Context<Record<string, any>, SignalsRecord>>;
+type ContextsAllType = Record<string, Context<any, any>>;
 /** Typing to hold named contexts as a dictionary with optional UnionType and optionally only using certain keys. */
 type ContextsAllTypeWith<AllContexts extends ContextsAllType = {}, UnifyWith extends any = undefined, OnlyKeys extends keyof AllContexts & string = keyof AllContexts & string> = {
     [Name in OnlyKeys]: never extends UnifyWith ? AllContexts[Name] : AllContexts[Name] | UnifyWith;
