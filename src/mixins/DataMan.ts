@@ -12,7 +12,7 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 // - Class - //
 
 /** Class type for DataMan - including the constructor arguments when used as a standalone class (or for the mixin in the flow). */
-export interface DataManType<Data extends Record<string, any> = {}> extends AsClass<DataBoyType<Data>, DataMan<Data>, {} extends Data ? [data?: Data] : [data: Data]> { }
+export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data] : [data: Data]> { }
 /** DataMan provides data setting and listening features with dotted strings.
  * - Examples for usage:
  *      * Create: `const dataMan = new DataMan({ ...initData });`
@@ -25,15 +25,17 @@ export interface DataManType<Data extends Record<string, any> = {}> extends AsCl
  *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
  * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
  *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
+ * - Note. The InterfaceLevel type argument can be used to define how many levels of interface types allows vs. strict types.
+ *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
  */
-export class DataMan<Data extends Record<string, any> = {}> extends (mixinDataMan(Object) as any as ClassType) { }
-export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<Data> {
+export class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends (mixinDataMan(Object) as any as ClassType) { }
+export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataBoy<Data, InterfaceLevel> {
     
 
     // - Members - //
 
     // // Constructor type. Let's not define it, since we're often used as a mixin - so constructor will be something else.
-    // ["constructor"]: DataManType<Data>;
+    // ["constructor"]: DataManType<Data, InterfaceLevel>;
 
     // Data & contents.
     readonly data: Data;
@@ -48,8 +50,8 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
      */
     getData(): Data;
     /** Get a portion within the data using dotted string to point the location. For example: "themes.selected". */
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): PropType<Data, DataKey> | Fallback;
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKey: DataKey, fallback?: never | undefined): PropType<Data, DataKey>;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): PropType<Data, DataKey> | Fallback;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKey: DataKey, fallback?: never | undefined): PropType<Data, DataKey>;
     /** Set the data and refresh. By default extends the data (only replaces if extend is set to false), and triggers a refresh. */
     setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
     setData(data: Partial<Data>, extend?: boolean | true, refresh?: boolean, forceTimeout?: number | null): void;
@@ -58,15 +60,15 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
      * - By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      * - Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
      */
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
 
     /** This refreshes both: data & pending signals.
      * - If refreshKeys defined, will add them - otherwise only refreshes pending.
      * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
      */
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
     
     /** Note that this only adds the refresh keys but will not refresh. */
     addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
@@ -139,15 +141,15 @@ export interface DataMan<Data extends Record<string, any> = {}> extends DataBoy<
  * 
  * ```
  */
-export function mixinDataMan<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
-    DataManType<Data> & BaseClass,
+    DataManType<Data, InterfaceLevel> & BaseClass,
     // Instanced.
-    DataMan<Data> & InstanceType<BaseClass>,
+    DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>,
     // Constructor args.
     {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]
 > {
-    // For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
+    // For clarity of usage and avoid problems with deepness, we don't use the <Data, InterfaceLevel> here at all and return ClassType.
     return class DataMan extends (mixinDataBoy(Base) as DataBoyType) {
 
 

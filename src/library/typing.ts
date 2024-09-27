@@ -2,12 +2,13 @@
 // - Imports - //
 
 // Dependency.
-import { IterateBackwards } from "mixin-types";
+import { ClassType, IterateBackwards } from "mixin-types";
 
 
 // - General - //
 
 // NodeJS side timer.
+/** Typing for NodeJS side timers. */
 export interface NodeJSTimeout {
     ref(): this;
     unref(): this;
@@ -91,29 +92,53 @@ export type PropTypeArray<T extends Record<string, any>, Paths extends Array<str
 
 // - Get dotted data keys from nested data - //
 
+// This variant does not allow class instances nor interfaces.
 /** Collect structural data keys from a deep dictionary as dotted strings.
  * - Does not go inside arrays, sets, maps, immutable objects nor classes or class instances.
+ *      * Note. By cutting class instances also cuts any `interface` sub types, only use `type` for sub data.
  * - By default limits to 10 depth, to not limit at all put MaxDepth to -1.
- * - Can provide <Data, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally.
+ * - Can provide <Data, InterfaceLevel, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally.
+ * - If InterfaceLevel is never, allows interfaces all the way through - not recommended. Defaults to 0, no interfaces.
  */
 export type GetJoinedDataKeysFrom<
     // Type arguments.
     Data extends Record<string, any>,
+    InterfaceLevel extends number = 0,
+    // Optional.
     Pre extends string = "",
     Joiner extends string = ".",
     MaxDepth extends number = 10,
     // Local variables.
     PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`
-> = IterateBackwards[MaxDepth] extends never ? never : 
-    { [Key in string & keyof Data]:
-        // Array.
-        Data[Key] & {} extends any[] ? `${PreVal}${Key}` :
-        // Dictionary.
-        Data[Key] & {} extends { [key: string]: any; } ?
-            // Immutable.
-            Data[Key] & {} extends { asMutable(): Data[Key]; } ? `${PreVal}${Key}` :
+> = IterateBackwards[MaxDepth] extends never ? never : {
+    // Each key.
+    [Key in string & keyof Data]:
+        // Check if is deep or not. The scope returns `true` or `false`.
+        (0 extends InterfaceLevel ? IsDeepPropertyType<Data, Key> : IsDeepPropertyInterface<Data, Key>) extends true ?
             // Deep.
-            string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` :
-        // Not deep.
-        `${PreVal}${Key}`;
-    }[string & keyof Data];
+            string & GetJoinedDataKeysFrom<Data[Key] & {}, InterfaceLevel extends 0 ? 0 : IterateBackwards[InterfaceLevel], `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` :
+            // Not dictionary like.
+            `${PreVal}${Key}`;
+}[string & keyof Data];
+
+/** Check if the next level property is deep or not. Skipping arrays, sets, maps, immutable likes, class types, class instances and interfaces. */
+export type IsDeepPropertyType<Data extends Record<string, any>, Prop extends keyof Data & string> = 
+    // As a type - interfaces don't meet the restriction of `{ [y: number]: never; }` by default, while types do.
+    // .. This also cuts class types and class instances away.
+    Data[Prop] & {} extends { [x: string]: any; [y: number]: never; } ?
+        // Don't accept any sort of iterables (arrays, sets, maps, immutables).
+        Data[Prop] & {} extends Iterable<any> ? false :
+        // Is indeed a dictionary like type.
+        true :
+    false;
+
+/** Check if the next level property is deep or not. Skipping arrays, sets, maps, immutable likes and class types - but including class instances and interfaces. */
+export type IsDeepPropertyInterface<Data extends Record<string, any>, Prop extends keyof Data & string> = 
+    // As an interface - just check if is dictionary like.
+    Data[Prop] & {} extends Record<string, any> ?
+        // Don't accept any sort of iterables (arrays, sets, maps, immutables), nor class types (static) - but do allow interfaces and class instances.
+        Data[Prop] & {} extends Iterable<any> | ClassType ? false :
+        // Is indeed a dictionary like interface.
+        true :
+    // Not dictionary like at all.
+    false;

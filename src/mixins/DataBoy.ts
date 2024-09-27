@@ -15,7 +15,7 @@ export type DataListenerFunc = (...args: any[]) => any | void;
 
 // - Class - //
 
-export interface DataBoyType<Data extends Record<string, any> = {}> extends ClassType<DataBoy<Data>> {
+export interface DataBoyType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends ClassType<DataBoy<Data, InterfaceLevel>> {
     // Static extendables - we use very loose types here.
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
@@ -33,14 +33,14 @@ export interface DataBoyType<Data extends Record<string, any> = {}> extends Clas
  *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... }, [...fallbackArgs])`
  *      * Set data: `dataMan.setInData("something.deep", somedata)`
  */
-export class DataBoy<Data extends Record<string, any> = {}> extends (mixinDataBoy(Object) as any as ClassType) { }
-export interface DataBoy<Data extends Record<string, any> = {}> {
+export class DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends (mixinDataBoy(Object) as any as ClassType) { }
+export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> {
 
 
     // - Members - //
 
     // // Constructor type. Let's not define it, since we're often used as a mixin - so constructor will be something else.
-    // ["constructor"]: DataBoyType<Data>;
+    // ["constructor"]: DataBoyType<Data, InterfaceLevel>;
 
     /** External data listeners.
      * - These are called after the data refreshes, though might be tied to update cycles at an external layer - to refresh the whole app in sync.
@@ -62,7 +62,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      *      * Or you can do the same on the whole dictionary: `{ "some.key": "test" } as const`.
      */
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Fallbacks extends Partial<Record<Keys, any>>
     >(fallbackDictionary: keyof Fallbacks extends Keys ? Fallbacks : never, callback: (values: PropTypesFromDictionary<Data, Fallbacks>) => void, callImmediately?: boolean): void;
 
@@ -73,20 +73,20 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      * - To remove the listener use `unlistenToData(callback)`.
      */
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>) => void,
         Fallback extends [any?] = []
     >(dataKey: Key1, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>, val2: PropTypeFallback<Data, Key2, Fallback[1]>) => void,
         Fallback extends [any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -94,7 +94,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Fallback extends [any?, any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -103,7 +103,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Fallback extends [any?, any?, any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -113,7 +113,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Fallback extends [any?, any?, any?, any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -124,7 +124,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Fallback extends [any?, any?, any?, any?, any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -136,7 +136,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
         Fallback extends [any?, any?, any?, any?, any?, any?, any?] = []
     >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
-        Keys extends GetJoinedDataKeysFrom<Data>,
+        Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
         Key2 extends Keys,
         Key3 extends Keys,
@@ -155,8 +155,8 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
     // - Get and set data - //
 
     /** Should be extended. */
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
 
     /** Should be extended. */
     setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
@@ -171,7 +171,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      * - Note. This method is used internally but can also be used for custom external purposes.
      */
     getDataArgsBy<
-        DataKey extends GetJoinedDataKeysFrom<Data>,
+        DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?],
         Fallbacks extends Record<string, any> | [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]
     >(needs: Params, fallbackArgs?: Fallbacks): Fallbacks extends any[] ? PropTypeArray<Data, Params, Fallbacks> : [valueDictionary: PropTypesFromDictionary<Data, Fallbacks>];
@@ -182,7 +182,7 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
      * - The onlyDirect? 2nd argument should be put to true if wanting to skip the callDataListenersFor static method if present.
      *      * Normally, if the callDataListenersFor static method is defined, will not perform the internal implementation.
      */
-    callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data>[], onlyDirect?: boolean): void;
+    callDataBy(refreshKeys?: true | GetJoinedDataKeysFrom<Data, InterfaceLevel>[], onlyDirect?: boolean): void;
 
 }
 
@@ -191,17 +191,19 @@ export interface DataBoy<Data extends Record<string, any> = {}> {
 
 /** Add DataBoy features to a custom class. Provide the BaseClass type specifically as the 2nd type argument.
  * - For examples of how to use mixins see `mixinDataMan` comments or [mixin-types README](https://github.com/koodikulma-fi/mixin-types).
-*/
-export function mixinDataBoy<Data extends Record<string, any> = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+ * - Note. The InterfaceLevel type argument can be used to define how many levels of interface types allows vs. strict types.
+ *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
+ */
+export function mixinDataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
     // Static.
-    DataBoyType<Data> & BaseClass,
+    DataBoyType<Data, InterfaceLevel> & BaseClass,
     // Instanced.
-    DataBoy<Data> & InstanceType<BaseClass>,
+    DataBoy<Data, InterfaceLevel> & InstanceType<BaseClass>,
     // Constructor args. Just allow to pass in any, not used.
     any[]
 > {
     // We just use the same internal JS method.
-    // .. For clarity of usage and avoid problems with deepness, we don't use the <Data> here at all and return ClassType.
+    // .. For clarity of usage and avoid problems with deepness, we don't use the <Data, InterfaceLevel> here at all and return ClassType.
     return class DataBoy extends (Base as ClassType) {
 
 
