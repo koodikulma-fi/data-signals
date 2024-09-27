@@ -35,9 +35,8 @@ type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | u
  * - Can provide <Data, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally.
  */
 type GetJoinedDataKeysFrom<Data extends Record<string, any>, Pre extends string = "", Joiner extends string = ".", MaxDepth extends number = 10, PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`> = IterateBackwards[MaxDepth] extends never ? never : {
-    [Key in string & keyof Data]: Data[Key] & {} extends {
+    [Key in string & keyof Data]: Data[Key] & {} extends any[] ? `${PreVal}${Key}` : Data[Key] & {} extends {
         [key: string]: any;
-        [key: number]: never;
     } ? Data[Key] & {} extends {
         asMutable(): Data[Key];
     } ? `${PreVal}${Key}` : string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` : `${PreVal}${Key}`;

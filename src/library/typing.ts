@@ -106,9 +106,14 @@ export type GetJoinedDataKeysFrom<
     PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`
 > = IterateBackwards[MaxDepth] extends never ? never : 
     { [Key in string & keyof Data]:
-        Data[Key] & {} extends { [key: string]: any; [key: number]: never; } ?
-            Data[Key] & {} extends { asMutable(): Data[Key]; } ?
-                `${PreVal}${Key}` :
+        // Array.
+        Data[Key] & {} extends any[] ? `${PreVal}${Key}` :
+        // Dictionary.
+        Data[Key] & {} extends { [key: string]: any; } ?
+            // Immutable.
+            Data[Key] & {} extends { asMutable(): Data[Key]; } ? `${PreVal}${Key}` :
+            // Deep.
             string & GetJoinedDataKeysFrom<Data[Key] & {}, `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` :
-        `${PreVal}${Key}`
+        // Not deep.
+        `${PreVal}${Key}`;
     }[string & keyof Data];
