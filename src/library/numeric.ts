@@ -176,8 +176,8 @@ export function orderArray<T extends any>(arr: T[], orderOrPropIndex: Array<numb
  * numberRange(1, 3);               // [1, 2]
  * numberRange(3, 1);               // [3, 2]
  * numberRange(1, 3, 1, true);      // [1, 2, 3]
- * numberRange(3, 1, 1, true);      // [3, 2, 1]
  * numberRange(3, 1, -1, true);     // [1, 2, 3]
+ * numberRange(3, 1, null, true);   // [3, 2, 1]
  * numberRange(-1, 2);              // [-1, 0, 1]
  * numberRange(1, -2);              // [1, 0, -1]
  * numberRange(1, -2, -1);          // [-1, 0, 1]
@@ -199,18 +199,18 @@ export function orderArray<T extends any>(arr: T[], orderOrPropIndex: Array<numb
  * 
  * ```
  */
-export function numberRange(startOrEnd: number, end?: number | null, stepSize: number = 1, includeEnd: boolean = false): number[] {
+export function numberRange(startOrEnd: number, end?: number | null, stepSize?: number | null, includeEnd?: boolean): number[] {
     // Validate.
-    const flip = stepSize < 0;
+    const flip = (stepSize as number) < 0; // (null|undefined|0 < 0) all say `false`.
     let [i, e] = end == null ? [0, startOrEnd] : [startOrEnd, end];
     const forwards = i < e;
     stepSize = !stepSize ? forwards ? 1 : -1 : forwards !== flip ? stepSize : -stepSize;
     // Fill directly.
     const range: number[] = [];
     if (includeEnd)
-        while(forwards ? i<=e : i>=e) { range.push(i); i += stepSize; }
+        while(forwards ? i<=e : i>=e) { range.push(i); i += stepSize!; }
     else
-        while(forwards ? i<e : i>e) { range.push(i); i += stepSize; }
+        while(forwards ? i<e : i>e) { range.push(i); i += stepSize!; }
     // Flip.
     if (flip)
         range.reverse();

@@ -185,8 +185,8 @@ declare function orderArray<T extends any>(arr: T[], orderBy: Array<number | nul
  * numberRange(1, 3);               // [1, 2]
  * numberRange(3, 1);               // [3, 2]
  * numberRange(1, 3, 1, true);      // [1, 2, 3]
- * numberRange(3, 1, 1, true);      // [3, 2, 1]
  * numberRange(3, 1, -1, true);     // [1, 2, 3]
+ * numberRange(3, 1, null, true);   // [3, 2, 1]
  * numberRange(-1, 2);              // [-1, 0, 1]
  * numberRange(1, -2);              // [1, 0, -1]
  * numberRange(1, -2, -1);          // [-1, 0, 1]
@@ -208,7 +208,7 @@ declare function orderArray<T extends any>(arr: T[], orderBy: Array<number | nul
  *
  * ```
  */
-declare function numberRange(startOrEnd: number, end?: number | null, stepSize?: number, includeEnd?: boolean): number[];
+declare function numberRange(startOrEnd: number, end?: number | null, stepSize?: number | null, includeEnd?: boolean): number[];
 
 /** For quick getting modes to depth for certain uses (Memo and DataPicker).
  * - Positive values can go however deep. Note that -1 means deep, but below -2 means will not check.

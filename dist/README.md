@@ -448,7 +448,7 @@ mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 ### library - numeric: `numberRange`
 
 - Creates a numeric array using start, end and stepSize.
-- The form is: `numberRange(startOrEnd: number, end?: number | null, stepSize: number = 1?, includeEnd?: boolean): number[]`
+- The form is: `numberRange(startOrEnd: number, end?: number | null, stepSize?: number | null, includeEnd?: boolean): number[]`
     * If `end` is not defined (or null), then `startOrEnd` is end and starts at 0. 
     * If `stepSize` is 0 uses 1, if negative flips the order.
     * If `includeEnd` is set to true includes it as the last value (if stepSize matches).
@@ -461,8 +461,8 @@ numberRange(-3);                 // [0, -1, -2]
 numberRange(1, 3);               // [1, 2]
 numberRange(3, 1);               // [3, 2]
 numberRange(1, 3, 1, true);      // [1, 2, 3]
-numberRange(3, 1, 1, true);      // [3, 2, 1]
 numberRange(3, 1, -1, true);     // [1, 2, 3]
+numberRange(3, 1, null, true);   // [3, 2, 1]
 numberRange(-1, 2);              // [-1, 0, 1]
 numberRange(1, -2);              // [1, 0, -1]
 numberRange(1, -2, -1);          // [-1, 0, 1]
