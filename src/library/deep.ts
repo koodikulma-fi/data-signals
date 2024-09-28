@@ -5,7 +5,32 @@
 import { ClassType } from "mixin-types";
 
 
-// - Static data helpers - // 
+// - Data selector depth (enum and type) - //
+
+// Enums.
+/** For quick getting modes to depth for certain uses (Memo and DataPicker).
+ * - Positive values can go however deep. Note that -1 means deep, but below -2 means will not check.
+ * - Values are: "never" = -3, "always" = -2, "deep" = -1, "changed" = 0, "shallow" = 1, "double" = 2.
+ */
+export enum CompareDataDepthEnum {
+    never = -3,
+    always = -2,
+    deep = -1,
+    changed = 0,
+    shallow = 1,
+    double = 2,
+};
+/** Data comparison modes as string names.
+ * - "always" means always changed - doesn't even compare the data.
+ * - "changed" means if a !== b, then it's changed.
+ * - "shallow" means comparing all values in an array or dictionary with identity check (!==). This is a common used default, compares 1 level.
+ * - "double" is like "shallow" but any prop value that is object or array will do a further shallow comparison to determine if it has changed.
+ * - "deep" compares all the way down recursively. Only use this if you it's really what you want - never use it with recursive objects (= with direct or indirect self references).
+ */
+export type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
+
+
+// - Totally static data helpers - // 
 
 // Used internally but also meant as a tool for external use.
 /** General data comparison function with level for deepness.
@@ -162,4 +187,61 @@ export function deepCopy<T extends any = any>(obj: T, nDepth = -1): T {
     for (const prop in obj)
         newObj[prop] = deepCopy(obj[prop], nDepth);
     return newObj as T;
+}
+
+
+// - Static helpers using compare depth mode - //
+
+/** Helper to compare a dictionary/object against another using a compareBy dictionary for update modes - only compares the properties of the compareBy dictionary.
+ * - For example, let's say a class instance has `{ props, state }` here, so compareBy would define the comparison modes for each: `{ props: 1, state: "always" }`.
+ * - Returns false if had differences. Note that in "always" mode even identical values are considered different, so returns true for any. 
+ * - -2 always, -1 deep, 0 changed, 1 shallow, 2 double, ... See the CompareDataDepthMode type for details.
+ * 
+ * ```
+ * 
+ * // Basic usage.
+ * const a = { props: { deep: { test: true }, simple: false }, state: undefined };
+ * const b = { props: { deep: { test: true }, simple: false }, state: true };
+ * 
+ * // Let's mirror what we do for props and state, but by using number vs. mode name.
+ * areEqualBy(a, b, { props: 0, state: "changed" });   // false, since `a.props !== b.props` and also `a.state !== b.state`.
+ * areEqualBy(a, b, { props: 1, state: "shallow" });   // false, since `a.props.deep !== b.props.deep` (not same obj. ref.).
+ * areEqualBy(a, b, { props: 2, state: "double" });    // true, every nested value compared was equal.
+ * areEqualBy(a, b, { props: -1, state: "deep" });     // true, every nested value was compared and was equal.
+ * areEqualBy(a, b, { props: -2, state: "always" });   // false, both are said to "always" be different.
+ * areEqualBy(a, b, { props: -3, state: "never" });    // true, both are said to "never" be different.
+ * 
+ * // Of course, if one part says not equal, then doesn't matter what others say: not equal.
+ * areEqualBy(a, b, { props: 0, state: "never" });     // false, since `a.props !== b.props`.
+ * 
+ * ```
+ */
+export function areEqualBy(from: Record<string, any> | null | undefined, to: Record<string, any> | null | undefined, compareBy: Record<string, CompareDataDepthMode | number | any>): boolean {
+    // Loop each prop key in the compareBy dictionary.
+    const eitherEmpty = !from || !to;
+    for (const prop in compareBy) {
+        // Prepare.
+        const mode = compareBy[prop];
+        const nMode = typeof mode === "number" ? mode : CompareDataDepthEnum[mode as string] as number ?? 0;
+        // Never (-3) and always (-2) modes. The outcome is flipped as we're not asking about change but equality.
+        if (nMode < -1) {
+            // Always different - so never equal.
+            if (nMode === -2)
+                return false;
+            continue;
+        }
+        // Special case. If either was empty, return true (= equal) if both were empty, false (= not equal) otherwise.
+        if (eitherEmpty)
+            return !from && !to;
+        // Changed.
+        if (nMode === 0) {
+            if (from[prop] !== to[prop])
+                return false;
+        }
+        // Otherwise use the library method.
+        else if (!areEqual(from[prop], to[prop], nMode))
+            return false;
+    }
+    // All that were checked were equal.
+    return true;
 }

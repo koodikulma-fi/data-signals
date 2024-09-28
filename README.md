@@ -44,6 +44,7 @@ A couple of data reusing concepts in the form of library methods.
     * `orderArray(array, orderOrPropIndex)` re-orders an array by 3 order categories: `>= 0`, `null|undefined`, `< 0`
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1).
     * The methods support native JS Objects, Arrays, Maps, Sets and handling classes.
+    * There's also `areEqualBy(a, b, compareBy)` for objects specialized to utilizing the `CompareDataDepthEnum`.
 - Data selector features:
     * `createDataTrigger` triggers a callback when reference data is changed from previous time.
     * `createDataMemo` recomputes / reuses data based on arguments: if changed, calls the producer callback.
@@ -441,6 +442,7 @@ mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 
 - The numeric array helpers (`numberRange`, `cleanIndex`, `orderedIndex`, `orderArray`) help with simple indexing needs.
 - The `areEqual(a, b, depth?)` and `deepCopy(anything, depth?)` compare or copy data to a level of depth.
+- The `areEqualBy(a, b, compareBy)` is a helper for objects that have various sets of data to compare (with different levels of comparison).
 - Memos, triggers and data sources are especially useful in state based refreshing systems that compare previous and next state to determine refreshing needs. The basic concept is to feed argument(s) to a function, who performs a comparison on them to determine whether to trigger change (= a custom callback).
 
 ### library - numeric: `numberRange`
@@ -582,6 +584,23 @@ orderArray([d, e, f], 0)        // 0 is red-underlined (or the method).
 
 ```
 
+### library - deep: `deepCopy`
+
+- The `deepCopy(anything, depth?)` copies the data with custom level of depth.
+- If depth is under 0, copies deeply. Defaults to -1.
+
+```typescript
+
+// Prepare.
+const original = { something: { deep: true }, simple: "yes" };
+let copy: typeof original;
+// Basic usage.
+copy = deepCopy(original); // Copied deeply.
+copy = deepCopy(original, 1); // Copied one level, so original.something === copy.something.
+copy = deepCopy(original, 0); // Did not copy, so original === copy.
+
+```
+
 ### library - deep: `areEqual`
 
 - The `areEqual(a, b, depth?)` compares data with custom level of depth.
@@ -599,20 +618,27 @@ areEqual(test, test, 0); // true, identical objects.
 
 ```
 
-### library - deep: `deepCopy`
+### library - deep: `areEqualBy`
 
-- The `deepCopy(anything, depth?)` copies the data with custom level of depth.
-- If depth is under 0, copies deeply. Defaults to -1.
+- The `areEqual(a, b, compareBy)` compares data in two objects/dictionaries according to compareBy dictionary.
+- The compareBy dictionary defines which properties to compare and how (using CompareDataDepthEnum).
 
 ```typescript
 
-// Prepare.
-const original = { something: { deep: true }, simple: "yes" };
-let copy: typeof original;
 // Basic usage.
-copy = deepCopy(original); // Copied deeply.
-copy = deepCopy(original, 1); // Copied one level, so original.something === copy.something.
-copy = deepCopy(original, 0); // Did not copy, so original === copy.
+const a = { props: { deep: { test: true }, simple: false }, state: undefined };
+const b = { props: { deep: { test: true }, simple: false }, state: true };
+
+// Let's mirror what we do for props and state, but by using number vs. mode name.
+areEqualBy(a, b, { props: 0, state: "changed" });   // false, since `a.props !== b.props` and also `a.state !== b.state`.
+areEqualBy(a, b, { props: 1, state: "shallow" });   // false, since `a.props.deep !== b.props.deep` (not same obj. ref.).
+areEqualBy(a, b, { props: 2, state: "double" });    // true, every nested value compared was equal.
+areEqualBy(a, b, { props: -1, state: "deep" });     // true, every nested value was compared and was equal.
+areEqualBy(a, b, { props: -2, state: "always" });   // false, both are said to "always" be different.
+areEqualBy(a, b, { props: -3, state: "never" });    // true, both are said to "never" be different.
+
+// Of course, if one part says not equal, then doesn't matter what others say: not equal.
+areEqualBy(a, b, { props: 0, state: "never" });     // false, since `a.props !== b.props`.
 
 ```
 

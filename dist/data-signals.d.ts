@@ -210,6 +210,26 @@ declare function orderArray<T extends any>(arr: T[], orderBy: Array<number | nul
  */
 declare function numberRange(startOrEnd: number, end?: number | null, stepSize?: number, includeEnd?: boolean): number[];
 
+/** For quick getting modes to depth for certain uses (Memo and DataPicker).
+ * - Positive values can go however deep. Note that -1 means deep, but below -2 means will not check.
+ * - Values are: "never" = -3, "always" = -2, "deep" = -1, "changed" = 0, "shallow" = 1, "double" = 2.
+ */
+declare enum CompareDataDepthEnum {
+    never = -3,
+    always = -2,
+    deep = -1,
+    changed = 0,
+    shallow = 1,
+    double = 2
+}
+/** Data comparison modes as string names.
+ * - "always" means always changed - doesn't even compare the data.
+ * - "changed" means if a !== b, then it's changed.
+ * - "shallow" means comparing all values in an array or dictionary with identity check (!==). This is a common used default, compares 1 level.
+ * - "double" is like "shallow" but any prop value that is object or array will do a further shallow comparison to determine if it has changed.
+ * - "deep" compares all the way down recursively. Only use this if you it's really what you want - never use it with recursive objects (= with direct or indirect self references).
+ */
+type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
 /** General data comparison function with level for deepness.
  * - Supports Object, Array, Set, Map complex types and recognizes classes vs. objects.
  * - About arguments:
@@ -249,27 +269,32 @@ declare function areEqual(a: any, b: any, nDepth?: number): boolean;
  * ```
  */
 declare function deepCopy<T extends any = any>(obj: T, nDepth?: number): T;
+/** Helper to compare a dictionary/object against another using a compareBy dictionary for update modes - only compares the properties of the compareBy dictionary.
+ * - For example, let's say a class instance has `{ props, state }` here, so compareBy would define the comparison modes for each: `{ props: 1, state: "always" }`.
+ * - Returns false if had differences. Note that in "always" mode even identical values are considered different, so returns true for any.
+ * - -2 always, -1 deep, 0 changed, 1 shallow, 2 double, ... See the CompareDataDepthMode type for details.
+ *
+ * ```
+ *
+ * // Basic usage.
+ * const a = { props: { deep: { test: true }, simple: false }, state: undefined };
+ * const b = { props: { deep: { test: true }, simple: false }, state: true };
+ *
+ * // Let's mirror what we do for props and state, but by using number vs. mode name.
+ * areEqualBy(a, b, { props: 0, state: "changed" });   // false, since `a.props !== b.props` and also `a.state !== b.state`.
+ * areEqualBy(a, b, { props: 1, state: "shallow" });   // false, since `a.props.deep !== b.props.deep` (not same obj. ref.).
+ * areEqualBy(a, b, { props: 2, state: "double" });    // true, every nested value compared was equal.
+ * areEqualBy(a, b, { props: -1, state: "deep" });     // true, every nested value was compared and was equal.
+ * areEqualBy(a, b, { props: -2, state: "always" });   // false, both are said to "always" be different.
+ * areEqualBy(a, b, { props: -3, state: "never" });    // true, both are said to "never" be different.
+ *
+ * // Of course, if one part says not equal, then doesn't matter what others say: not equal.
+ * areEqualBy(a, b, { props: 0, state: "never" });     // false, since `a.props !== b.props`.
+ *
+ * ```
+ */
+declare function areEqualBy(from: Record<string, any> | null | undefined, to: Record<string, any> | null | undefined, compareBy: Record<string, CompareDataDepthMode | number | any>): boolean;
 
-/** For quick getting modes to depth for certain uses (Memo and DataPicker).
- * - Positive values can go however deep. Note that -1 means deep, but below -2 means will not check.
- * - Values are: "never" = -3, "always" = -2, "deep" = -1, "changed" = 0, "shallow" = 1, "double" = 2.
- */
-declare enum CompareDataDepthEnum {
-    never = -3,
-    always = -2,
-    deep = -1,
-    changed = 0,
-    shallow = 1,
-    double = 2
-}
-/** Data comparison modes as string names.
- * - "always" means always changed - doesn't even compare the data.
- * - "changed" means if a !== b, then it's changed.
- * - "shallow" means comparing all values in an array or dictionary with identity check (!==). This is a common used default, compares 1 level.
- * - "double" is like "shallow" but any prop value that is object or array will do a further shallow comparison to determine if it has changed.
- * - "deep" compares all the way down recursively. Only use this if you it's really what you want - never use it with recursive objects (= with direct or indirect self references).
- */
-type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
 /** Type for a function whose job is to extract data from given arguments. */
 type DataExtractor<P extends any[] = any[], R = any> = (...args: P) => R;
 /** This helps to create a typed data selector by providing the types for the Params for extractor and Data for output of the selector.
@@ -1099,4 +1124,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 
-export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, askListeners, callListeners, cleanIndex, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange, orderArray, orderedIndex };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, areEqualBy, askListeners, callListeners, cleanIndex, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange, orderArray, orderedIndex };

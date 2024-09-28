@@ -2,32 +2,7 @@
 // - Imports - //
 
 // Library.
-import { areEqual } from "./deep";
-
-
-// - Data selector depth (enum and type) - //
-
-// Enums.
-/** For quick getting modes to depth for certain uses (Memo and DataPicker).
- * - Positive values can go however deep. Note that -1 means deep, but below -2 means will not check.
- * - Values are: "never" = -3, "always" = -2, "deep" = -1, "changed" = 0, "shallow" = 1, "double" = 2.
- */
-export enum CompareDataDepthEnum {
-    never = -3,
-    always = -2,
-    deep = -1,
-    changed = 0,
-    shallow = 1,
-    double = 2,
-};
-/** Data comparison modes as string names.
- * - "always" means always changed - doesn't even compare the data.
- * - "changed" means if a !== b, then it's changed.
- * - "shallow" means comparing all values in an array or dictionary with identity check (!==). This is a common used default, compares 1 level.
- * - "double" is like "shallow" but any prop value that is object or array will do a further shallow comparison to determine if it has changed.
- * - "deep" compares all the way down recursively. Only use this if you it's really what you want - never use it with recursive objects (= with direct or indirect self references).
- */
-export type CompareDataDepthMode = keyof typeof CompareDataDepthEnum;
+import { areEqual, CompareDataDepthEnum, CompareDataDepthMode } from "./deep";
 
 
 // - Data typing helpers - //
