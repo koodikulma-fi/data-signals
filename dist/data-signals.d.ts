@@ -857,11 +857,11 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
      *      - If given `number`, then sets it as the new timeout.
      *      - If given `null`, then will immediaty resolve it (when the cycle starts). If cycle already started, resolves instantly.
      *      - If given `undefined´ only clears the timer and does not set up a new one.
-     * @param allowTrigger Defaults to `"never"`.
+     * @param allowTrigger Defaults to `false`.
      *      - If `true`, then allows to start up a new cycle if the state was "". This might include resolving it instantly as well if new timeout is `null`.
-     *      - If `"instant"` (default), then does not allow start up a new cycle, but does allow instant resolving of the current cycle if was "waiting" and new timeout `null`.
-     *      - If `false`, then never starts up a new cycle, nor resolves it instantly if `null` given for an active cycle.
-     *          * In terms of micro-processing, this is often what is wanted externally.
+     *      - If `"instant"`, then does not allow start up a new cycle, but does allow instant resolving of the current cycle if was "waiting" and new timeout `null`.
+     *      - If `false` (default), then never starts up a new cycle, nor resolves it instantly if `null` given for an active cycle.
+     *          * In terms of micro-processing, this is often what is wanted externally. That's why the default - so calling `extend` never resolves nor triggers instantly by default.
      *          * If the new timeout is `null`, the external layer probably calls `.resolve()` manually - very synchronously-soon after.
      * - About phase of the cycle:
      *      * "": If the cycle has not yet started, only marks the timeout (to override the default), when the cycle later starts. Unless allowTriggerCycle is true.

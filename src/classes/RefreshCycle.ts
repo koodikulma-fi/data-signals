@@ -92,16 +92,18 @@ export class RefreshCycle<
             });
             // Set up the next timer, but don't execute immediately - we need to call "onStart" first.
             const timeout = forceTimeout === undefined ? this.nextTimeout === undefined ? defaultTimeout : this.nextTimeout : forceTimeout;
-            this.extend(timeout, false);
+            this.extend(timeout); // Just extend, don't trigger nor resolve anything.
             // Call up.
             (this as RefreshCycle).sendSignal("onStart");
             // Resolve immediately.
             if (timeout === null)
                 this.resolve();
         }
-        // Just extend the timer - allowing instant resolution, if such is to be desired.
+        // Already started.
+        // .. Just extend the timer - allowing instant resolution, if such is to be desired.
+        // .. If is "resolving", calling .extend() will not do anything.
         else if (forceTimeout !== undefined)
-            this.extend(forceTimeout);
+            this.extend(forceTimeout, "instant"); // Allow instant resolution.
         // Return the promise.
         return this.promise;
     }
@@ -111,18 +113,18 @@ export class RefreshCycle<
      *      - If given `number`, then sets it as the new timeout.
      *      - If given `null`, then will immediaty resolve it (when the cycle starts). If cycle already started, resolves instantly.
      *      - If given `undefined´ only clears the timer and does not set up a new one.
-     * @param allowTrigger Defaults to `"never"`.
+     * @param allowTrigger Defaults to `false`.
      *      - If `true`, then allows to start up a new cycle if the state was "". This might include resolving it instantly as well if new timeout is `null`.
-     *      - If `"instant"` (default), then does not allow start up a new cycle, but does allow instant resolving of the current cycle if was "waiting" and new timeout `null`.
-     *      - If `false`, then never starts up a new cycle, nor resolves it instantly if `null` given for an active cycle.
-     *          * In terms of micro-processing, this is often what is wanted externally.
+     *      - If `"instant"`, then does not allow start up a new cycle, but does allow instant resolving of the current cycle if was "waiting" and new timeout `null`.
+     *      - If `false` (default), then never starts up a new cycle, nor resolves it instantly if `null` given for an active cycle.
+     *          * In terms of micro-processing, this is often what is wanted externally. That's why the default - so calling `extend` never resolves nor triggers instantly by default.
      *          * If the new timeout is `null`, the external layer probably calls `.resolve()` manually - very synchronously-soon after.
      * - About phase of the cycle:
      *      * "": If the cycle has not yet started, only marks the timeout (to override the default), when the cycle later starts. Unless allowTriggerCycle is true.
      *      * "waiting": If the cycle is ready, clears the old timer (if any) and sets the new timer. (If null, and allowInstantResolve is true, then resolves instantly.)
      *      * "resolving": Does not do anything, things are already in the process of being resolved synchronously - right now.
      */
-    public extend(timeout: number | null | undefined, allowTrigger: boolean | "instant" = "instant"): void {
+    public extend(timeout: number | null | undefined, allowTrigger?: boolean | "instant"): void {
         // Handle by state.
         switch(this.state) {
             // Is resolving - don't do anything.
