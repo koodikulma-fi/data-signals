@@ -41,7 +41,7 @@ A couple of data reusing concepts in the form of library methods.
     * `numberRange(start, end?, stepSize?)` helps to produce a range of numbers (whole or fractional).
     * `cleanIndex(index, newCount)` helps to get a clean insertion index for adding/moving.
     * `orderedIndex(order, orderOrPropIndex)` helps to get an ordered insertion index for adding.
-    * `orderArray(array, orderOrPropIndex)` re-orders an array by 3 order categories: `>= 0`, `null|undefined`, `< 0`
+    * `orderArray(array, orderOrPropIndex)` re-orders an array in 3 categories: `>= 0`, `null|undefined`, `< 0`
 - Simple `areEqual(a, b, level?)` and `deepCopy(anything, level?)` methods with custom level of depth (-1).
     * The methods support native JS Objects, Arrays, Maps, Sets and handling classes.
     * There's also `areEqualBy(a, b, compareBy)` for objects specialized to utilizing the `CompareDataDepthEnum`.
