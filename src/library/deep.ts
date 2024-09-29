@@ -141,12 +141,17 @@ export function areEqual(a: any, b: any, nDepth = -1): boolean {
  * ```
  * 
  * // Prepare.
- * const original = { something: { deep: true }, simple: "yes" };
- * let copy: typeof original;
+ * const original = { deep: { blue: true }, simple: "yes" };
+ * 
  * // Basic usage.
- * copy = deepCopy(original); // Copied deeply.
- * copy = deepCopy(original, 1); // Copied one level, so original.something === copy.something.
- * copy = deepCopy(original, 0); // Did not copy, so original === copy.
+ * const copy1 = deepCopy(original); // Copied deeply.
+ * const copy2 = deepCopy(original, 1); // Copied one level, so original.blue === copy.blue.
+ * const copy3 = deepCopy(original, 0); // Did not copy, so original === copy.
+ * 
+ * // Let's check the claims about depth.
+ * [copy1 === original, copy1.deep === original.deep] // [false, false]
+ * [copy2 === original, copy2.deep === original.deep] // [false, true]
+ * [copy3 === original, copy3.deep === original.deep] // [true, true]
  * 
  * ```
  */
