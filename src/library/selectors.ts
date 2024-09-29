@@ -247,16 +247,19 @@ export function createDataMemo<Data extends any, MemoryArgs extends any[]>(produ
  *      ],
  *      // Producer.
  *      (theme, special): MyData => ({ theme, special }),
- *      // Optional depth of comparing each argument.
+ *      // Optional depth.
  *      0
  * );
  * 
  * // Use.
- * const val = mySource({ mode: "dark" }, true);
+ * const val = mySource({ mode: "dark" }, true);   // { theme: "dark", special: true }
+ * const val2 = mySource({ mode: "dark" }, true);  // Identical to above.
+ * val === val2; // true
+ * 
+ * // Test typing.
  * const val_FAIL = mySource({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
  * const val_MANUAL = mySource_MANUAL({ mode: "dark" }, true);
  * const val_MANUAL_FAIL = mySource_MANUAL({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
- * 
  * 
  * ```
  */
@@ -269,7 +272,9 @@ export function createDataSource<
     let extracted: any[] | readonly any[] | undefined = undefined;
     let data: Data = undefined as any;
     // Clean depth.
-    const d = typeof depth === "string" ? CompareDataDepthEnum[depth] : depth;
+    // .. We add one to >= 0, since our extracted array is always new. If -1, -2 or -3, keep as is.
+    depth = typeof depth === "string" ? CompareDataDepthEnum[depth] : depth;
+    const d = depth >= 0 ? depth + 1 : depth;
     // Return a function to do the selecting.
     return (...args: any[]): Data => {
         // Extract new extracts.
@@ -326,13 +331,13 @@ export function createDataSource<
  *      (theme, special) => ({ theme, special }),
  *      // Cache key generator.
  *      (_theme, _special, cacheKey) => cacheKey,
- *      // Optional depth.
+ *      // Optional depth. Defaults to 0: identity check on each extracted arg.
  *      0
  * );
  * 
- * // With manual typing.
+ * // With manual typing. The result works just the same.
  * const mySource_MANUAL = createCachedSource(
- *      // Extractor.
+ *      // Extractor. Let's specify MyCachedParams here, will also be use for the cacher.
  *      (...[colorTheme, specialMode]: MyCachedParams) => [colorTheme?.mode || "dark", specialMode || false],
  *      // Producer.
  *      (theme, special): MyData => ({ theme, special }),
@@ -342,14 +347,21 @@ export function createDataSource<
  *      0
  * );
  * 
- * // Use.
- * // .. Let's say state1 and state2 variants come from somewhere.
- * let val1 = mySource(state1a, state1b, "someKey"); // In one place.
- * let val2 = mySource(state2a, state2b, "anotherKey"); // In another place with similar data.
- * // We can do it again, and the producers won't be retriggered (unlike without caching).
- * val1 = mySource(state1a, state1b, "someKey");
- * val2 = mySource(state2a, state2b, "anotherKey");
+ * // Let's say state1 and state2 variants come from somewhere.
+ * let settings1 = { mode: "dark" } as const;
+ * let settings2 = { mode: "dark" } as const;
+ * let special1 = true;
+ * let special2 = false;
  * 
+ * // Use.
+ * let val_someKey = mySource(settings1, special1, "someKey"); // In one place.
+ * let val_anotherKey = mySource(settings2, special2, "anotherKey"); // In another place with similar data.
+ * // We can do it again, and the producers won't be retriggered (unlike without caching).
+ * let val2_someKey = mySource(settings1, special1, "someKey");
+ * let val2_anotherKey = mySource(settings2, special2, "anotherKey");
+ * // Validate claims.
+ * val_someKey === val2_someKey // true.
+ * val_anotherKey === val2_anotherKey // true.
  * 
  * ```
  */
