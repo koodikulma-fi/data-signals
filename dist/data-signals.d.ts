@@ -319,7 +319,7 @@ type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: Memory) 
 /** Create a data memo.
  * - Usage:
  *      1. First define the (optional but often used) onMount callback to be triggered on memory change.
- *      2. Then define create a trigger: `const myTrigger = createDataMemo(onMount, memory)`.
+ *      2. Then define create a trigger: `const myTrigger = createDataTrigger(onMount, memory)`.
  *      3. Then later in repeatable part of code call the trigger: `const didChange = myTrigger(newMemory);`
  * - Aboute triggering:
  *      - When calling the trigger you have actually 3 arguments: `(newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory>) => boolean`
@@ -339,7 +339,7 @@ type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: Memory) 
  *      // 1st arg is an optional (but often used) _mount_ callback.
  *      (newMem, oldMem) => {
  *          // Run upon change.
- *          if (newMem.id !== oldMem.id)
+ *          if (newMem.id !== oldMem?.id)
  *              console.log("Id changed!");
  *          // Optionally return a callback to do _unmounting_.
  *          return (currentMem, nextMem) => { console.log("Unmounted!"); }
@@ -367,8 +367,8 @@ type DataTriggerOnUnmount<Memory = any> = (currentMem: Memory, nextMem: Memory) 
  */
 declare function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMount<Memory>, memory?: Memory, depth?: number | CompareDataDepthMode): (newMemory: Memory, forceRun?: boolean, newOnMountIfChanged?: DataTriggerOnMount<Memory> | null) => boolean;
 /** Create a data memo.
- * - First define a memo: `const myMemo = createDataMemo((arg1, arg2) => { return "something"; });`.
- * - Then later in repeatable part of code get the value: `const myValue = myMemo(arg1, arg2);`
+ * - First define a handler: `const onChange = createDataMemo((arg1, arg2) => { return "something"; });`.
+ * - Then later in repeatable part of code get the value: `const myValue = onChange(arg1, arg2);`
  * - About arguments:
  *      @param producer Defines the callback to produce the final data given the custom arguments.
  *      @param depth Defines the comparison depth for comparing previous and new memory arguments - to decide whether to run onMount callback.
@@ -377,24 +377,48 @@ declare function createDataTrigger<Memory extends any>(onMount?: DataTriggerOnMo
  *
  * ```
  *
+ * // Types.
+ * type Input = { name: string; score: number; };
+ * type Output = { winner: string | null; loser: string | null; difference: number; };
+ *
  * // Create a function that can be called to return updated data if arguments changed.
- * const myMemo = createDataMemo(
- *      // 1st arg is the producer callback that should return the desired data.
- *      // .. It's only triggered when either (a, b) is changed from last time.
- *      (a, b) => {
- *          // Do something with the args.
- *          return a.score > b.score ? { winner: a.name, loser: b.name } :
- *              a.score < b.score ? { winner: b.name, loser: a.name } :
- *              { winner: null, loser: null };
- *      },
- *      // 2nd arg is optional and defines the _level of comparison_ referring to each argument.
- *      // .. For DataMemo it defaults to 0, meaning identity comparison on each argument: oldArg[i] !== newArg[i].
- *      // .. To do a deep comparison set to -1. Setting of 1 means shallow comparison (on each arg), and from there up.
- *      0,
+ * const onResults = createDataMemo(
+ *     // 1st arg is the producer callback that should return the desired data.
+ *     // .. It's only triggered when either (a, b) is changed from last time.
+ *     (a: Input, b: Input): Output => {
+ *         // Do something with the args.
+ *         return a.score > b.score ? { winner: a.name, loser: b.name, difference: a.score - b.score } :
+ *             a.score < b.score ? { winner: b.name, loser: a.name, difference: b.score - a.score } :
+ *             { winner: null, loser: null, difference: 0 };
+ *     },
+ *     // 2nd arg is optional and defines the _level of comparison_ referring to each argument.
+ *     // .. For DataMemo it defaults to 0, meaning identity comparison on each arg: oldArg[i] !== newArg[i].
+ *     // .. To do a deep comparison set to -1. Setting of 1 means shallow comparison (on each arg), and from there up.
+ *     1,
  * );
  *
  * // Use the memo.
- * const { winner, loser } = myMemo({ score: 3, name: "alpha"}, { score: 5, name: "beta" }); // { winner: "beta", loser: "alpha" }
+ * const a = { score: 3, name: "alpha"};
+ * const b = { score: 5, name: "beta"};
+ * const result = onResults(a, b);         // { winner: "beta", loser: "alpha", difference: 2 }
+ *
+ * // Show case functionality.
+ * const result2 = onResults(a, b);        // Identical to above. (Used same args.)
+ * const result3 = onResults(a, {...b});   // Identical to above, because of comparison depth 1.
+ * const result4 = onResults(b, a);        // Same as above - but a new object.
+ * const result5 = onResults(b, a);        // Identical to above (result4).
+ * const result6 = onResults(a, b);        // Same as above - but a new object.
+ * const result7 = onResults(a, a);        // { winner: null, loser: null, difference: 0 }
+ * const result8 = onResults(a, a);        // Same as above - identical to result7.
+ *
+ * // That the identity stays the same for consequent tries is useful in state based refresh flow.
+ * result === result2      // true
+ * result === result3      // true
+ * result === result4      // false
+ * result4 === result5     // true
+ * result4 === result6     // false
+ * result === result6      // false
+ * result7 === result8     // true
  *
  * ```
  *
@@ -441,7 +465,7 @@ declare function createDataMemo<Data extends any, MemoryArgs extends any[]>(prod
  *      0
  * );
  *
- * // Test.
+ * // Use.
  * const val = mySource({ mode: "dark" }, true);
  * const val_FAIL = mySource({ mode: "FAIL" }, true); // The "FAIL" is red-underlined.
  * const val_MANUAL = mySource_MANUAL({ mode: "dark" }, true);
@@ -465,6 +489,7 @@ declare function createDataSource<Extracted extends [any?, any?, any?, any?, any
  * ```
  *
  * // Let' use the same MyData as with createDataSource, but add cacheKey to args.
+ * type MyData = { theme: "dark" | "light"; special: boolean; };
  * type MyCachedParams = [
  *      colorTheme: { mode?: "light" | "dark" },
  *      specialMode: boolean | undefined,
@@ -472,7 +497,7 @@ declare function createDataSource<Extracted extends [any?, any?, any?, any?, any
  * ];
  *
  * // With pre-typing.
- * const mySource = (createDataSource as CreateCachedSource<MyCachedParams, MyData>)(
+ * const mySource = (createCachedSource as CreateCachedSource<MyCachedParams, MyData>)(
  *      // Extractor.
  *      (colorTheme, specialMode) => [colorTheme?.mode || "dark", specialMode || false],
  *      // Producer.
@@ -484,7 +509,7 @@ declare function createDataSource<Extracted extends [any?, any?, any?, any?, any
  * );
  *
  * // With manual typing.
- * const mySource_MANUAL = createCachedDataSource(
+ * const mySource_MANUAL = createCachedSource(
  *      // Extractor.
  *      (...[colorTheme, specialMode]: MyCachedParams) => [colorTheme?.mode || "dark", specialMode || false],
  *      // Producer.
@@ -495,7 +520,8 @@ declare function createDataSource<Extracted extends [any?, any?, any?, any?, any
  *      0
  * );
  *
- * // Test. Let's say state1 and state2 variants come from somewhere.
+ * // Use.
+ * // .. Let's say state1 and state2 variants come from somewhere.
  * let val1 = mySource(state1a, state1b, "someKey"); // In one place.
  * let val2 = mySource(state2a, state2b, "anotherKey"); // In another place with similar data.
  * // We can do it again, and the producers won't be retriggered (unlike without caching).

@@ -9,7 +9,16 @@
     "data",
     "signals",
     "context",
-    "contextAPI",
+    "Context",
+    "ContextAPI",
+    "DataBoy",
+    "DataMan",
+    "SignalBoy",
+    "SignalMan",
+    "RefreshCycles",
+    "refresh",
+    "cycles",
+    "flow",
     "manager",
     "tools",
     "web",
@@ -35,5 +44,8 @@
       "require": "./data-signals.js"
     },
     "./package.json": "./package.json"
+  },
+  "dependencies": {
+    "mixin-types": "^1.0.0"
   }
 }
