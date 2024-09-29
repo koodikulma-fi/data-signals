@@ -277,19 +277,24 @@ declare function deepCopy<T extends any = any>(obj: T, nDepth?: number): T;
  * ```
  *
  * // Basic usage.
+ * // .. Let's test with two equal sets of data to show case the comparison depth.
  * const a = { props: { deep: { test: true }, simple: false }, state: undefined };
- * const b = { props: { deep: { test: true }, simple: false }, state: true };
+ * const b = { props: { deep: { test: true }, simple: false }, state: undefined };
  *
  * // Let's mirror what we do for props and state, but by using number vs. mode name.
- * areEqualBy(a, b, { props: 0, state: "changed" });   // false, since `a.props !== b.props` and also `a.state !== b.state`.
+ * areEqualBy(a, b, { props: 0, state: "changed" });   // false, since `a.props !== b.props`.
  * areEqualBy(a, b, { props: 1, state: "shallow" });   // false, since `a.props.deep !== b.props.deep` (not same obj. ref.).
  * areEqualBy(a, b, { props: 2, state: "double" });    // true, every nested value compared was equal.
  * areEqualBy(a, b, { props: -1, state: "deep" });     // true, every nested value was compared and was equal.
- * areEqualBy(a, b, { props: -2, state: "always" });   // false, both are said to "always" be different.
- * areEqualBy(a, b, { props: -3, state: "never" });    // true, both are said to "never" be different.
+ * areEqualBy(a, b, { props: -2, state: "always" });   // false, both are "always" different - doesn't check.
+ * areEqualBy(a, b, { props: -3, state: "never" });    // true, both are "never" different - doesn't check.
+ *
+ * // Some tests with "never": saying that the data never changes, don't even check.
+ * areEqualBy(a, b, { props: "changed", state: "never" });     // false, since `a.props !== b.props`.
+ * areEqualBy(a, b, { props: "never", state: "never" });       // true, did not check either, since they "never" change.
  *
  * // Of course, if one part says not equal, then doesn't matter what others say: not equal.
- * areEqualBy(a, b, { props: 0, state: "never" });     // false, since `a.props !== b.props`.
+ * areEqualBy(a, b, { props: "never", state: "always" });      // false, since state is "always" different.
  *
  * ```
  */
