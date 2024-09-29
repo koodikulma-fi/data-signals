@@ -117,8 +117,8 @@ declare function cleanIndex(index: number | null | undefined, newCount: number):
  * orderedIndex(-1, orderByArr, 1);              // -1
  *
  * // Test typeguard.
- * orderedIndex(null, orderByObj, "name")   // orderByObj is red-underlined (or the method).
- * orderedIndex(null, orderByArr, 0)        // 0 is red-underlined (or the method).
+ * orderedIndex(null, orderByObj, "name");  // orderByObj is red-underlined (or the method).
+ * orderedIndex(null, orderByArr, 0);       // 0 is red-underlined (or the method).
  *
  * ```
  */
@@ -153,17 +153,17 @@ declare function orderedIndex(order: number | null | undefined, orderBy: Array<n
  * const a: Obj = { name: "a", order: -1 };
  * const b: Obj = { name: "b", order: 0 };
  * const c: Obj = { name: "c" };
- * orderArray([a, b, c], "order") // [b, c, a]
+ * orderArray([a, b, c], "order"); // [b, c, a]
  *
  * // Sub array objects (with type support for specific index).
  * const d = ["d", -1] as const;
  * const e = ["e", 0] as const;
  * const f = ["f"] as const;
- * orderArray([d, e, f], 1) // [e, f, d]
+ * orderArray([d, e, f], 1); // [e, f, d]
  *
  * // Test typeguard.
- * orderArray([a, b, c], "name")    // name is red-underlined (or the method).
- * orderArray([d, e, f], 0)         // 0 is red-underlined (or the method).
+ * orderArray([a, b, c], "name");   // name is red-underlined (or the method).
+ * orderArray([d, e, f], 0);        // 0 is red-underlined (or the method).
  *
  * ```
  *

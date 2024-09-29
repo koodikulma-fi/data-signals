@@ -73,8 +73,8 @@ export function cleanIndex(index: number | null | undefined, newCount: number): 
  * orderedIndex(-1, orderByArr, 1);              // -1
  * 
  * // Test typeguard.
- * orderedIndex(null, orderByObj, "name")   // orderByObj is red-underlined (or the method).
- * orderedIndex(null, orderByArr, 0)        // 0 is red-underlined (or the method).
+ * orderedIndex(null, orderByObj, "name");  // orderByObj is red-underlined (or the method).
+ * orderedIndex(null, orderByArr, 0);       // 0 is red-underlined (or the method).
  *
  * ```
  */
@@ -128,17 +128,17 @@ export function orderedIndex(order: number | null | undefined, orderBy: Array<nu
  * const a: Obj = { name: "a", order: -1 };
  * const b: Obj = { name: "b", order: 0 };
  * const c: Obj = { name: "c" };
- * orderArray([a, b, c], "order") // [b, c, a]
+ * orderArray([a, b, c], "order"); // [b, c, a]
  * 
  * // Sub array objects (with type support for specific index).
  * const d = ["d", -1] as const;
  * const e = ["e", 0] as const;
  * const f = ["f"] as const;
- * orderArray([d, e, f], 1) // [e, f, d]
+ * orderArray([d, e, f], 1); // [e, f, d]
  * 
  * // Test typeguard.
- * orderArray([a, b, c], "name")    // name is red-underlined (or the method).
- * orderArray([d, e, f], 0)         // 0 is red-underlined (or the method).
+ * orderArray([a, b, c], "name");   // name is red-underlined (or the method).
+ * orderArray([d, e, f], 0);        // 0 is red-underlined (or the method).
  *
  * ```
  * 
@@ -146,10 +146,10 @@ export function orderedIndex(order: number | null | undefined, orderBy: Array<nu
 export function orderArray<Index extends number, T extends any[] | readonly any[]>(arr: T[], index: T[Index] extends number | null | undefined ? Index : never): T[];
 export function orderArray<Key extends string & keyof T, T extends Partial<Record<Key, number | null>>>(arr: T[], property: Key): T[];
 export function orderArray<T extends any>(arr: T[], orderBy: Array<number | null | undefined>): T[];
-export function orderArray<T extends any>(arr: T[], orderOrPropIndex: Array<number | null | undefined> | string): T[] {
+export function orderArray<T extends any>(arr: T[], orderOrPropIndex: Array<number | null | undefined> | string | number): T[] {
     // Prepare.
     const handled: Array<[order: number | null | undefined, item: T]> = [];
-    const isProp = typeof orderOrPropIndex === "string";
+    const isProp = !Array.isArray(orderOrPropIndex);
     // Loop all once.
     for (let i=0,count=arr.length; i<count; i++) {
         // Find place.
