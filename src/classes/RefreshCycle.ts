@@ -88,10 +88,14 @@ export class RefreshCycle<
                 delete this._resolvePromise;
                 res();
             });
-            // Set up a timer.
-            this.extend(forceTimeout === undefined ? defaultTimeout : forceTimeout);
+            // Set up a timer, but don't execute immediately - we need to call "onStart" first.
+            const timeout = forceTimeout === undefined ? defaultTimeout : forceTimeout;
+            this.extend(timeout ?? undefined);
             // Call up.
             (this as RefreshCycle).sendSignal("onStart");
+            // Resolve immediately.
+            if (timeout === null)
+                this.resolve();
         }
         // Just extend the timer.
         else if (forceTimeout !== undefined)
@@ -107,7 +111,7 @@ export class RefreshCycle<
      * - If a cycle wasn't started, starts it up - unless was "resolving", or allowStartUp is set to false.
      */
     public extend(timeout: number | null | undefined, allowStartUp: boolean = true): void {
-        // Not while resolving
+        // Not while resolving.
         if (this.state === "resolving")
             return;
         // Clear.
