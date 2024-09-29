@@ -50,13 +50,15 @@ export class RefreshCycle<
     public state: "waiting" | "resolving" | "" = "";
     /** Optional collection of things to update when the cycle finished.
      * - When the cycle is finished calls `onRefresh(pending: PendingInfo)` using this info.
-     * - Initialized by pendingInitializer given on constructor. Can then add manually to the cycle externally.
-     *      * The pending is re-inited at the moment of clearing pending. The first one on instantiating the class.
-     *      * If no pendingInitializer given then is undefined.
+     * - Initialized by pendingInitializer given on constructor, or then undefined.
+     *      * The pending is re-inited at the moment of clearing pending - the first one on instantiating the class.
+     *      * Can then add manually to the cycle externally: eg. `myCycle.pending.myThings.push(thisThing)`.
      */
     public pending: PendingInfo;
     /** The current timer if any. */
     public timer?: number | NodeJSTimeout;
+    /** If not undefined, this functions as the defaultTimeout for the next cycle start. */
+    public nextTimeout?: number | null;
     public pendingInitializer?: () => PendingInfo;
 
     // Private.
@@ -77,7 +79,7 @@ export class RefreshCycle<
      * - If forceTimeout given modifies the timeout, the defaultTimeout is only used when starting up the cycle.
      * - The cycle is finished by calling "resolve" or "reject", or by the timeout triggering "resolve".
      * - Returns the promise in any case - might be fulfilled already.
-    */
+     */
     public trigger(defaultTimeout?: number | null, forceTimeout?: number | null): Promise<void> {
         // Start.
         if (!this.state) {
@@ -88,49 +90,70 @@ export class RefreshCycle<
                 delete this._resolvePromise;
                 res();
             });
-            // Set up a timer, but don't execute immediately - we need to call "onStart" first.
-            const timeout = forceTimeout === undefined ? defaultTimeout : forceTimeout;
-            this.extend(timeout ?? undefined);
+            // Set up the next timer, but don't execute immediately - we need to call "onStart" first.
+            const timeout = forceTimeout === undefined ? this.nextTimeout === undefined ? defaultTimeout : this.nextTimeout : forceTimeout;
+            this.extend(timeout, false);
             // Call up.
             (this as RefreshCycle).sendSignal("onStart");
             // Resolve immediately.
             if (timeout === null)
                 this.resolve();
         }
-        // Just extend the timer.
+        // Just extend the timer - allowing instant resolution, if such is to be desired.
         else if (forceTimeout !== undefined)
             this.extend(forceTimeout);
         // Return the promise.
         return this.promise;
     }
 
-    /** Extend the timeout - clearing old timeout (if had).
-     * - If given `number`, then sets it as the new timeout.
-     * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
-     * - If given `undefined´ will only clear the timer and not set up a new one.
-     * - If a cycle wasn't started, starts it up - unless was "resolving", or allowStartUp is set to false.
+    /** Extend the timeout without triggering the cycle (by default).
+     * @param timeout Defaults to `undefined`.
+     *      - If given `number`, then sets it as the new timeout.
+     *      - If given `null`, then will immediaty resolve it (when the cycle starts). If cycle already started, resolves instantly.
+     *      - If given `undefined´ only clears the timer and does not set up a new one.
+     * @param allowTrigger Defaults to `"never"`.
+     *      - If `true`, then allows to start up a new cycle if the state was "". This might include resolving it instantly as well if new timeout is `null`.
+     *      - If `"instant"` (default), then does not allow start up a new cycle, but does allow instant resolving of the current cycle if was "waiting" and new timeout `null`.
+     *      - If `false`, then never starts up a new cycle, nor resolves it instantly if `null` given for an active cycle.
+     *          * In terms of micro-processing, this is often what is wanted externally.
+     *          * If the new timeout is `null`, the external layer probably calls `.resolve()` manually - very synchronously-soon after.
+     * - About phase of the cycle:
+     *      * "": If the cycle has not yet started, only marks the timeout (to override the default), when the cycle later starts. Unless allowTriggerCycle is true.
+     *      * "waiting": If the cycle is ready, clears the old timer (if any) and sets the new timer. (If null, and allowInstantResolve is true, then resolves instantly.)
+     *      * "resolving": Does not do anything, things are already in the process of being resolved synchronously - right now.
      */
-    public extend(timeout: number | null | undefined, allowStartUp: boolean = true): void {
-        // Not while resolving.
-        if (this.state === "resolving")
-            return;
-        // Clear.
-        this.clearTimer();
-        // Execute or set up a timer (or do nothing).
-        if (timeout === null)
-            this.resolve();
-        else {
-            // Start.
-            if (!this.state)
-                allowStartUp && this.trigger(timeout);
-            // Extend.
-            else if (timeout !== undefined)
-                this.timer = setTimeout(() => { delete this.timer; this.resolve(); }, timeout);
+    public extend(timeout: number | null | undefined, allowTrigger: boolean | "instant" = "instant"): void {
+        // Handle by state.
+        switch(this.state) {
+            // Is resolving - don't do anything.
+            case "resolving":
+                return;
+            // Has not started.
+            case "":
+                // Just mark.
+                timeout === undefined ? delete this.nextTimeout : this.nextTimeout = timeout;
+                // If allowing to start up, just trigger now.
+                if (allowTrigger === true)
+                    this.trigger();
+                break;
+            // Set up.
+            case "waiting":
+                // Clear old timer.
+                this.clearTimer();
+                // Set up a new.
+                if (timeout === null)
+                    allowTrigger && this.resolve();
+                else if (timeout !== undefined)
+                    this.timer = setTimeout(() => { delete this.timer; this.resolve(); }, timeout)
+                break;
         }
     }
 
     /** Clears the timer. Mostly used internally, but can be used externally as well. Does not affect the state of the cycle. */
     public clearTimer(): void {
+        // Clear next default.
+        delete this.nextTimeout;
+        // Clear actual timer.
         if (this.timer !== undefined) {
             clearTimeout(this.timer as any);
             delete this.timer;

@@ -1,4 +1,4 @@
-import { IterateBackwards, ClassType, AsClass, GetConstructorArgs } from 'mixin-types';
+import { IterateBackwards, ClassType, AsClass, GetConstructorArgs } from '../../mixin-types/dist/mixin-types.js'
 
 /** Typing for NodeJS side timers. */
 interface NodeJSTimeout {
@@ -833,15 +833,13 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
     state: "waiting" | "resolving" | "";
     /** Optional collection of things to update when the cycle finished.
      * - When the cycle is finished calls `onRefresh(pending: PendingInfo)` using this info.
-     * - Initialized by pendingInitializer given on constructor, or then undefined.
-     *      * The pending is re-inited at the moment of clearing pending - the first one on instantiating the class.
-     *      * Can then add manually to the cycle externally: eg. `myCycle.pending.myThings.push(thisThing)`.
+     * - Initialized by pendingInitializer given on constructor. Can then add manually to the cycle externally.
+     *      * The pending is re-inited at the moment of clearing pending. The first one on instantiating the class.
+     *      * If no pendingInitializer given then is undefined.
      */
     pending: PendingInfo;
     /** The current timer if any. */
     timer?: number | NodeJSTimeout;
-    /** If not undefined, this functions as the defaultTimeout for the next cycle start. */
-    nextTimeout?: number | null;
     pendingInitializer?: () => PendingInfo;
     /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
     private _resolvePromise?;
@@ -850,25 +848,15 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
      * - If forceTimeout given modifies the timeout, the defaultTimeout is only used when starting up the cycle.
      * - The cycle is finished by calling "resolve" or "reject", or by the timeout triggering "resolve".
      * - Returns the promise in any case - might be fulfilled already.
-     */
+    */
     trigger(defaultTimeout?: number | null, forceTimeout?: number | null): Promise<void>;
-    /** Extend the timeout without triggering the cycle (by default).
-     * @param timeout Defaults to `undefined`.
-     *      - If given `number`, then sets it as the new timeout.
-     *      - If given `null`, then will immediaty resolve it (when the cycle starts). If cycle already started, resolves instantly.
-     *      - If given `undefined´ only clears the timer and does not set up a new one.
-     * @param allowTrigger Defaults to `"never"`.
-     *      - If `true`, then allows to start up a new cycle if the state was "". This might include resolving it instantly as well if new timeout is `null`.
-     *      - If `"instant"` (default), then does not allow start up a new cycle, but does allow instant resolving of the current cycle if was "waiting" and new timeout `null`.
-     *      - If `false`, then never starts up a new cycle, nor resolves it instantly if `null` given for an active cycle.
-     *          * In terms of micro-processing, this is often what is wanted externally.
-     *          * If the new timeout is `null`, the external layer probably calls `.resolve()` manually - very synchronously-soon after.
-     * - About phase of the cycle:
-     *      * "": If the cycle has not yet started, only marks the timeout (to override the default), when the cycle later starts. Unless allowTriggerCycle is true.
-     *      * "waiting": If the cycle is ready, clears the old timer (if any) and sets the new timer. (If null, and allowInstantResolve is true, then resolves instantly.)
-     *      * "resolving": Does not do anything, things are already in the process of being resolved synchronously - right now.
+    /** Extend the timeout - clearing old timeout (if had).
+     * - If given `number`, then sets it as the new timeout.
+     * - If given `null`, then will immediaty resolve it - same as calling `resolve`.
+     * - If given `undefined´ will only clear the timer and not set up a new one.
+     * - If a cycle wasn't started, starts it up - unless was "resolving", or allowStartUp is set to false.
      */
-    extend(timeout: number | null | undefined, allowTrigger?: boolean | "instant"): void;
+    extend(timeout: number | null | undefined, allowStartUp?: boolean): void;
     /** Clears the timer. Mostly used internally, but can be used externally as well. Does not affect the state of the cycle. */
     clearTimer(): void;
     /** Get and clear the pending info. */
