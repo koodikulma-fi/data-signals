@@ -818,6 +818,8 @@ interface RefreshCycleSettings<PendingInfo = undefined> {
     initPending: (() => PendingInfo) | undefined;
 }
 type RefreshCycleSignals<PendingInfo = undefined> = {
+    /** Called always right after the state has changed. (The previous state is implied by the current state: "" -> "waiting" -> "resolving" -> "") */
+    onState: (nextState: "" | "waiting" | "resolving") => void;
     /** Called when a new cycle starts. Perfect place to trigger start-up-dependencies (from other cycles). */
     onStart: () => void;
     /** Called right before resolving the promise. Perfect place to trigger resolve-dependencies (from other cycles). */
@@ -827,12 +829,6 @@ type RefreshCycleSignals<PendingInfo = undefined> = {
      * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
     onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;
-    /** Called after onResolve and onRefresh but before onFinish - called right before the state is set to "" and the promise is resolved.
-     * - It's the perfect moment to set up chained-start-up-dependencies.
-     *      * Such that require the earlier cycle to _not_ be finished, while the further cycles are _initialized_.
-     *      * Note that the current cycle will anyway be finished up (to state "") synchronously right after this call. So only for _initializing_ other cycles.
-     */
-    onChain: (cancelled: boolean) => void;
     /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles) and to start other cycles. */
     onFinish: (cancelled: boolean) => void;
 };
@@ -896,6 +892,7 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
     /** Cancel the whole refresh cycle. Note that this will clear the entry from refreshTimers bookkeeping along with its updates. */
     reject(): void;
     private initPromise;
+    private setState;
 }
 
 /** Typing to hold named contexts as a dictionary. */

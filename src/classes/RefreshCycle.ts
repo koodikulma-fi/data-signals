@@ -18,6 +18,8 @@ export interface RefreshCycleSettings<PendingInfo = undefined> {
     initPending: (() => PendingInfo) | undefined;
 }
 export type RefreshCycleSignals<PendingInfo = undefined> = {
+    /** Called always right after the state has changed. (The previous state is implied by the current state: "" -> "waiting" -> "resolving" -> "") */
+    onState: (nextState: "" | "waiting" | "resolving") => void;
     /** Called when a new cycle starts. Perfect place to trigger start-up-dependencies (from other cycles). */
     onStart: () => void;
     /** Called right before resolving the promise. Perfect place to trigger resolve-dependencies (from other cycles). */
@@ -27,12 +29,6 @@ export type RefreshCycleSignals<PendingInfo = undefined> = {
      * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
     onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;
-    /** Called after onResolve and onRefresh but before onFinish - called right before the state is set to "" and the promise is resolved.
-     * - It's the perfect moment to set up chained-start-up-dependencies.
-     *      * Such that require the earlier cycle to _not_ be finished, while the further cycles are _initialized_.
-     *      * Note that the current cycle will anyway be finished up (to state "") synchronously right after this call. So only for _initializing_ other cycles.
-     */
-    onChain: (cancelled: boolean) => void;
     /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles) and to start other cycles. */
     onFinish: (cancelled: boolean) => void;
 }
@@ -99,7 +95,8 @@ export class RefreshCycle<
         if (this.state)
             return;
         // Set state.
-        this.state = "waiting";
+        const s = this.signals;
+        this.setState("waiting");
         // Set up a new promise - or reuse existing one, if still pending and not set to auto renew on clear.
         if (!this._resolve || !this.settings.autoRenewPromise)
             this.initPromise();
@@ -107,7 +104,7 @@ export class RefreshCycle<
         const timeout = forceTimeout === undefined ? this.nextTimeout === undefined ? this.settings.defaultTimeout : this.nextTimeout : forceTimeout;
         this.extend(timeout); // Just extend, don't trigger nor resolve anything. It'll also clear nextTimeout.
         // Call up.
-        this.signals.onStart && (this as RefreshCycle).sendSignal("onStart");
+        s.onStart && (this as RefreshCycle).sendSignal("onStart");
         // Resolve immediately.
         if (timeout === null)
             this.resolve();
@@ -203,7 +200,7 @@ export class RefreshCycle<
         if (this.state !== "waiting")
             return;
         // State.
-        this.state = "resolving";
+        this.setState("resolving");
         // Clear timer.
         this.clearTimer();
         // Collect pending.
@@ -220,20 +217,17 @@ export class RefreshCycle<
         const resolvePromise = (keepResolving: boolean = false) => {
             if ((done & 1) === 0) {
                 done |= keepResolving ? 1 : 1 | 2;
-                if (!keepResolving && this.state === "resolving") {
-                    s.onChain && (this as RefreshCycle).sendSignal("onChain", false);
-                    this.state = "";
-                }
+                if (!keepResolving && this.state === "resolving")
+                    this.setState("");
                 this._resolve && this._resolve();
             }
             else if (!keepResolving && (done & 2) === 0 && this.state === "resolving") {
                 done |= 2;
-                s.onChain && (this as RefreshCycle).sendSignal("onChain", false);
-                this.state = "";
+                this.setState("");
                 this._resolve && this._resolve(); // Just in case for some funky synchronous situations.
             }
         }
-        (this as RefreshCycle<PendingInfo>).sendSignal("onRefresh", pending, resolvePromise);
+        s.onRefresh && (this as RefreshCycle<PendingInfo>).sendSignal("onRefresh", pending, resolvePromise);
         // Make sure the promise is resolved by now, and state cleared.
         resolvePromise();
         // Create a new promise already, if set to do so.
@@ -249,7 +243,7 @@ export class RefreshCycle<
         if (this.state !== "waiting")
             return;
         // State.
-        this.state = "resolving";
+        this.setState("resolving");
         // Clear timer.
         this.clearTimer();
         // Upon cancelling, clear old pending.
@@ -257,10 +251,8 @@ export class RefreshCycle<
         // Call onResolve.
         const s = this.signals;
         s.onResolve && (this as RefreshCycle).sendSignal("onResolve");
-        // Call chain.
-        s.onChain && (this as RefreshCycle).sendSignal("onChain", true);
-        // Clear state.
-        this.state = "";
+        // Set state.
+        this.setState("");
         // Make sure promise is resolved by now, and create new if set to.
         this.settings.autoRenewPromise ? this.initPromise() : this._resolve && this._resolve();
         // Emit.
@@ -280,6 +272,13 @@ export class RefreshCycle<
             // Resolve.
             res();
         });
+    }
+
+    private setState(state: "" | "waiting" | "resolving"): void {
+        // Set.
+        this.state = state;
+        // Call.
+        this.signals.onState && (this as RefreshCycle).sendSignal("onState", this.state);
     }
 
 }
