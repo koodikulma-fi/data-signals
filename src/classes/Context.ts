@@ -95,7 +95,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         this.settings = this.constructor.getDefaultSettings();
         this.contextAPIs = new Map();
         this.preDelayCycle = new RefreshCycle();
-        this.delayCycle = new RefreshCycle();
+        this.delayCycle = new RefreshCycle({ autoRenewPromise: true });
         // Update settings.
         if (settings)
             this.modifySettings(settings);
@@ -117,27 +117,31 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // - Data related methods. - //
 
     // Added method.
-    /** Trigger a refresh in the context. Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs). The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
+    /** Trigger a refresh in the context.
+     * - Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs).
+     * @param forceTimeout Refers to the "pre-delay" time (defaults to settings.refreshTimeout).
+     */
     public triggerRefresh(forceTimeout?: number | null): void {
-        // Start the pre delay cycle.
+        // Start the "pre-delay" cycle. Even if "delay" is running already - we've anyway hooked up "pre-delay" to always be resolved before "delay".
         this.preDelayCycle.trigger(this.settings.refreshTimeout, forceTimeout);
     }
 
     // Overridden.
     /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
-     * - If there's nothing pending, then will resolve immediately (by the design of the flow).
+     * - If using "pre-delay" and there's nothing pending, then will resolve immediately (by the design of the flow). The "delay" always awaits.
      * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
-     *      * The "pre-delay" (fullDelay = false) uses the time out from settings { refreshTimeout }.
-     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitDelay`.
+     *      * The "pre-delay" (fullDelay = false) uses the forceTimeout or the time out from settings { refreshTimeout }.
+     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen (with forceTimeout), and then awaits the promise from `awaitDelay`.
      *          - The `awaitDelay` is in turn synced to awaiting the `awaitDelay` of all the connected contextAPIs.
      * - Note that technically, the system at Context level simply collects an array (per delay type) of one-time promise resolve funcs and calls them at the correct time.
-     *      * Note that if used with fullDelay true and forceTimeout, this will effectively not wait for contextAPIs to refresh - or if they refresh earlier, will be triggered earlier.
      * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
      */
     public afterRefresh(fullDelay: boolean = false, forceTimeout?: number | null): Promise<void> {
-        return fullDelay ?
-            this.delayCycle.trigger(undefined, forceTimeout) :
+        // We always trigger "pre-delay", unless delayCycle is already running and asked for fullDelay.
+        if (!fullDelay || !this.delayCycle.state)
             this.preDelayCycle.trigger(this.settings.refreshTimeout, forceTimeout);
+        // Return according promise.
+        return fullDelay ? this.delayCycle.promise : this.preDelayCycle.promise;
     }
 
     /** At the level of Context the `awaitDelay` is tied to waiting the refresh from all connected contextAPIs.
@@ -195,6 +199,20 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     public static initializeCyclesFor(context: Context): void {
+
+        // - DEV-LOG - //
+        //
+        // Useful for debugging the flow.
+        //
+        // context.preDelayCycle.listenTo("onStart", () => console.log("--- RefreshCycle: CONTEXT 1. PRE-DELAY - onStart ---"));
+        // context.delayCycle.listenTo("onStart", () => console.log("--- RefreshCycle: CONTEXT 2. REFRESH - onStart ---"));
+        // context.preDelayCycle.listenTo("onResolve", () => console.log("--- RefreshCycle: CONTEXT 1. PRE-DELAY - onResolve ---"));
+        // context.delayCycle.listenTo("onResolve", () => console.log("--- RefreshCycle: CONTEXT 2. REFRESH - onResolve ---"));
+        // context.preDelayCycle.listenTo("onRefresh", () => console.log("--- RefreshCycle: CONTEXT 1. PRE-DELAY - onRefresh ---"));
+        // context.delayCycle.listenTo("onRefresh", () => console.log("--- RefreshCycle: CONTEXT 2. REFRESH - onRefresh ---"));
+        // context.preDelayCycle.listenTo("onFinish", () => console.log("--- RefreshCycle: CONTEXT 1. PRE-DELAY - onFinish ---"));
+        // context.delayCycle.listenTo("onFinish", () => console.log("--- RefreshCycle: CONTEXT 2. REFRESH - onFinish ---"));
+
         // Hook up cycle interconnections.
         // .. Do the actual updating.
         context.preDelayCycle.listenTo("onRefresh", (_pending, resolvePromise) => context.constructor.runPreDelayFor(context, resolvePromise));
@@ -207,8 +225,6 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
             if (context.delayCycle.state === "waiting")
                 context.awaitDelay ? context.awaitDelay().then(() => context.delayCycle.resolve()) : context.delayCycle.resolve();
         });
-        // .. Make sure to start "pre-delay" when "delay" is started. We need the finishing part of "pre-delay" to correctly run "delay".
-        context.delayCycle.listenTo("onStart", () => context.preDelayCycle.trigger());
         // .. Make sure "pre-delay" is always resolved right before "delay".
         context.delayCycle.listenTo("onResolve", () => context.preDelayCycle.resolve());
     }

@@ -347,7 +347,7 @@ As a use case example of `ContextAPI`:
 
 - `RefreshCycles` extends `SignalBoy` and serves as a helper class to manage refresh cycles.
 - For example, `Context` class uses two RefreshCycles, one for `"pre-delay"` and another for `"delay"` cycle.
-    * Furthermore, `Context` has hooked up them up so that "pre-delay" is always triggered with "delay", and always resolved before "delay". Below is a similar example.
+    * Furthermore, `Context` has hooked up them up so that "pre-delay" is always triggered with "delay", and always resolved before "delay". Below is a somewhat similar example.
 
 ```typescript
 
@@ -361,7 +361,13 @@ interface MainCyclePendingInfo {
 
 // Prepare cycles.
 const preCycle = new RefreshCycle();
-const mainCycle = new RefreshCycle<MainCyclePendingInfo>(() => ({ sources: new Set(), infos: [] }));
+const mainCycle = new RefreshCycle<MainCyclePendingInfo>({
+    initPending: () => ({ sources: new Set(), infos: [] }),
+    // The mainCycle's promise will be "pending" instead of "fulfilled", when the cycle is not running.
+    autoRenewPromise: true,
+    // Could set up timeout: number for async, null for sync, and undefined for no timeout defined.
+    // defaultTimeout: null,
+});
 
 // Prepare timeouts.
 const preTimeout: number | null | undefined = 0;
@@ -424,8 +430,11 @@ mainCycle.pending.sources.add(a);
 // .. Because mainCycle is resolved only after preCycle (and has no internal timer), it's not resolved yet.
 mainCycle.pending; // Has `{ sources: new Set([a, b]), infos: [{ name: "test" }, { name: "again" }] }`
 
-// Extend timeout.
-preCycle.extend(5); // null would resolve instantly, undefined just clear timer.
+// Extend timeout - without resolving.
+// .. In case sets `(undefined)` just clears the timer.
+// .. If `(null)`, marks that _will_ be resolved instantly by default on next trigger.
+// .. If `(null, true)` or `(null, "instant")`, then allows to resolve instantly.
+preCycle.extend(5); // (null, "instant" | true) would resolve instantly, undefined just clear timer.
 
 // Or decide to resolve immediately.
 preCycle.resolve(); // Console logs: "Pre done!", and then "Main done!".

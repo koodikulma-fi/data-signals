@@ -808,6 +808,15 @@ interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends 
  */
 declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>, {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]>;
 
+/** All settings for RefreshCycle. */
+interface RefreshCycleSettings<PendingInfo = undefined> {
+    /** The default timeout to use. Can be temporarily overridden using the `trigger(defaultTimeout, forceTimeout)` method (as the 1st arg, the 2nd arg always overrides). */
+    defaultTimeout: number | null | undefined;
+    /** If set to true, then creates a new promise already when the old is finished. So the promise defaults to "pending", instead of "fulfilled". */
+    autoRenewPromise: boolean;
+    /** The pending initializer to call after clearing the pending info. */
+    initPending: (() => PendingInfo) | undefined;
+}
 type RefreshCycleSignals<PendingInfo = undefined> = {
     /** Called when a new cycle starts. Perfect place to trigger start-up-dependencies (from other cycles). */
     onStart: () => void;
@@ -818,7 +827,13 @@ type RefreshCycleSignals<PendingInfo = undefined> = {
      * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
     onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;
-    /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles). */
+    /** Called after onResolve and onRefresh but before onFinish - called right before the state is set to "" and the promise is resolved.
+     * - It's the perfect moment to set up chained-start-up-dependencies.
+     *      * Such that require the earlier cycle to _not_ be finished, while the further cycles are _initialized_.
+     *      * Note that the current cycle will anyway be finished up (to state "") synchronously right after this call. So only for _initializing_ other cycles.
+     */
+    onChain: (cancelled: boolean) => void;
+    /** Called right after the cycle has finished (due to either: refresh or cancel). Perfect place to trigger disposing-dependencies (from other cycles) and to start other cycles. */
     onFinish: (cancelled: boolean) => void;
 };
 /** Class type for RefreshCycle. */
@@ -827,13 +842,15 @@ interface RefreshCycleType<PendingInfo = undefined, AddSignals extends SignalsRe
 /** Class to help manage refresh cycles. */
 declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRecord = {}> extends SignalBoy<RefreshCycleSignals<PendingInfo> & AddSignals> {
     ["constructor"]: RefreshCycleType<PendingInfo, AddSignals>;
+    /** Settings. */
+    settings: Partial<RefreshCycleSettings<PendingInfo>>;
     /** The `promise` can be used for waiting purposes. It's always present, and if there's nothing to wait it's already fulfilled. */
     promise: Promise<void>;
     /** State of the cycle. Set to "resolving" right when is finishing (does not matter if reject was called), and to "" right after the promise is resolved. */
     state: "waiting" | "resolving" | "";
     /** Optional collection of things to update when the cycle finished.
      * - When the cycle is finished calls `onRefresh(pending: PendingInfo)` using this info.
-     * - Initialized by pendingInitializer given on constructor, or then undefined.
+     * - Initialized by initPending given on constructor, or then undefined.
      *      * The pending is re-inited at the moment of clearing pending - the first one on instantiating the class.
      *      * Can then add manually to the cycle externally: eg. `myCycle.pending.myThings.push(thisThing)`.
      */
@@ -842,10 +859,11 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
     timer?: number | NodeJSTimeout;
     /** If not undefined, this functions as the defaultTimeout for the next cycle start. */
     nextTimeout?: number | null;
-    pendingInitializer?: () => PendingInfo;
     /** The callback to resolve the promise created. When called will first delete itself, and then resolves the promise. */
-    private _resolvePromise?;
-    constructor(...args: PendingInfo extends undefined ? [pendingInitializer?: () => PendingInfo] : [pendingInitializer: () => PendingInfo]);
+    private _resolve?;
+    constructor(...args: PendingInfo extends undefined ? [settings?: Partial<RefreshCycleSettings<PendingInfo>>] : [settings: Partial<RefreshCycleSettings<PendingInfo>> & Pick<RefreshCycleSettings<PendingInfo>, "initPending">]);
+    /** Start the cycle, optionally forcing a timeout (if not undefined). */
+    start(forceTimeout?: number | null): void;
     /** Starts the cycle if wasn't started: goes to "waiting" state unless was "resolving".
      * - If forceTimeout given modifies the timeout, the defaultTimeout is only used when starting up the cycle.
      * - The cycle is finished by calling "resolve" or "reject", or by the timeout triggering "resolve".
@@ -877,6 +895,7 @@ declare class RefreshCycle<PendingInfo = undefined, AddSignals extends SignalsRe
     resolve(): void;
     /** Cancel the whole refresh cycle. Note that this will clear the entry from refreshTimers bookkeeping along with its updates. */
     reject(): void;
+    private initPromise;
 }
 
 /** Typing to hold named contexts as a dictionary. */
@@ -1038,12 +1057,37 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
     setContexts(contexts: Partial<{
         [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
     }>, callDataIfChanged?: boolean): boolean;
-    /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
+    /** Trigger a refresh in a specific context.
+     * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
+     */
+    refreshContext(name: keyof Contexts & string, forceTimeout?: number | null): void;
+    /** Refresh all or named contexts with the given forceTimeout.
+     * @param contextNames An array or a dictionary of context names, or null|undefined to refresh all.
+     *      - If a dictionary, the keys are context names and values are timeouts specifically for each. If the value is undefined, uses forceTimeout instead.
+     * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
+     */
+    refreshContexts(contextNames?: Array<keyof Contexts & string>[] | Partial<Record<keyof Contexts & string, number | null | undefined>> | null, forceTimeout?: number | null): void;
+    /** Converts contextual data or signal key to a tuple: `[ctxName: string, dataSignalKey: string]`
+     * @param ctxDataSignalKey The string representing `${ctxName}.${dataKeyOrSignalName}`.
+     *      - In case refers to a deep data key, looks like this: `${ctxName}.${dataKey1}.${dataKey2}.${dataKey3}`.
+     *      - In any case, the outcome is an array with 2 items: `[ctxName: string, dataSignalKey: string]`.
+     * @returns A tuple: `[ctxName: string, dataSignalKey: string]`.
+     *      - Return examples: `["settings", "toggleTheme"]`, `["data", "settings.user.name"]`, `["data", ""]`, `["", ""]`.
+    */
     static parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
-    /** Read context names from contextual data keys or signals. */
-    static readContextNamesFrom(ctxDataSignalKeys: string[]): string[];
-    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
-    static readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
+    /** Read context names from contextual data keys or signals.
+     * @param ctxDataSignalKeys An array of strings representing context names and dotted data keys or signal names in it.
+     *      - For example: [`${ctxName}.${signalName}`, `${ctxName}.${dataKey1}.${dataKey2}`, `${ctxName}`, ...]
+     * @param strictMatch Defaults to false. If set to true, the returned array is directly mappable to the input array (of ctxDataSignalKeys). The empty ones have name "".
+     * @returns An array of context names. If strictMatch is set to true, then the outcome array matches the input array.
+     */
+    static readContextNamesFrom(ctxDataSignalKeys: string[], strictMatch?: boolean): string[];
+    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context.
+     * @param ctxDataSignalKeys An array of ctxDataOrSignalKeys. Each is a string, and unless referring to the context itself has at least one dot (".").
+     *      - For example: [`${ctxName}.${signalName}`, `${ctxName}.${dataKey1}.${dataKey2}`, `${ctxName}`, ...]
+     * @returns A dictionary like: `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context.
+     */
+    static readContextDictionaryFrom(ctxDataSignalKeys: string[]): Record<string, string[] | true>;
 }
 
 interface ContextSettings {
@@ -1101,16 +1145,18 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
     /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     modifySettings(settings: Partial<ContextSettings>): void;
-    /** Trigger a refresh in the context. Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs). The forceTimeout refers to the "pre-delay" time (defaults to settings.refreshTimeout). */
+    /** Trigger a refresh in the context.
+     * - Triggers "pre-delay" and once finished, performs the "delay" cycle (awaiting connected contextAPIs).
+     * @param forceTimeout Refers to the "pre-delay" time (defaults to settings.refreshTimeout).
+     */
     triggerRefresh(forceTimeout?: number | null): void;
     /** Triggers a refresh and returns a promise that is resolved when the context is refreshed.
-     * - If there's nothing pending, then will resolve immediately (by the design of the flow).
+     * - If using "pre-delay" and there's nothing pending, then will resolve immediately (by the design of the flow). The "delay" always awaits.
      * - The promise is resolved after the "pre-delay" or "delay" cycle has finished depending on the "fullDelay" argument.
-     *      * The "pre-delay" (fullDelay = false) uses the time out from settings { refreshTimeout }.
-     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen, and then awaits the promise from `awaitDelay`.
+     *      * The "pre-delay" (fullDelay = false) uses the forceTimeout or the time out from settings { refreshTimeout }.
+     *      * The "delay" (fullDelay = true) waits for "pre-delay" cycle to happen (with forceTimeout), and then awaits the promise from `awaitDelay`.
      *          - The `awaitDelay` is in turn synced to awaiting the `awaitDelay` of all the connected contextAPIs.
      * - Note that technically, the system at Context level simply collects an array (per delay type) of one-time promise resolve funcs and calls them at the correct time.
-     *      * Note that if used with fullDelay true and forceTimeout, this will effectively not wait for contextAPIs to refresh - or if they refresh earlier, will be triggered earlier.
      * - Used internally by setData, setInData, refreshData and sendSignalAs flow.
      */
     afterRefresh(fullDelay?: boolean, forceTimeout?: number | null): Promise<void>;
@@ -1136,4 +1182,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 
-export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, areEqualBy, askListeners, callListeners, cleanIndex, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange, orderArray, orderedIndex };
+export { Awaited, CompareDataDepthEnum, CompareDataDepthMode, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, CreateCachedSource, CreateDataSource, DataBoy, DataBoyType, DataExtractor, DataListenerFunc, DataMan, DataManType, DataTriggerOnMount, DataTriggerOnUnmount, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSettings, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, areEqual, areEqualBy, askListeners, callListeners, cleanIndex, createCachedSource, createDataMemo, createDataSource, createDataTrigger, deepCopy, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan, numberRange, orderArray, orderedIndex };

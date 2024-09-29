@@ -374,33 +374,72 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
         return didChange;
     }
 
+    /** Trigger a refresh in a specific context.
+     * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
+     */
+    public refreshContext(name: keyof Contexts & string, forceTimeout?: number | null): void {
+        this.contexts[name]?.triggerRefresh(forceTimeout);
+    }
+
+    /** Refresh all or named contexts with the given forceTimeout.
+     * @param contextNames An array or a dictionary of context names, or null|undefined to refresh all.
+     *      - If a dictionary, the keys are context names and values are timeouts specifically for each. If the value is undefined, uses forceTimeout instead.
+     * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
+     */
+    public refreshContexts(contextNames?: Array<keyof Contexts & string>[] | Partial<Record<keyof Contexts & string, number | null | undefined>> | null, forceTimeout?: number | null): void {
+        // Refresh all / named with the given forceTimeout.
+        if (!contextNames || Array.isArray(contextNames)) {
+            for (const ctxName of contextNames || Object.keys(this.contexts))
+                this.refreshContext(ctxName as keyof Contexts & string, forceTimeout);
+        }
+        // Refresh by specific timeouts.
+        else
+            for (const ctxName in contextNames)
+                this.refreshContext(ctxName, contextNames[ctxName] === undefined ? forceTimeout : contextNames[ctxName]);
+    }
+
 
     // - Static data/signal key helpers - //
 
-    /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
+    /** Converts contextual data or signal key to a tuple: `[ctxName: string, dataSignalKey: string]`
+     * @param ctxDataSignalKey The string representing `${ctxName}.${dataKeyOrSignalName}`.
+     *      - In case refers to a deep data key, looks like this: `${ctxName}.${dataKey1}.${dataKey2}.${dataKey3}`.
+     *      - In any case, the outcome is an array with 2 items: `[ctxName: string, dataSignalKey: string]`.
+     * @returns A tuple: `[ctxName: string, dataSignalKey: string]`.
+     *      - Return examples: `["settings", "toggleTheme"]`, `["data", "settings.user.name"]`, `["data", ""]`, `["", ""]`.
+    */
     public static parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string] {
         const iSplit = ctxDataSignalKey.indexOf(".");
         return iSplit === -1 ? [ctxDataSignalKey, ""] : [ctxDataSignalKey.slice(0, iSplit), ctxDataSignalKey.slice(iSplit + 1)];
     }
 
-    /** Read context names from contextual data keys or signals. */
-    public static readContextNamesFrom(ctxDataSignalKeys: string[]): string[] {
+    /** Read context names from contextual data keys or signals.
+     * @param ctxDataSignalKeys An array of strings representing context names and dotted data keys or signal names in it.
+     *      - For example: [`${ctxName}.${signalName}`, `${ctxName}.${dataKey1}.${dataKey2}`, `${ctxName}`, ...]
+     * @param strictMatch Defaults to false. If set to true, the returned array is directly mappable to the input array (of ctxDataSignalKeys). The empty ones have name "".
+     * @returns An array of context names. If strictMatch is set to true, then the outcome array matches the input array.
+     */
+    public static readContextNamesFrom(ctxDataSignalKeys: string[], strictMatch?: boolean): string[] {
         return ctxDataSignalKeys.reduce((cum, ctxDataKey) => {
             // Read name.
             const iSplit = ctxDataKey.indexOf(".");
             const ctxName = iSplit === -1 ? ctxDataKey : ctxDataKey.slice(0, iSplit);
             // Add unique.
-            if (ctxName && !cum.includes(ctxName))
+            if (strictMatch || ctxName && !cum.includes(ctxName))
                 cum.push(ctxName);
             return cum;
         }, [] as string[]);
     }
 
-    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
-    public static readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true> {
+    /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context.
+     * @param ctxDataSignalKeys An array of ctxDataOrSignalKeys. Each is a string, and unless referring to the context itself has at least one dot (".").
+     *      - For example: [`${ctxName}.${signalName}`, `${ctxName}.${dataKey1}.${dataKey2}`, `${ctxName}`, ...]
+     * @returns A dictionary like: `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context.
+     */
+    public static readContextDictionaryFrom(ctxDataSignalKeys: string[]): Record<string, string[] | true> {
         // Loop keys.
         const byCtxs: Record<string, string[] | true> = {};
-        for (const ctxDataKey of ctxDataKeys) {
+        for (const ctxDataKey of ctxDataSignalKeys) {
             // Read.
             const [ctxName, dataKey] = ContextAPI.parseContextDataKey(ctxDataKey);
             // Set key, unless already at full.
