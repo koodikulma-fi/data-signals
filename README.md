@@ -1041,7 +1041,7 @@ interface MegaMix<
     AddSignals extends SignalsRecord = {},
 > extends AsInstance<
     DataMan<Data> & SignalMan<MegaMixSignals & AddSignals> & CustomBase, // Instance.
-    MegaMixType<Data, AddSignals>, // Static.
+    MegaMixType<Data, AddSignals> // Static.
     // [data: Data, someMember?: boolean] // Constructor args, though typescript won't read them from the interface.
 > { }
 // Alternatively can use multiple extends as below.
