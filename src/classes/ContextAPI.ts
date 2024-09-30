@@ -4,7 +4,7 @@
 // Depedency.
 import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { PropType, SetLike, GetJoinedDataKeysFrom } from "../library/typing";
+import { PropType, SetLike, GetJoinedDataKeysFrom } from "../typing";
 // Classes.
 import { Context } from "./Context";
 // Typing.

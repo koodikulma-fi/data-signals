@@ -1,11 +1,8 @@
 
 // - Export all - //
 
-// Static helpers.
-export * from "./library/typing";
-export * from "./library/numeric";
-export * from "./library/deep";
-export * from "./library/selectors";
+// Typing.
+export * from "./typing";
 // Classes and mixins.
 export * from "./mixins/SignalBoy";
 export * from "./mixins/SignalMan";

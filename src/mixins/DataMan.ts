@@ -4,7 +4,7 @@
 // Dependency.
 import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { PropType, GetJoinedDataKeysFrom } from "../library/typing";
+import { PropType, GetJoinedDataKeysFrom } from "../typing";
 // Base.
 import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 

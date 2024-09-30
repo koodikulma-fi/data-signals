@@ -4,7 +4,7 @@
 // Dependency.
 import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { Awaited } from "../library/typing";
+import { Awaited } from "../typing";
 // Base class.
 import { callListeners, SignalBoy, mixinSignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalsRecord } from "./SignalBoy";
 

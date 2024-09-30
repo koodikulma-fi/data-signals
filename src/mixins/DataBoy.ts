@@ -4,7 +4,7 @@
 // Dependency.
 import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { GetJoinedDataKeysFrom, PropTypesFromDictionary, PropTypeArray, PropTypeFallback, PropType } from "../library/typing";
+import { GetJoinedDataKeysFrom, PropTypesFromDictionary, PropTypeArray, PropTypeFallback, PropType } from "../typing";
 
 
 // - Helper types - //

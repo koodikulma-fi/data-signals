@@ -3,7 +3,7 @@
 
 import { AsClass, GetConstructorArgs } from "mixin-types";
 import { SignalBoy, SignalBoyType, SignalsRecord } from "../mixins/SignalBoy";
-import { NodeJSTimeout } from "../library/typing";
+import { NodeJSTimeout } from "../typing";
 
 
 // - Extra typing - //

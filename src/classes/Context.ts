@@ -4,7 +4,7 @@
 // Dependency.
 import { ClassType, AsClass } from "mixin-types";
 // Library.
-import { GetJoinedDataKeysFrom } from "../library/typing";
+import { GetJoinedDataKeysFrom } from "../typing";
 // Classes.
 import { RefreshCycle } from "./RefreshCycle";
 import { mixinSignalMan, SignalMan } from "../mixins/SignalMan";

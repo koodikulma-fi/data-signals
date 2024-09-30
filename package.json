@@ -1,7 +1,7 @@
 {
   "name": "data-signals",
   "version": "1.0.0",
-  "description": "Simple JS/TS classes, mixins and tools to help manage complex state and action flow in sync.",
+  "description": "Simple JS/TS classes and mixins to help manage complex state and action flow in sync.",
   "keywords": [
     "DataSignals",
     "data-signals",
