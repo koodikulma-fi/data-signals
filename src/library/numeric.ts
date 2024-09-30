@@ -79,7 +79,7 @@ export function cleanIndex(index: number | null | undefined, newCount: number): 
  * ```
  */
 export function orderedIndex<Index extends number, T extends any[] | readonly any[]>(order: number | null | undefined, orderBy: T[], index: T[Index] extends number | null | undefined ? Index : never): number;
-export function orderedIndex<Key extends (string | number) & keyof T, T extends Partial<Record<Key, number | null>>>(order: number | null | undefined, orderBy: T[], propery: Key): number;
+export function orderedIndex<Key extends (string | number) & keyof T, T extends Partial<Record<Key, number | null>>>(order: number | null | undefined, orderBy: T[], property: Key): number;
 export function orderedIndex(order: number | null | undefined, orderBy: Array<number | null | undefined>, orderProp?: "" | undefined | never): number;
 export function orderedIndex(order: number | null | undefined, orderBy: Array<number | null | undefined> | Partial<Record<string | number, number | null>>[] | any[][], orderProp?: string | number): number {
     // Find place.

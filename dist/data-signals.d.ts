@@ -123,7 +123,7 @@ declare function cleanIndex(index: number | null | undefined, newCount: number):
  * ```
  */
 declare function orderedIndex<Index extends number, T extends any[] | readonly any[]>(order: number | null | undefined, orderBy: T[], index: T[Index] extends number | null | undefined ? Index : never): number;
-declare function orderedIndex<Key extends (string | number) & keyof T, T extends Partial<Record<Key, number | null>>>(order: number | null | undefined, orderBy: T[], propery: Key): number;
+declare function orderedIndex<Key extends (string | number) & keyof T, T extends Partial<Record<Key, number | null>>>(order: number | null | undefined, orderBy: T[], property: Key): number;
 declare function orderedIndex(order: number | null | undefined, orderBy: Array<number | null | undefined>, orderProp?: "" | undefined | never): number;
 /** Order an array by matching `order` array consisting of numbers or null | undefined.
  * - Ordering happens in 3 categories: 1. near front (>= 0), 2. near end (< 0), 3. don't care (null | undefined).
