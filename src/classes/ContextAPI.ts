@@ -5,12 +5,12 @@
 import { ClassType, AsClass } from "mixin-types";
 // Library.
 import { PropType, SetLike, GetJoinedDataKeysFrom } from "../typing";
-// Classes.
-import { Context } from "./Context";
-// Typing.
+// Mixins.
 import { SignalsRecord } from "../mixins/SignalBoy";
 import { SignalSendAsReturn, SignalManType, mixinSignalMan, SignalMan } from "../mixins/SignalMan";
 import { mixinDataBoy, DataBoy, DataBoyType } from "../mixins/DataBoy";
+// Classes.
+import { Context } from "./Context";
 
 
 // - Helper types - //

@@ -5,10 +5,11 @@
 import { ClassType, AsClass } from "mixin-types";
 // Library.
 import { GetJoinedDataKeysFrom } from "../typing";
-// Classes.
-import { RefreshCycle } from "./RefreshCycle";
+// Mixins.
 import { mixinSignalMan, SignalMan } from "../mixins/SignalMan";
 import { mixinDataMan, DataMan } from "../mixins/DataMan";
+// Classes.
+import { RefreshCycle } from "./RefreshCycle";
 // Typing.
 import { SignalBoy, SignalListener, SignalsRecord } from "../mixins/SignalBoy";
 import { SignalManType } from "../mixins/SignalMan";

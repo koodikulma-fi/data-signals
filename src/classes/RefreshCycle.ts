@@ -1,8 +1,11 @@
 
 // - Imports - //
 
+// Dependency.
 import { AsClass, GetConstructorArgs } from "mixin-types";
+// Mixins.
 import { SignalBoy, SignalBoyType, SignalsRecord } from "../mixins/SignalBoy";
+// Typing.
 import { NodeJSTimeout } from "../typing";
 
 
