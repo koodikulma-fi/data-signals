@@ -89,7 +89,7 @@ export default [
     //     input: 'dist/data-signals.module.js',
     //     plugins: [
 
-            del({ targets: ['dist/classes*', 'dist/mixins*', 'dist/library*', 'dist/index.js', 'dist/types.js'], hook: 'buildEnd' })
+            del({ targets: ['dist/classes*', 'dist/mixins*', 'dist/typing.js', 'dist/index.js'], hook: 'buildEnd' })
         ]
     },
 
