@@ -1,6 +1,6 @@
 {
   "name": "data-signals",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "Simple JS/TS classes and mixins to help manage complex state and action flow in sync.",
   "keywords": [
     "DataSignals",
@@ -54,7 +54,7 @@
     "build": "tsc && rollup -c rollup.config.js"
   },
   "dependencies": {
-    "mixin-types": "^1.0.0"
+    "mixin-types": "^1.0.1"
   },
   "devDependencies": {
     "rollup": "^2.77.2",

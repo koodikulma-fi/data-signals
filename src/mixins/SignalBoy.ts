@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, AsClass } from "mixin-types";
+import { ClassType, AsClass, ReClass } from "mixin-types";
 
 
 // - Types - //
@@ -61,7 +61,7 @@ export interface SignalBoyType<Signals extends SignalsRecord = {}> extends Class
     getListenersFor?(signalBoy: SignalBoy, signalName: string): SignalListener[] | undefined;
 }
 /** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
-export class SignalBoy<Signals extends SignalsRecord = {}> extends (mixinSignalBoy(Object) as any as ClassType) { }
+export class SignalBoy<Signals extends SignalsRecord = {}> extends (mixinSignalBoy(Object) as any as ReClass<SignalBoyType, {}>) { }
 export interface SignalBoy<Signals extends SignalsRecord = {}> {
 
 

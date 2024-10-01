@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, AsClass } from "mixin-types";
+import { ClassType, AsClass, ReClass } from "mixin-types";
 // Library.
 import { GetJoinedDataKeysFrom, PropTypesFromDictionary, PropTypeArray, PropTypeFallback, PropType } from "../typing";
 
@@ -33,7 +33,8 @@ export interface DataBoyType<Data extends Record<string, any> = {}, InterfaceLev
  *      * Listen: `dataMan.listenToData("something.deep", "another", (some, other) => { ... }, [...fallbackArgs])`
  *      * Set data: `dataMan.setInData("something.deep", somedata)`
  */
-export class DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends (mixinDataBoy(Object) as any as ClassType) { }
+export class DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0>
+    extends (mixinDataBoy(Object) as any as ReClass<DataBoyType, {}>) { }
 export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> {
 
 

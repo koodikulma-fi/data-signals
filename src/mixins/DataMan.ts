@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, AsClass } from "mixin-types";
+import { ClassType, AsClass, ReClass } from "mixin-types";
 // Library.
 import { PropType, GetJoinedDataKeysFrom } from "../typing";
 // Base.
@@ -12,7 +12,10 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 // - Class - //
 
 /** Class type for DataMan - including the constructor arguments when used as a standalone class (or for the mixin in the flow). */
-export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data] : [data: Data]> { }
+export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data] : [data: Data]> {
+    /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
+    createPathTo(dataMan: DataMan, dataKeys: string[]): Record<string, any> | undefined;
+}
 /** DataMan provides data setting and listening features with dotted strings.
  * - Examples for usage:
  *      * Create: `const dataMan = new DataMan({ ...initData });`
@@ -28,7 +31,8 @@ export interface DataManType<Data extends Record<string, any> = {}, InterfaceLev
  * - Note. The InterfaceLevel type argument can be used to define how many levels of interface types allows vs. strict types.
  *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
  */
-export class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends (mixinDataMan(Object) as any as ClassType) { }
+export class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends
+    (mixinDataMan(Object) as any as ReClass<DataManType, {}>) { }
 export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataBoy<Data, InterfaceLevel> {
     
 
@@ -203,25 +207,26 @@ export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLev
             refresh ? this.refreshData(true, forceTimeout) : this.addRefreshKeys(true);
         }
 
-        public setInData(dataKey: string, subData: any, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
+        public setInData(dataKey: string, value: any, extend: boolean = true, refresh: boolean = true, forceTimeout?: number | null): void {
             // No data key.
             if (!dataKey) {
-                (this.data as Record<string, any>) = extend && this.data ? { ...this.data, ...subData } : subData;
+                (this.data as Record<string, any>) = extend && this.data ? { ...this.data, ...value } : value;
             }
             // Set partially.
             else {
                 // Prepare.
                 const dataKeys = dataKey.split(".");
                 const lastKey = dataKeys.pop();
-                // Invalid - we need to have last key.
+                // Invalid - we need to have a last key.
                 if (!lastKey)
                     return;
-                // Get data parent, and take copies of all dictionary types along the way until the leaf.
-                let data = (this.data as Record<string, any>) = { ...this.data as Record<string, any> };
-                for (const key of dataKeys)
-                    data = data[key] = data[key]?.constructor === Object ? { ...data[key] } : data[key] || {};
+                // Get data parent, and by default take copies of all dictionary types along the way until the leaf.
+                // .. If returned undefined, was not allowed for some reason by the static method of the extending class.
+                const subData = (this.constructor as DataManType).createPathTo(this, dataKeys);
+                if (!subData)
+                    return;
                 // Extend or replace the data at the leaf.
-                data[lastKey] = extend && data[lastKey]?.constructor === Object ? {...data[lastKey], ...subData as Record<string, any>} : subData;
+                subData[lastKey] = extend && subData[lastKey]?.constructor === Object ? {...subData[lastKey], ...value as Record<string, any>} : value;
             }
             // Refresh or just add keys.
             refresh ? this.refreshData(dataKey || true, forceTimeout) : this.addRefreshKeys(dataKey || true);
@@ -275,6 +280,18 @@ export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLev
                     }
                 }
             }
+        }
+
+
+        // - Static extendable helpers - //
+        
+        public static createPathTo(dataMan: DataMan, dataKeys: string[]): Record<string, any> | undefined {
+            // Get data parent, and take copies of all dictionary types along the way until the leaf.
+            let data = (dataMan.data as Record<string, any>) = { ...dataMan.data as Record<string, any> };
+            for (const key of dataKeys)
+                data = data[key] = data[key]?.constructor === Object ? { ...data[key] } : data[key] || {};
+            // Return the last part.
+            return data;
         }
 
     } as any; // We're detached from the return type.

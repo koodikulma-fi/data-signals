@@ -1,4 +1,4 @@
-import { IterateBackwards, ClassType, AsClass, GetConstructorArgs } from 'mixin-types';
+import { IterateBackwards, ClassType, AsClass, ReClass, GetConstructorArgs } from 'mixin-types';
 
 /** Typing for NodeJS side timers. */
 interface NodeJSTimeout {
@@ -71,7 +71,7 @@ interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<Si
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
     getListenersFor?(signalBoy: SignalBoy, signalName: string): SignalListener[] | undefined;
 }
-declare const SignalBoy_base: ClassType<{}, any[]>;
+declare const SignalBoy_base: ReClass<SignalBoyType<{}>, {}, any[]>;
 /** SignalBoy provides very simple signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` for sending. */
 declare class SignalBoy<Signals extends SignalsRecord = {}> extends SignalBoy_base {
 }
@@ -102,7 +102,7 @@ type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extend
 declare function askListeners(listeners: SignalListener[], args?: any[] | null, modes?: Array<"" | "no-false" | "no-null" | "last" | "first" | "first-true">): any;
 interface SignalManType<Signals extends SignalsRecord = {}> extends AsClass<SignalBoyType<Signals>, SignalBoy<Signals> & SignalMan<Signals>, []> {
 }
-declare const SignalMan_base: ClassType<{}, any[]>;
+declare const SignalMan_base: ReClass<SignalBoyType<{}>, {}, any[]>;
 /** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
 declare class SignalMan<Signals extends SignalsRecord = {}> extends SignalMan_base {
 }
@@ -163,7 +163,7 @@ interface DataBoyType<Data extends Record<string, any> = {}, InterfaceLevel exte
      */
     callDataListenersFor?(dataBoy: DataBoy<Record<string, any>>, dataKeys?: true | string[]): void;
 }
-declare const DataBoy_base: ClassType<{}, any[]>;
+declare const DataBoy_base: ReClass<DataBoyType<{}, 0>, {}, any[]>;
 /** DataBoy is like DataMan but only provides data listening, not actual data.
  * - Regardless of having no data, it assumes a custom data structure of nested dictionaries.
  *      * For example: `{ something: { deep: boolean; }; simple: string; }`
@@ -235,8 +235,10 @@ declare function mixinDataBoy<Data extends Record<string, any> = {}, InterfaceLe
 
 /** Class type for DataMan - including the constructor arguments when used as a standalone class (or for the mixin in the flow). */
 interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data] : [data: Data]> {
+    /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
+    createPathTo(dataMan: DataMan, dataKeys: string[]): Record<string, any> | undefined;
 }
-declare const DataMan_base: ClassType<{}, any[]>;
+declare const DataMan_base: ReClass<DataManType<{}, 0>, {}, [data?: {} | undefined]>;
 /** DataMan provides data setting and listening features with dotted strings.
  * - Examples for usage:
  *      * Create: `const dataMan = new DataMan({ ...initData });`
@@ -463,7 +465,7 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
-declare const ContextAPI_base: ClassType<{}, any[]>;
+declare const ContextAPI_base: ReClass<ContextAPIType<{}>, {}, [contexts?: Partial<{}> | undefined]>;
 interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> {
 }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
@@ -638,6 +640,14 @@ interface ContextSettings {
      *      * For example, on the next code line (after say, setting data in context) the context have already updated and triggered refreshes all around the app. Maybe instance you called from has alredy unmounted.
      */
     refreshTimeout: number | null;
+    /** How sets nested data when using "setInData" method. The default is "root".
+     * - "root": In this mode takes shallow copies of all parenting dictionaries - from the root down to the target leaf.
+     *      * This mode is particularly suitable with data selector concept (eg. see "data-memo" npm package).
+     * - "leaf": In this mode only sets the target leaf data without copying parenting structure.
+     *      * If renewing the parenting dictionaries is not needed, this mode is recommended.
+     * - "only": Like "leaf", but only sets the data if the parenting structure exists - ie. stops if it doesn't.
+     */
+    dataSetMode: "root" | "leaf" | "only";
 }
 /** Class type for Context class. */
 interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> {
@@ -650,7 +660,7 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     runDelayFor(context: Context, resolvePromise: () => void): void;
 }
-declare const Context_base: ClassType<{}, any[]>;
+declare const Context_base: ReClass<ContextType<{}, SignalsRecord>, {}, [({} | undefined)?, (Partial<ContextSettings> | undefined)?]>;
 interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
 }
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
@@ -710,6 +720,8 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
     static getListenersFor(context: Context, signalName: string): SignalListener[] | undefined;
+    /** Overriden to take into account our context settings. */
+    static createPathTo(context: Context, dataKeys: string[]): Record<string, any> | undefined;
     /** Extendable static default settings getter. */
     static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */

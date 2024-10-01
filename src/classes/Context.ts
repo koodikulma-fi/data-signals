@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, AsClass } from "mixin-types";
+import { AsClass, ReClass } from "mixin-types";
 // Library.
 import { GetJoinedDataKeysFrom } from "../typing";
 // Mixins.
@@ -29,6 +29,14 @@ export interface ContextSettings {
      *      * For example, on the next code line (after say, setting data in context) the context have already updated and triggered refreshes all around the app. Maybe instance you called from has alredy unmounted.
      */
     refreshTimeout: number | null;
+    /** How sets nested data when using "setInData" method. The default is "root".
+     * - "root": In this mode takes shallow copies of all parenting dictionaries - from the root down to the target leaf.
+     *      * This mode is particularly suitable with data selector concept (eg. see "data-memo" npm package).
+     * - "leaf": In this mode only sets the target leaf data without copying parenting structure.
+     *      * If renewing the parenting dictionaries is not needed, this mode is recommended.
+     * - "only": Like "leaf", but only sets the data if the parenting structure exists - ie. stops if it doesn't.
+     */
+    dataSetMode: "root" | "leaf" | "only";
 }
 
 
@@ -65,7 +73,8 @@ export interface Context<Data extends Record<string, any> = {}, Signals extends 
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends (mixinDataMan(mixinSignalMan(Object)) as any as ClassType) {
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}>
+    extends (mixinDataMan(mixinSignalMan(Object)) as any as ReClass<ContextType, {}>) {
 
 
     // - Members - //
@@ -176,7 +185,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     }
 
     
-    // - Static - //
+    // - Static (extended) - //
     
     // Overridden.
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
@@ -193,9 +202,42 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         return allListeners[0] && allListeners;
     }
 
+    // Orerriden.
+    /** Overriden to take into account our context settings. */
+    public static createPathTo(context: Context, dataKeys: string[]): Record<string, any> | undefined {
+        // Handle by mode.
+        switch(context.settings.dataSetMode) {
+            // Copy from root.
+            case "root":
+                return super.createPathTo(context, dataKeys);
+            // Only leaf and what's needed.
+            case "leaf": {
+                let data = context.data as Record<string, any>;
+                for (const key of dataKeys)
+                    data = data[key] = data[key] ? data[key] : {};
+                return data;
+            }
+            // Only leaf and only if the path already exists.
+            case "only": {
+                let data = context.data as Record<string, any>;
+                for (const key of dataKeys) {
+                    if (!data[key])
+                        return undefined;
+                    data = data[key];
+                }
+                return data;
+            }
+            default:
+                return undefined;
+        }
+    }
+
+
+    // - Static (extendable) - //
+
     /** Extendable static default settings getter. */
     public static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings {
-        return { refreshTimeout: 0 } as Settings;
+        return { refreshTimeout: 0, dataSetMode: "root" } as Settings;
     }
 
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */

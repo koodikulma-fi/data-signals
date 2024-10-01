@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Depedency.
-import { ClassType, AsClass } from "mixin-types";
+import { AsClass, ReClass } from "mixin-types";
 // Library.
 import { PropType, SetLike, GetJoinedDataKeysFrom } from "../typing";
 // Mixins.
@@ -60,7 +60,7 @@ export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataB
  * - Importantly, the ContextAPI's `awaitDelay` method can be overridden externally to affect the syncing of all the connected contexts.
  *      * More specifically, the "delay" cycle of the Contexts is resolved only once all the ContextAPIs connected to the context have resolved their `awaitDelay`.
  */
-export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDataBoy(mixinSignalMan(Object)) as any as ClassType) {
+export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDataBoy(mixinSignalMan(Object)) as any as ReClass<ContextAPIType, {}>) {
     
 
     // - Members - //
