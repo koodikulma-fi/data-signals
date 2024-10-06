@@ -19,6 +19,7 @@ import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - woul
 
 // - Extra typing - //
 
+/** Settings for context functionality. */
 export interface ContextSettings {
     /** Timeout for refreshing for this particular context.
      * - The timeout is used for data refreshing, but also tied to actions called with syncing (like "delay" or "pre-delay").

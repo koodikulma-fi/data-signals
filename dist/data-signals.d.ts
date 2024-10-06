@@ -630,6 +630,7 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
     static readContextDictionaryFrom(ctxDataSignalKeys: string[]): Record<string, string[] | true>;
 }
 
+/** Settings for context functionality. */
 interface ContextSettings {
     /** Timeout for refreshing for this particular context.
      * - The timeout is used for data refreshing, but also tied to actions called with syncing (like "delay" or "pre-delay").
