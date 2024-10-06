@@ -29,11 +29,12 @@ export interface ContextSettings {
      *      * For example, on the next code line (after say, setting data in context) the context have already updated and triggered refreshes all around the app. Maybe instance you called from has alredy unmounted.
      */
     refreshTimeout: number | null;
-    /** How sets nested data when using "setInData" method. The default is "root".
+    /** How sets nested data when using "setInData" method. The default is "leaf".
      * - "root": In this mode takes shallow copies of all parenting dictionaries - from the root down to the target leaf.
      *      * This mode is particularly suitable with data selector concept (eg. see "data-memo" npm package).
      * - "leaf": In this mode only sets the target leaf data without copying parenting structure.
-     *      * If renewing the parenting dictionaries is not needed, this mode is recommended.
+     *      * However, if a parenting object does not exist, creates an empty dictionary for it (unlike the "only" mode).
+     *      * This mode is recommended, if immutable-like renewal of the parenting dictionaries is not needed.
      * - "only": Like "leaf", but only sets the data if the parenting structure exists - ie. stops if it doesn't.
      */
     dataSetMode: "root" | "leaf" | "only";
@@ -237,7 +238,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     /** Extendable static default settings getter. */
     public static getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings {
-        return { refreshTimeout: 0, dataSetMode: "root" } as Settings;
+        return { refreshTimeout: 0, dataSetMode: "leaf" } as Settings;
     }
 
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
