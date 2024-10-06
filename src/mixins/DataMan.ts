@@ -11,8 +11,8 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 
 // - Class - //
 
-/** Class type for DataMan - including the constructor arguments when used as a standalone class (or for the mixin in the flow). */
-export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data] : [data: Data]> {
+/** The static class side typing for DataMan. Includes the constructor arguments when used as a standalone class (or for the mixin in the flow). */
+export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]> {
     /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
     createPathTo(dataMan: DataMan, dataKeys: string[]): Record<string, any> | undefined;
 }
@@ -83,58 +83,62 @@ export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel e
 // - Mixin - //
 
 /** Add DataMan features to a custom class.
- * - Note. Either provide the BaseClass type specifically as the 2nd type argument or use AsMixin trick (see below).
+ * - Note. Either provide the BaseClass type specifically as the 2nd type argument or use ReMixin trick (see below).
  * 
  * ```
+ *
+ * // Imports.
+ * import { GetConstructorArgs, ReClass, ReMixin, ClassType } from "mixin-types";
+ * import { DataMan, DataManType, mixinDataMan } from "data-signals";
+ * 
  * // Type data.
  * type MyData = { something: boolean; };
  * 
  * // Example #1: Create a class extending mixinDataMan with <MyData>.
  * class Test extends mixinDataMan<MyData>(Object) {
- * 
- *    test() {
- *        this.listenToData("something", (something) => {});
- *    }
+ *      test() {
+ *          this.listenToData("something", (something) => {});
+ *      }
  * }
  * 
  * // Example #2: Create a class extending mixinDataMan<MyData> and a custom class as the base.
  * class MyBase {
- *     public someMember: number = 0;
+ *      public someMember: number = 0;
  * }
- * class Test2a extends mixinDataMan<MyData, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
- * 
- *    test2() {
- *        this.someMember = 1;
- *        this.listenToData("something", (something) => {});
- *    }
+ * class Test2a extends mixinDataMan<MyData, 0, typeof MyBase>(MyBase) { // Needs to specify the base type explicitly here.
+ *      test2() {
+ *          this.someMember = 1;
+ *          this.listenToData("something", (something) => {});
+ *      }
  * }
  * // Or alternatively.
- * class Test2b extends (mixinDataMan as AsMixin<DataMan<MyData>>)(MyBase) { // Get MyBase type dynamically.
- *     
- *     test2() {
- *         this.someMember = 1;
- *         this.listenToData("something", (something) => {});
- *     }
+ * class Test2b extends (mixinDataMan as ReMixin<DataManType<MyData>>)(MyBase) { // Get MyBase type dynamically.
+ *      test2() {
+ *          this.someMember = 1;
+ *          this.listenToData("something", (something) => {});
+ *      }
  * }
  * 
  * // Example #3: Pass generic Data from outside with MyBase.
+ * // .. Declare an interface for the static side - optional.
+ * interface Test3Type<Data extends Record<string, any> = {}> extends
+ *     AsClass<DataManType<Data> & typeof MyBase, Test3<Data> & MyBase, [Data?]> {}
  * // .. Declare an interface extending what we want to extend, supporting passing generic <Data> further.
  * interface Test3<Data extends Record<string, any> = {}> extends DataMan<Data>, MyBase {}
- * // .. Declare a class with base `as ClassType`, so that the interface can fully define the base.
- * class Test3<Data extends Record<string, any> = {}> extends (mixinDataMan(MyBase) as ClassType) {
+ * // .. Declare a class with base `as any as ClassType`, so that the interface can fully define the base.
+ * // .. Actually, to include the static side methods, let's use `as any as ReClass`.
+ * class Test3<Data extends Record<string, any> = {}> extends
+ *      // (mixinDataMan(MyBase) as any as ClassType) { // Without static side methods.
+ *      // (mixinDataMan(MyBase) as any as ReClass<DataManType & typeof MyBase, {}, GetConstructorArgs<DataManType>>) {
+ *      (mixinDataMan(MyBase) as any as ReClass<Test3Type, {}, GetConstructorArgs<DataManType>>) {
  * 
- *    // // Just pass. You need to redefine constructor for the class inside the class for it to be effective.
- *    // constructor(...args: GetConstructorArgs<DataManType<Data>>) {
- *    //     super(...args);
- *    // }
- * 
- *    // Or, if we have some custom things, can specify further.
- *    // .. Since we know our base: MyBase < DataMan < Test3, no need to add (...args: any[]) to the constructor.
- *    refreshTimeout: number | null;
- *    constructor(data: Data, refreshTimeout: number | null) {
- *        super(data);
- *        this.refreshTimeout = refreshTimeout;
- *    }
+ *      // Or, if we have some custom things, can specify further.
+ *      // .. Since we know our base: Test3 -> DataMan -> MyBase, no need to add (...args: any[]) to the constructor.
+ *      refreshTimeout: number | null;
+ *      constructor(data: Data, refreshTimeout: number | null) {
+ *          super(data); // Because we typed the constructor args above, it's know what super wants here.
+ *          this.refreshTimeout = refreshTimeout;
+ *      }
  * 
  * }
  * 

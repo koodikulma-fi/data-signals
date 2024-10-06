@@ -15,6 +15,7 @@ export type DataListenerFunc = (...args: any[]) => any | void;
 
 // - Class - //
 
+/** The static class side typing for DataBoy. */
 export interface DataBoyType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends ClassType<DataBoy<Data, InterfaceLevel>> {
     // Static extendables - we use very loose types here.
     /** Assignable getter to call more data listeners when callDataBy is used.

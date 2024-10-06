@@ -74,8 +74,8 @@ export function askListeners(listeners: SignalListener[], args?: any[] | null, m
 
 // - Class - //
 
+/** The static class side typing for SignalMan. */
 export interface SignalManType<Signals extends SignalsRecord = {}> extends AsClass<SignalBoyType<Signals>, SignalBoy<Signals> & SignalMan<Signals>, []> { }
-// export interface SignalManType<Signals extends SignalsRecord = {}> extends SignalBoyType<Signals>, ClassType<SignalMan<Signals>, []> { }
 /** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
 export class SignalMan<Signals extends SignalsRecord = {}> extends (mixinSignalMan(Object) as any as ReClass<SignalBoyType, {}>) { }
 export interface SignalMan<Signals extends SignalsRecord = {}> extends SignalBoy<Signals> {

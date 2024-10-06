@@ -166,7 +166,7 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 
 ### Context
 
-- `Context` extends `SignalDataMan` and provides synced data refreshes and signalling.
+- `Context` extends `SignalMan` and `DataMan` mixins providing synced data refreshes and signalling.
 - The data refreshes are triggered simultaneously after a common timeout (vs. separately at DataMan level), and default to 0ms timeout.
 - The signalling part is synced to the refresh cycle using "pre-delay" and "delay" options.
     * The "pre-delay" is tied to context's refresh cycle set by the `{ refreshTimeout: number | null; }` setting.
@@ -175,6 +175,7 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 - The `Context` class also provides extendable methods on the static side (to keep public instance API clean):
     * `getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings`
         - Extendable static default settings getter.
+        - The settings are `{ refreshTimeout: number | null; dataSetMode: "root" | "leaf" | "only"; }`.
     * `initializeCyclesFor(context: Context): void`
         - Extendable static helper to hook up context refresh cycles together.
     * `runPreDelayFor(context: Context): void`
@@ -434,15 +435,15 @@ mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 
 - Often you can just go and extend the class directly. But where you can't, mixins can make things very convenient.
 - For thorough examples and guidelines, see the ["mixin-types" README](https://www.npmjs.com/package/mixin-types).
-- Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ClassType`) below are imported from "mixin-types". (The module is used by `data-signals` internally.)
+- Note that some funcs (`mixinsWith`) and types (`AsClass`, `AsInstance`, `AsMixin`, `ReMixin`, `ClassType`) below are imported from "mixin-types". (The module is required by `data-signals` for typing.)
 
 ### Basic usage
 
 ```typescript
 
 // Imports.
-import { AsMixin } from "mixin-types";
-import { SignalMan, mixinSignalMan } from "./mixins/SignalMan";
+import { ReMixin } from "mixin-types";
+import { mixinSignalMan, SignalManType } from "data-signals";
 
 // Let's define some custom class.
 class CustomBase {
@@ -455,7 +456,7 @@ class CustomBase {
 // Let's mix in typed SignalMan features.
 type MySignals = { doSomething: (...things: number[]) => void; };
 class CustomSignalMix extends mixinSignalMan<MySignals, typeof CustomBase>(CustomBase) { }
-class CustomSignalMix_alt extends (mixinSignalMan as AsMixin<SignalMan<MySignals>>)(CustomBase) { }
+class CustomSignalMix_alt extends (mixinSignalMan as ReMixin<SignalManType<MySignals>>)(CustomBase) { }
 
 // Create like any class.
 const cMix = new CustomSignalMix();
@@ -475,8 +476,8 @@ cMix.listenTo("doSomething", (...things) => { });
 ```typescript
 
 // Imports.
-import { AsMixin } from "mixin-types";
-import { DataManType, mixinDataMan } from "data-signals";
+import { AsMixin, ReMixin } from "mixin-types";
+import { DataMan, DataManType, mixinDataMan } from "./mixins/DataMan";
 
 // Let's define a custom class with constructor args.
 class CustomBase {
@@ -488,15 +489,19 @@ class CustomBase {
 
 // Let's mix in typed DataMan features.
 interface MyData { something: { deep: boolean; }; simple: string; }
-class CustomDataMix extends (mixinDataMan as AsMixin<DataMan<MyData>>)(CustomBase) {
+class CustomDataMix extends (mixinDataMan as ReMixin<DataManType<MyData>>)(CustomBase) {
     // Define explicitly what the final class constructor args.
     constructor(data: MyData, someMember: boolean) {
         super(data, someMember);
     }
 }
-// Or define them using AsMixin's 2nd arg.
+// Or define them using ReMixin's 3rd arg.
 class CustomDataMix_alt extends
-    (mixinDataMan as AsMixin<DataMan<MyData>, [data: MyData, someMember: boolean]>)(CustomBase) { }
+    (mixinDataMan as ReMixin<DataManType<MyData>, DataMan<MyData>, [data: MyData, someMember: boolean]>)(CustomBase) { }
+
+// The same with AsMixin:
+class CustomDataMix_alt2 extends
+    (mixinDataMan as AsMixin<DataMan<MyData>, DataManType<MyData>, [data: MyData, someMember: boolean]>)(CustomBase) { }
 
 // Create like any class.
 const cMix = new CustomDataMix({ something: { deep: true }, simple: "" }, false);
@@ -504,7 +509,6 @@ const cMix = new CustomDataMix({ something: { deep: true }, simple: "" }, false)
 // Use.
 cMix.listenToData("something.deep", "simple", (deep, simple) => { });
 cMix.someMember; // boolean (as type), false (as JS value)
-
 
 ```
 
@@ -515,8 +519,8 @@ cMix.someMember; // boolean (as type), false (as JS value)
 ```typescript
 
 // Imports.
-import { mixinsWith, AsMixin } from "mixin-types";
-import { mixinDataMan, mixinSignalMan, DataMan, SignalMan } from "data-signals";
+import { mixinsWith, ReMixin } from "mixin-types";
+import { mixinDataMan, mixinSignalMan, DataMan, DataManType, SignalManType } from "data-signals";
 
 // Base and types from above.
 class CustomBase {
@@ -541,8 +545,8 @@ class MyMultiMix extends mixinsWith(CustomBase, mixinSignalMan<MySignals>, mixin
 class MyMultiMix_Incorrect extends mixinDataMan<MyData>(mixinSignalMan<MySignals>(CustomBase)) {}
 // To do it all manually with constr. args, should use AsMixin (though the chain won't be evaluated for dependencies.)
 class MyMultiMix_Manually extends
-    (mixinDataMan as AsMixin<DataMan<MyData>, [data: MyData, someMember: boolean]>)( // Define constr. args here.
-        (mixinSignalMan as AsMixin<SignalMan<MySignals>>)(CustomBase)) {}
+    (mixinDataMan as ReMixin<DataManType<MyData>, DataMan<MyData>, [data: MyData, someMember: boolean]>)( // Define constr. args here.
+        (mixinSignalMan as ReMixin<SignalManType<MySignals>>)(CustomBase)) {}
 
 // Test.
 const myMultiMix = new MyMultiMix({ something: { deep: true }, simple: "" }, false);

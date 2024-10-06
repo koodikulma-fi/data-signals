@@ -53,6 +53,7 @@ export function callListeners(listeners: SignalListener[], args?: any[] | null):
 
 // - Class - //
 
+/** The static class side typing for SignalBoy. */
 export interface SignalBoyType<Signals extends SignalsRecord = {}> extends ClassType<SignalBoy<Signals>> {
     // Static extendables - we use very loose types here.
     /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
