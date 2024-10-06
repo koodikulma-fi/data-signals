@@ -41,13 +41,17 @@ export default [
         plugins: [
             terser({
                 ecma: 2015,
-                // sourceMap: true,
+                mangle: {
+                    // module: true,
+                    keep_fnames: true,
+                    keep_classnames: true,
+                },
                 compress: {
                     module: true,
-                    toplevel: true,
-                    unsafe_arrows: true,
-                    // drop_console: !devMode,
-                    // drop_debugger: !devMode
+                    keep_fnames: true,
+                    keep_fargs: true,
+                    keep_classnames: true,
+                    // unsafe_arrows: true,
                 },
                 output: { quote_style: 1 }
             }),
@@ -67,13 +71,17 @@ export default [
         plugins: [
             terser({
                 ecma: 2015,
-                // sourceMap: true,
+                mangle: {
+                    // module: true,
+                    keep_fnames: true,
+                    keep_classnames: true,
+                },
                 compress: {
-                    // toplevel: true,
                     module: true,
-                    unsafe_arrows: true,
-                    // drop_console: !devMode,
-                    // drop_debugger: !devMode
+                    keep_fnames: true,
+                    keep_fargs: true,
+                    keep_classnames: true,
+                    // unsafe_arrows: true,
                 },
                 output: { quote_style: 1 }
             }),
