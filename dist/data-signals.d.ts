@@ -102,7 +102,7 @@ type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extend
  */
 declare function askListeners(listeners: SignalListener[], args?: any[] | null, modes?: Array<"" | "no-false" | "no-null" | "last" | "first" | "first-true">): any;
 /** The static class side typing for SignalMan. */
-interface SignalManType<Signals extends SignalsRecord = {}> extends AsClass<SignalBoyType<Signals>, SignalBoy<Signals> & SignalMan<Signals>, []> {
+interface SignalManType<Signals extends SignalsRecord = {}> extends AsClass<SignalBoyType<Signals>, SignalBoy<Signals> & SignalMan<Signals>, [...args: any[]]> {
 }
 declare const SignalMan_base: ReClass<SignalBoyType<{}>, {}, any[]>;
 /** SignalMan provides simple and complex signal listening and sending features. Use the `listenTo` method for listening and `sendSignal` or `sendSignalAs` for sending. */
