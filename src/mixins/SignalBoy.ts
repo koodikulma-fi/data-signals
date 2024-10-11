@@ -77,8 +77,10 @@ export interface SignalBoy<Signals extends SignalsRecord = {}> {
 
     // - Listen to signals - //
 
-    /** Assign a listener to a signal. You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
-     * Also checks whether the callback was already attached to the signal, in which case overrides the info. */
+    /** Assign a listener to a signal.
+     * - You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
+     * - Also checks whether the callback was already attached to the signal, in which case overrides the info.
+     */
     listenTo<Name extends string & keyof Signals>(name: Name, callback: Signals[Name], extraArgs?: any[] | null, flags?: SignalListenerFlags | null, groupId?: any | null): void;
     /** Clear listeners by names, callback and/or groupId. Each restricts the what is cleared. To remove a specific callback attached earlier, provide name and callback. */
     unlistenTo(names?: (string & keyof Signals) | Array<string & keyof Signals> | null, callback?: SignalListenerFunc | null, groupId?: any | null): void;
