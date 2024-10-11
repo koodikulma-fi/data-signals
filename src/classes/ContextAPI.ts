@@ -10,7 +10,7 @@ import { SignalListener, SignalsRecord } from "../mixins/SignalBoy";
 import { SignalSendAsReturn, SignalManType, mixinSignalMan, SignalMan } from "../mixins/SignalMan";
 import { mixinDataBoy, DataBoy, DataBoyType } from "../mixins/DataBoy";
 // Classes.
-import { Context } from "./Context";
+import { Context, ContextSettings, createContexts } from "./Context";
 
 
 // - Helper types - //
@@ -305,29 +305,29 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
     }
 
     /** Create a new context.
+     * - If settings given uses it, otherwise default context settings.
      * - If overrideWithName given, then calls setContext automatically with the given name. If empty (default), functions like a simple static function just instantiating a new context with given data.
      * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
      */
-    public newContext<CtxData extends Record<string, any> = {}, CtxSignals extends SignalsRecord = {}>(data: CtxData, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
-    public newContext<Name extends keyof Contexts & string>(data: Contexts[Name]["data"], overrideWithName: Name, refreshIfOverriden?: boolean): Contexts[Name];
-    public newContext(data: any, overrideWithName?: string, refreshIfOverriden: boolean = true): Context {
-        const context = new Context(data);
+    public newContext<CtxData extends Record<string, any> = {}, CtxSignals extends SignalsRecord = {}>(data: CtxData, settings?: Partial<ContextSettings> | null, overrideWithName?: never | "" | undefined, refreshIfOverriden?: never | false): Context<CtxData, CtxSignals>;
+    public newContext<Name extends keyof Contexts & string>(data: Contexts[Name]["data"], settings: Partial<ContextSettings> | null | undefined, overrideWithName: Name, refreshIfOverriden?: boolean): Contexts[Name];
+    public newContext(data: any, settings?: Partial<ContextSettings> | null, overrideWithName?: string, refreshIfOverriden: boolean = true): Context {
+        const context = new Context(data, settings);
         if (overrideWithName)
             this.setContext(overrideWithName, context as any, refreshIfOverriden);
         return context;
     }
 
     /** Same as newContext but for multiple contexts all at once.
+     * - If settings given uses it for all, otherwise default context settings.
      * - If overrideForSelf set to true, call setContexts afterwards with the respective context names in allData. Defaults to false: functions as if a static method.
      * - If overrides by default triggers a refresh call in data listeners in case the context was actually changed. To not do this set refreshIfOverriden to false.
      */
-    public newContexts<Ctxs extends { [Name in keyof AllData & string]: Context<AllData[Name] & {}> }, AllData extends Record<keyof Ctxs & string, Record<string, any>> = { [Name in keyof Ctxs & string]: Ctxs[Name]["data"] }>(allData: AllData, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Ctxs;
-    public newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<{ [Name in keyof Contexts & string]: Contexts[Name]; }>;
-    public newContexts(allData: Partial<Record<string, Record<string, any>>>, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Partial<Record<string, Context<Record<string, any>, SignalsRecord>>> {
+    public newContexts<Ctxs extends { [Name in keyof AllData & string]: Context<AllData[Name] & {}> }, AllData extends Record<keyof Ctxs & string, Record<string, any>> = { [Name in keyof Ctxs & string]: Ctxs[Name]["data"] }>(allData: AllData, settings?: Partial<ContextSettings> | null, overrideForSelf?: never | false | undefined, refreshIfOverriden?: never | false): Ctxs;
+    public newContexts<Name extends keyof Contexts & string>(allData: Partial<Record<Name, Contexts[Name]["data"]>>, settings: Partial<ContextSettings> | null | undefined, overrideForSelf: true, refreshIfOverriden?: boolean): Partial<{ [Name in keyof Contexts & string]: Contexts[Name]; }>;
+    public newContexts(allData: Partial<Record<string, Record<string, any>>>, settings?: Partial<ContextSettings> | null, overrideForSelf: boolean = false, refreshIfOverriden: boolean = true): Partial<Record<string, Context<Record<string, any>, SignalsRecord>>> {
         // Create contexts.
-        const contexts: Record<string, Context> = {};
-        for (const name in allData)
-            contexts[name] = new Context(allData[name]);
+        const contexts = createContexts(allData, settings);
         // Override locally.
         if (overrideForSelf)
             this.setContexts(contexts as any, refreshIfOverriden);

@@ -11,7 +11,7 @@ import { mixinDataMan, DataMan } from "../mixins/DataMan";
 // Classes.
 import { RefreshCycle } from "./RefreshCycle";
 // Typing.
-import { SignalBoy, SignalListener, SignalsRecord } from "../mixins/SignalBoy";
+import { SignalListener, SignalsRecord } from "../mixins/SignalBoy";
 import { SignalManType } from "../mixins/SignalMan";
 import { DataManType } from "../mixins/DataMan";
 import { ContextAPI } from "./ContextAPI"; // Only typing (not on JS side - would be cyclical).
@@ -325,10 +325,10 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 /** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like). */
 export const createContexts = <
     // Optional type arg.
-    Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name]> },
+    Contexts extends { [Name in keyof AllData & string]?: Context<AllData[Name] & {}>; },
     // Local variable.
-    AllData extends Record<string, Record<string, any>> = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }
->(contextsData: AllData, settings?: Partial<ContextSettings>): Contexts => {
+    AllData extends Partial<Record<string, Record<string, any>>> = { [Name in keyof Contexts & string]: (Contexts[Name] & {})["data"]; }
+>(contextsData: AllData, settings?: Partial<ContextSettings> | null): Contexts => {
     const contexts: Record<string, Context> = {};
     for (const name in contextsData)
         contexts[name] = new Context(contextsData[name], settings);
