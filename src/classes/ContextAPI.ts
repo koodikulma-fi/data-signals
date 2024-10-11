@@ -6,7 +6,7 @@ import { AsClass, ReClass } from "mixin-types";
 // Library.
 import { PropType, SetLike, GetJoinedDataKeysFrom } from "../typing";
 // Mixins.
-import { SignalsRecord } from "../mixins/SignalBoy";
+import { SignalListener, SignalsRecord } from "../mixins/SignalBoy";
 import { SignalSendAsReturn, SignalManType, mixinSignalMan, SignalMan } from "../mixins/SignalMan";
 import { mixinDataBoy, DataBoy, DataBoyType } from "../mixins/DataBoy";
 // Classes.
@@ -42,6 +42,18 @@ export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string
 
 /** Class type of ContextAPI. */
 export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [contexts?: Partial<Contexts>]> { 
+    // Re-type.
+    /** Assignable getter to call more data listeners when callDataBy is used.
+     * - If dataKeys is true (or undefined), then should refresh all data.
+     * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
+     * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
+     */
+    callDataListenersFor?(contextAPI: ContextAPI<Record<string, any>>, dataKeys?: true | string[]): void;
+    /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
+    onListener?(contextAPI: ContextAPI<Record<string, any>>, name: string, index: number, wasAdded: boolean): void;
+    /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
+    getListenersFor?(contextAPI: ContextAPI<Record<string, any>>, signalName: string): SignalListener[] | undefined;
+
     // Static simple-typed helpers.
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
     parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
