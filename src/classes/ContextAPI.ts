@@ -268,12 +268,12 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
                 never
         }
     >(namedRefreshes: Partial<All>, forceTimeout?: number | null): void;
-    public refreshDataBy(namedNeeds: Record<keyof Contexts & string, boolean | string | string[]>, forceTimeout?: number | null): void {
-        const contexts = this.getContexts(namedNeeds);
+    public refreshDataBy(namedRefreshes: Record<keyof Contexts & string, boolean | string | string[]>, forceTimeout?: number | null): void {
+        const contexts = this.getContexts(namedRefreshes);
         for (const name in contexts) {
             const context = contexts[name];
             if (context)
-                context.refreshData(namedNeeds[name] as never, forceTimeout);
+                context.refreshData(namedRefreshes[name] as never, forceTimeout);
         }
     }
 
