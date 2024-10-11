@@ -80,7 +80,7 @@ declare class SignalBoy<Signals extends SignalsRecord = {}> extends SignalBoy_ba
 }
 interface SignalBoy<Signals extends SignalsRecord = {}> {
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
-    signals: Record<string, Array<SignalListener>>;
+    signals: Partial<Record<string, SignalListener[]>>;
     /** Assign a listener to a signal.
      * - You can also define extra arguments, optional groupId for easy clearing, and connection flags (eg. for one-shot or to defer call).
      * - Also checks whether the callback was already attached to the signal, in which case overrides the info.
