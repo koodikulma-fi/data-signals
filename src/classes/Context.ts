@@ -52,23 +52,23 @@ export interface ContextType<Data extends Record<string, any> = {}, Signals exte
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(context: Context<Record<string, any>, SignalsRecord>, dataKeys?: true | string[]): void;
+    callDataListenersFor?(context: Context<any, any>, dataKeys?: true | string[]): void;
     /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(context: Context<Record<string, any>, SignalsRecord>, name: string, index: number, wasAdded: boolean): void;
+    onListener?(context: Context<any, any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(context: Context<Record<string, any>, SignalsRecord>, signalName: string): SignalListener[] | undefined;
+    getListenersFor?(context: Context<any, any>, signalName: string): SignalListener[] | undefined;
     /** Extendable static helper. At the level of Context, this is tied to the context's dataSetMode setting. */
-    createPathTo(context: Context<Record<string, any>, SignalsRecord>, dataKeys: string[]): Record<string, any> | undefined;
+    createPathTo(context: Context<any, any>, dataKeys: string[]): Record<string, any> | undefined;
 
     // Added.
     /** Extendable static default settings getter. */
     getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
-    initializeCyclesFor(context: Context): void;
+    initializeCyclesFor(context: Context<any>): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
-    runPreDelayFor(context: Context, resolvePromise: () => void): void;
+    runPreDelayFor(context: Context<any>, resolvePromise: () => void): void;
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    runDelayFor(context: Context, resolvePromise: () => void): void;
+    runDelayFor(context: Context<any>, resolvePromise: () => void): void;
 }
 
 export interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> { }

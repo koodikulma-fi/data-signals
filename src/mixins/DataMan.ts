@@ -14,7 +14,7 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 /** The static class side typing for DataMan. Includes the constructor arguments when used as a standalone class (or for the mixin in the flow). */
 export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]> {
     /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
-    createPathTo(dataMan: DataMan, dataKeys: string[]): Record<string, any> | undefined;
+    createPathTo(dataMan: DataMan<any>, dataKeys: string[]): Record<string, any> | undefined;
 }
 /** DataMan provides data setting and listening features with dotted strings.
  * - Examples for usage:
@@ -67,12 +67,12 @@ export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel e
     setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
     setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
 
-    /** This refreshes both: data & pending signals.
-     * - If refreshKeys defined, will add them - otherwise only refreshes pending.
-     * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
-     */
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    // /** This refreshes both: data & pending signals.
+    //  * - If refreshKeys defined, will add them - otherwise only refreshes pending.
+    //  * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
+    //  */
+    // refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
+    // refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
     
     /** Note that this only adds the refresh keys but will not refresh. */
     addRefreshKeys(refreshKeys?: string | string[] | boolean): void;

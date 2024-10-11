@@ -12,6 +12,8 @@ interface NodeJSTimeout {
 type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
 /** Type for holding keys as a dictionary, array or set. Useful for name checking. */
 type SetLike<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
+/** Returns true if type is `any`, otherwise false. */
+type IsAny<T> = (any extends T ? true : false) extends true ? true : false;
 /** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`. If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path. */
 type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | never = false> = string extends Path ? Unknown : Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : T[Path] : Path extends `${infer K}.${infer R}` ? K extends keyof T ? PropType<T[K] & {}, R, Unknown, IsPartial extends never ? never : undefined extends T[K] ? true : IsPartial> : Unknown : Unknown;
 /** This helps to feed in a fallback to handle partiality.
@@ -37,7 +39,7 @@ type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | u
  * - Can provide <Data, InterfaceLevel, Pre, Joiner, MaxDepth>. Should not provide the last PreVal, it's used internally.
  * - If InterfaceLevel is never, allows interfaces all the way through - not recommended. Defaults to 0, no interfaces.
  */
-type GetJoinedDataKeysFrom<Data extends Record<string, any>, InterfaceLevel extends number = 0, Pre extends string = "", Joiner extends string = ".", MaxDepth extends number = 10, PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`> = IterateBackwards[MaxDepth] extends never ? never : {
+type GetJoinedDataKeysFrom<Data extends Record<string, any>, InterfaceLevel extends number = 0, Pre extends string = "", Joiner extends string = ".", MaxDepth extends number = 10, PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`> = IsAny<Data> extends true ? any : IterateBackwards[MaxDepth] extends never ? never : {
     [Key in string & keyof Data]: (0 extends InterfaceLevel ? IsDeepPropertyType<Data, Key> : IsDeepPropertyInterface<Data, Key>) extends true ? string & GetJoinedDataKeysFrom<Data[Key] & {}, InterfaceLevel extends 0 ? 0 : IterateBackwards[InterfaceLevel], `${PreVal}${Key}`, Joiner, IterateBackwards[MaxDepth]> | `${PreVal}${Key}` : `${PreVal}${Key}`;
 }[string & keyof Data];
 /** Check if the next level property is deep or not. Skipping arrays, sets, maps, immutable likes, class types, class instances and interfaces. */
@@ -166,7 +168,7 @@ interface DataBoyType<Data extends Record<string, any> = {}, InterfaceLevel exte
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `dataBoy.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(dataBoy: DataBoy<Record<string, any>>, dataKeys?: true | string[]): void;
+    callDataListenersFor?(dataBoy: DataBoy<any>, dataKeys?: true | string[]): void;
 }
 declare const DataBoy_base: ReClass<DataBoyType<{}, 0>, {}, any[]>;
 /** DataBoy is like DataMan but only provides data listening, not actual data.
@@ -216,7 +218,7 @@ interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends 
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
     /** Should be extended. Default implementation does not do anything. */
     setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
-    /** Should be extended. Default implementation just calls the data listeners, optionally after a timeout. */
+    /** Should be extended. Default implementation at DataBoy just calls the data listeners, optionally after a timeout. */
     refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[], forceTimeout?: number | null): void;
     /** Helper to build data arguments with values fetched using getInData method with the given data needs args.
      * - For example: `getDataArgsBy(["user.name", "darkMode"])` returns `[userName?, darkMode?]`.
@@ -243,7 +245,7 @@ declare function mixinDataBoy<Data extends Record<string, any> = {}, InterfaceLe
 /** The static class side typing for DataMan. Includes the constructor arguments when used as a standalone class (or for the mixin in the flow). */
 interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]> {
     /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
-    createPathTo(dataMan: DataMan, dataKeys: string[]): Record<string, any> | undefined;
+    createPathTo(dataMan: DataMan<any>, dataKeys: string[]): Record<string, any> | undefined;
 }
 declare const DataMan_base: ReClass<DataManType<{}, 0>, {}, [data?: {} | undefined, ...args: any[]]>;
 /** DataMan provides data setting and listening features with dotted strings.
@@ -284,12 +286,6 @@ interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends 
      */
     setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
     setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
-    /** This refreshes both: data & pending signals.
-     * - If refreshKeys defined, will add them - otherwise only refreshes pending.
-     * - Note that if !!refreshKeys is false, then will not add any refreshKeys. If there were none, will only trigger the signals.
-     */
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean, forceTimeout?: number | null): void;
     /** Note that this only adds the refresh keys but will not refresh. */
     addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
 }
@@ -474,11 +470,11 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(contextAPI: ContextAPI<Record<string, any>>, dataKeys?: true | string[]): void;
+    callDataListenersFor?(contextAPI: ContextAPI<any>, dataKeys?: true | string[]): void;
     /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(contextAPI: ContextAPI<Record<string, any>>, name: string, index: number, wasAdded: boolean): void;
+    onListener?(contextAPI: ContextAPI<any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(contextAPI: ContextAPI<Record<string, any>>, signalName: string): SignalListener[] | undefined;
+    getListenersFor?(contextAPI: ContextAPI<any>, signalName: string): SignalListener[] | undefined;
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
     parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
     /** Read context names from contextual data keys or signals. */
@@ -679,21 +675,21 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(context: Context<Record<string, any>, SignalsRecord>, dataKeys?: true | string[]): void;
+    callDataListenersFor?(context: Context<any, any>, dataKeys?: true | string[]): void;
     /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(context: Context<Record<string, any>, SignalsRecord>, name: string, index: number, wasAdded: boolean): void;
+    onListener?(context: Context<any, any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(context: Context<Record<string, any>, SignalsRecord>, signalName: string): SignalListener[] | undefined;
+    getListenersFor?(context: Context<any, any>, signalName: string): SignalListener[] | undefined;
     /** Extendable static helper. At the level of Context, this is tied to the context's dataSetMode setting. */
-    createPathTo(context: Context<Record<string, any>, SignalsRecord>, dataKeys: string[]): Record<string, any> | undefined;
+    createPathTo(context: Context<any, any>, dataKeys: string[]): Record<string, any> | undefined;
     /** Extendable static default settings getter. */
     getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;
     /** Extendable static helper to hook up context refresh cycles together. Put as static so that doesn't pollute the public API of Context. */
-    initializeCyclesFor(context: Context): void;
+    initializeCyclesFor(context: Context<any>): void;
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context. */
-    runPreDelayFor(context: Context, resolvePromise: () => void): void;
+    runPreDelayFor(context: Context<any>, resolvePromise: () => void): void;
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
-    runDelayFor(context: Context, resolvePromise: () => void): void;
+    runDelayFor(context: Context<any>, resolvePromise: () => void): void;
 }
 declare const Context_base: ReClass<ContextType<{}, SignalsRecord>, {}, [({} | undefined)?, (Partial<ContextSettings> | undefined)?]>;
 interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
@@ -767,4 +763,4 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 
-export { Awaited, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, DataBoy, DataBoyType, DataListenerFunc, DataMan, DataManType, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSettings, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, askListeners, callListeners, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };
+export { Awaited, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, DataBoy, DataBoyType, DataListenerFunc, DataMan, DataManType, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsAny, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSettings, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, askListeners, callListeners, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };

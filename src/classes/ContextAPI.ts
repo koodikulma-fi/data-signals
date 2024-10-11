@@ -48,11 +48,11 @@ export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends A
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(contextAPI: ContextAPI<Record<string, any>>, dataKeys?: true | string[]): void;
+    callDataListenersFor?(contextAPI: ContextAPI<any>, dataKeys?: true | string[]): void;
     /** Optional method to keep track of added / removed listeners. Called right after adding and right before removing. */
-    onListener?(contextAPI: ContextAPI<Record<string, any>>, name: string, index: number, wasAdded: boolean): void;
+    onListener?(contextAPI: ContextAPI<any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
-    getListenersFor?(contextAPI: ContextAPI<Record<string, any>>, signalName: string): SignalListener[] | undefined;
+    getListenersFor?(contextAPI: ContextAPI<any>, signalName: string): SignalListener[] | undefined;
 
     // Static simple-typed helpers.
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */

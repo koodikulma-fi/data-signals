@@ -23,7 +23,7 @@ export interface DataBoyType<Data extends Record<string, any> = {}, InterfaceLev
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `dataBoy.callDataBy(dataKeys, true)`.
      * - Note. Put as static to keep the public instance API clean. The method needs to be public for internal use of extending classes.
      */
-    callDataListenersFor?(dataBoy: DataBoy<Record<string, any>>, dataKeys?: true | string[]): void;
+    callDataListenersFor?(dataBoy: DataBoy<any>, dataKeys?: true | string[]): void;
 }
 /** DataBoy is like DataMan but only provides data listening, not actual data.
  * - Regardless of having no data, it assumes a custom data structure of nested dictionaries.
@@ -154,7 +154,7 @@ export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel e
     unlistenToData(callback: DataListenerFunc): boolean;
 
 
-    // - Get and set data - //
+    // - Get and set data (all should be extended) - //
 
     /** Should be extended. Default implementation returns fallback. */
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
@@ -163,7 +163,7 @@ export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel e
     /** Should be extended. Default implementation does not do anything. */
     setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
 
-    /** Should be extended. Default implementation just calls the data listeners, optionally after a timeout. */
+    /** Should be extended. Default implementation at DataBoy just calls the data listeners, optionally after a timeout. */
     refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[], forceTimeout?: number | null): void;
 
 

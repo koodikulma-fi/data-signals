@@ -17,11 +17,13 @@ export interface NodeJSTimeout {
     [Symbol.toPrimitive](): number;
 }
 
-// Common JS things.
+// Common JS/TS things.
 /** Awaits the value from a promise. */
 export type Awaited<T> = T extends PromiseLike<infer U> ? U : T
 /** Type for holding keys as a dictionary, array or set. Useful for name checking. */
 export type SetLike<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
+/** Returns true if type is `any`, otherwise false. */
+export type IsAny<T> = (any extends T ? true : false) extends true ? true : false;
 
 // // Intersect.
 // /** Convert union to intersection. */
@@ -110,7 +112,7 @@ export type GetJoinedDataKeysFrom<
     MaxDepth extends number = 10,
     // Local variables.
     PreVal extends string = "" extends Pre ? "" : `${Pre}${Joiner}`
-> = IterateBackwards[MaxDepth] extends never ? never : {
+> = IsAny<Data> extends true ? any : IterateBackwards[MaxDepth] extends never ? never : {
     // Each key.
     [Key in string & keyof Data]:
         // Check if is deep or not. The scope returns `true` or `false`.
