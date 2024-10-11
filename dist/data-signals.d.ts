@@ -28,7 +28,7 @@ type PropTypesFromDictionary<T extends Record<string, any>, Fallbacks extends Re
     [Key in keyof Fallbacks & string]: PropTypeFallback<T, Key, Fallbacks[Key]>;
 };
 /** Get deep props for an array of dotted data keys. */
-type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> = Index extends 0 ? [] : [
+type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> = IsAny<T> extends true ? any[] : Index extends 0 ? [] : [
     ...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>,
     PropTypeFallback<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]>
 ];
@@ -765,6 +765,8 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 /** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like). */
-declare const createContexts: <Contexts extends { [Name in keyof AllData & string]?: Context<AllData[Name] & {}, {}> | undefined; }, AllData extends Partial<Record<string, Record<string, any>>> = { [Name_1 in keyof Contexts & string]: (Contexts[Name_1] & {})["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings> | null) => Contexts;
+declare const createContexts: <Contexts extends Partial<Record<string, Context<any, any>>>, AllData extends Partial<Record<string, Record<string, any>>> = { [Name in keyof Contexts & string]: (Contexts[Name] & {
+    data: {};
+})["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings> | null) => Contexts;
 
 export { Awaited, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, DataBoy, DataBoyType, DataListenerFunc, DataMan, DataManType, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsAny, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSettings, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, askListeners, callListeners, createContexts, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };

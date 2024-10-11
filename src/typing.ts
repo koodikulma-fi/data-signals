@@ -86,6 +86,8 @@ export type PropTypesFromDictionary<T extends Record<string, any>, Fallbacks ext
 
 /** Get deep props for an array of dotted data keys. */
 export type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> =
+    // Cut unnecessary deepness away.
+    IsAny<T> extends true ? any[] : 
     // Nothing more to do.
     Index extends 0 ? [] :
     // Do this, and then there's still more to add before us.
