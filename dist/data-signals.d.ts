@@ -28,7 +28,7 @@ type PropTypesFromDictionary<T extends Record<string, any>, Fallbacks extends Re
     [Key in keyof Fallbacks & string]: PropTypeFallback<T, Key, Fallbacks[Key]>;
 };
 /** Get deep props for an array of dotted data keys. */
-type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> = IsAny<T> extends true ? any[] : Index extends 0 ? [] : [
+type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = Paths, Index extends number = Paths["length"]> = Index extends 0 ? [] : number | never extends Index ? [] : [
     ...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>,
     PropTypeFallback<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]>
 ];
