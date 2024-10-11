@@ -211,11 +211,13 @@ interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends 
     listenToData<Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, Key1 extends Keys, Key2 extends Keys, Key3 extends Keys, Key4 extends Keys, Key5 extends Keys, Key6 extends Keys, Key7 extends Keys, Key8 extends Keys, Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>, val2: PropTypeFallback<Data, Key2, Fallback[1]>, val3: PropTypeFallback<Data, Key3, Fallback[2]>, val4: PropTypeFallback<Data, Key4, Fallback[3]>, val5: PropTypeFallback<Data, Key5, Fallback[4]>, val6: PropTypeFallback<Data, Key6, Fallback[5]>, val7: PropTypeFallback<Data, Key7, Fallback[6]>, val8: PropTypeFallback<Data, Key8, Fallback[7]>) => void, Fallback extends [any?, any?, any?, any?, any?, any?, any?, any?] = []>(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
     unlistenToData(callback: DataListenerFunc): boolean;
-    /** Should be extended. */
+    /** Should be extended. Default implementation returns fallback. */
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
-    /** Should be extended. */
+    /** Should be extended. Default implementation does not do anything. */
     setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
+    /** Should be extended. Default implementation just calls the data listeners, optionally after a timeout. */
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[], forceTimeout?: number | null): void;
     /** Helper to build data arguments with values fetched using getInData method with the given data needs args.
      * - For example: `getDataArgsBy(["user.name", "darkMode"])` returns `[userName?, darkMode?]`.
      * - To add fallbacks (whose type affects the argument types), give an array of fallbacks as the 2nd argument with respective order.

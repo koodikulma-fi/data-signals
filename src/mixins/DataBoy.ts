@@ -156,12 +156,15 @@ export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel e
 
     // - Get and set data - //
 
-    /** Should be extended. */
+    /** Should be extended. Default implementation returns fallback. */
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
 
-    /** Should be extended. */
+    /** Should be extended. Default implementation does not do anything. */
     setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;
+
+    /** Should be extended. Default implementation just calls the data listeners, optionally after a timeout. */
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[], forceTimeout?: number | null): void;
 
 
     // - Helpers - //
@@ -252,13 +255,22 @@ export function mixinDataBoy<Data extends Record<string, any> = {}, InterfaceLev
 
         // - Get and set data - //
 
-        /** Should be extended. */
+        /** Should be extended. Default implementation returns fallback. */
         public getInData(ctxDataKey: string, fallback: any = undefined): any {
-            return undefined;
+            return fallback;
         }
 
-        /** Should be extended. */
+        /** Should be extended. Default implementation does not do anything. */
         public setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void { }
+
+        /** Should be extended. Default implementation just calls the data listeners, optionally after a timeout. */
+        public refreshData(dataKeys: string | string[], forceTimeout?: number | null): void {
+            if (!dataKeys)
+                return;
+            if (typeof dataKeys === "string")
+                dataKeys = [dataKeys];
+            forceTimeout != null ? setTimeout(() => this.callDataBy(dataKeys as string[])) : this.callDataBy(dataKeys as string[]);
+        }
 
 
         // - Helpers - //
