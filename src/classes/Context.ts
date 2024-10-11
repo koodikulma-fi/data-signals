@@ -318,3 +318,19 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     public static runDelayFor(context: Context, resolvePromise: () => void): void { }
 
 }
+
+
+// - Shortcuts - //
+
+/** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like). */
+export const createContexts = <
+    // Optional type arg.
+    Contexts extends { [Name in keyof AllData & string]: Context<AllData[Name]> },
+    // Local variable.
+    AllData extends Record<string, Record<string, any>> = { [Name in keyof Contexts & string]: Contexts[Name]["data"] }
+>(contextsData: AllData, settings?: Partial<ContextSettings>): Contexts => {
+    const contexts: Record<string, Context> = {};
+    for (const name in contextsData)
+        contexts[name] = new Context(contextsData[name], settings);
+    return contexts as Contexts;
+};
