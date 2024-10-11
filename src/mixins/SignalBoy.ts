@@ -72,7 +72,7 @@ export interface SignalBoy<Signals extends SignalsRecord = {}> {
     // ["constructor"]: SignalBoyType<Signals>;
 
     /** The stored signal connections. To emit signals use `sendSignal` and `sendSignalAs` methods. */
-    signals: Record<string, SignalListener[]>;
+    signals: Partial<Record<string, SignalListener[]>>;
 
 
     // - Listen to signals - //
@@ -115,7 +115,7 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
         
         // - Members - //
 
-        public signals: Record<string, SignalListener[]>;
+        public signals: Partial<Record<string, SignalListener[]>> = {};
 
 
         // - Listening - //
@@ -130,7 +130,7 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
             // Add to existing.
             else {
                 // Check for a duplicate by callback. If has add in its place (to update the info), otherwise add to end.
-                if (!listeners.some((info, index) => info[0] === callback ? listeners[index] = listener : false))
+                if (!listeners.some((info, index) => info[0] === callback ? listeners![index] = listener : false))
                     listeners.push( listener );
             }
             // Add technical support for distant OneShots.
@@ -177,13 +177,14 @@ export function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass ext
             if (name == null)
                 return Object.keys(this.signals).some(name => this.isListening(name, callback, groupId));
             // Empty.
-            if (!this.signals[name])
+            const s = this.signals[name];
+            if (!s)
                 return false;
             // Callback doesn't match.
-            if (callback && !this.signals[name].some(listener => listener[0] === callback))
+            if (callback && !s.some(listener => listener[0] === callback))
                 return false;
             // Group doesn't match.
-            if (groupId != null && !this.signals[name].some(listener => listener[3] === groupId))
+            if (groupId != null && !s.some(listener => listener[3] === groupId))
                 return false;
             // Does match.
             return true;
