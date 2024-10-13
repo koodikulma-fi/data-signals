@@ -272,6 +272,7 @@ declare const DataMan_base: ReClass<DataManType<{}, 0>, {}, [data?: {} | undefin
  *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
  */
 declare class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataMan_base {
+    constructor(...args: {} extends OmitPartial<Data> ? [data?: Data] : [data: Data]);
 }
 interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataBoy<Data, InterfaceLevel> {
     readonly data: Data;
@@ -364,7 +365,7 @@ interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends 
  *
  * ```
  */
-declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>, {} extends OmitPartial<Data> ? [Data?, ...any[]] : [Data, ...any[]]>;
+declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>, {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]>;
 
 /** All settings for RefreshCycle. */
 interface RefreshCycleSettings<PendingInfo = undefined> {

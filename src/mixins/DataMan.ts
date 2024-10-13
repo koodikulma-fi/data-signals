@@ -12,7 +12,11 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 // - Class - //
 
 /** The static class side typing for DataMan. Includes the constructor arguments when used as a standalone class (or for the mixin in the flow). */
-export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]> {
+export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<
+    DataBoyType<Data, InterfaceLevel>,
+    DataMan<Data, InterfaceLevel>,
+    {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]
+> {
     /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
     createPathTo(dataMan: DataMan<any>, dataKeys: string[]): Record<string, any> | undefined;
 }
@@ -32,9 +36,14 @@ export interface DataManType<Data extends Record<string, any> = {}, InterfaceLev
  *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
  */
 export class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends
-    (mixinDataMan(Object) as any as ReClass<DataManType, {}>) { }
+    (mixinDataMan(Object) as any as ReClass<DataManType, {}>) {
+        constructor(...args: {} extends OmitPartial<Data> ? [data?: Data] : [data: Data]);
+        constructor(data?: Data) {
+            super(data);
+        }
+    }
 export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataBoy<Data, InterfaceLevel> {
-    
+
 
     // - Members - //
 
@@ -155,7 +164,7 @@ export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLev
     // Instanced.
     DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>,
     // Constructor args.
-    {} extends OmitPartial<Data> ? [Data?, ...any[]] : [Data, ...any[]]
+    {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]
 > {
     // For clarity of usage and avoid problems with deepness, we don't use the <Data, InterfaceLevel> here at all and return ClassType.
     return class DataMan extends (mixinDataBoy(Base) as DataBoyType) {
