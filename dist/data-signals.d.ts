@@ -9,11 +9,19 @@ interface NodeJSTimeout {
     [Symbol.toPrimitive](): number;
 }
 /** Awaits the value from a promise. */
-type Awaited<T> = T extends PromiseLike<infer U> ? U : T;
+type AwaitedOnce<T> = T extends PromiseLike<infer U> ? U : T;
 /** Type for holding keys as a dictionary, array or set. Useful for name checking. */
 type SetLike<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
 /** Returns true if type is `any`, otherwise false. */
 type IsAny<T> = (any extends T ? true : false) extends true ? true : false;
+/** Get keys of a object that have partial values. */
+type GetPartialKeys<T> = {
+    [Key in keyof T & string]: {
+        [K in Key]?: T[Key];
+    } extends Pick<T, Key> ? Key : never;
+}[keyof T & string];
+/** Omit keys that are partial, resulting in a dictionary that only contains the required properties. */
+type OmitPartial<T> = Omit<T, GetPartialKeys<T>>;
 /** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`. If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path. */
 type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | never = false> = string extends Path ? Unknown : Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : T[Path] : Path extends `${infer K}.${infer R}` ? K extends keyof T ? PropType<T[K] & {}, R, Unknown, IsPartial extends never ? never : undefined extends T[K] ? true : IsPartial> : Unknown : Unknown;
 /** This helps to feed in a fallback to handle partiality.
@@ -98,7 +106,7 @@ interface SignalBoy<Signals extends SignalsRecord = {}> {
  */
 declare function mixinSignalBoy<Signals extends SignalsRecord = {}, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<SignalBoyType<Signals> & BaseClass, SignalBoy<Signals> & InstanceType<BaseClass>, any[]>;
 
-type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extends boolean, RetVal = true extends HasAwait ? Awaited<OrigReturnVal> : OrigReturnVal, ReturnVal = true extends IsSingle ? RetVal | undefined : RetVal[]> = true extends HasAwait ? Promise<ReturnVal> : ReturnVal;
+type SignalSendAsReturn<OrigReturnVal, HasAwait extends boolean, IsSingle extends boolean, RetVal = true extends HasAwait ? AwaitedOnce<OrigReturnVal> : OrigReturnVal, ReturnVal = true extends IsSingle ? RetVal | undefined : RetVal[]> = true extends HasAwait ? Promise<ReturnVal> : ReturnVal;
 /** Emits the signal and collects the answers given by each listener ignoring `undefined` as an answer.
  * - By default, returns a list of answers. To return the last one, include "last" in the modes array.
  * - To stop at the first accepted answer use "first" mode or "first-true" mode.
@@ -243,7 +251,7 @@ interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends 
 declare function mixinDataBoy<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataBoyType<Data, InterfaceLevel> & BaseClass, DataBoy<Data, InterfaceLevel> & InstanceType<BaseClass>, any[]>;
 
 /** The static class side typing for DataMan. Includes the constructor arguments when used as a standalone class (or for the mixin in the flow). */
-interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends Data ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]> {
+interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<DataBoyType<Data, InterfaceLevel>, DataMan<Data, InterfaceLevel>, {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]> {
     /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
     createPathTo(dataMan: DataMan<any>, dataKeys: string[]): Record<string, any> | undefined;
 }
@@ -356,7 +364,7 @@ interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends 
  *
  * ```
  */
-declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>, {} extends Data ? [Data?, ...any[]] : [Data, ...any[]]>;
+declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>, {} extends OmitPartial<Data> ? [Data?, ...any[]] : [Data, ...any[]]>;
 
 /** All settings for RefreshCycle. */
 interface RefreshCycleSettings<PendingInfo = undefined> {
@@ -769,4 +777,4 @@ declare const createContexts: <Contexts extends Partial<Record<string, Context<a
     data: {};
 })["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings> | null) => Contexts;
 
-export { Awaited, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, DataBoy, DataBoyType, DataListenerFunc, DataMan, DataManType, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetSignalsFromContexts, IsAny, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSettings, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, askListeners, callListeners, createContexts, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };
+export { AwaitedOnce, Context, ContextAPI, ContextAPIType, ContextSettings, ContextType, ContextsAllType, ContextsAllTypeWith, DataBoy, DataBoyType, DataListenerFunc, DataMan, DataManType, GetDataFromContexts, GetJoinedDataKeysFrom, GetJoinedSignalKeysFromContexts, GetPartialKeys, GetSignalsFromContexts, IsAny, IsDeepPropertyInterface, IsDeepPropertyType, NodeJSTimeout, OmitPartial, PropType, PropTypeArray, PropTypeFallback, PropTypesFromDictionary, RefreshCycle, RefreshCycleSettings, RefreshCycleSignals, RefreshCycleType, SetLike, SignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalListenerFunc, SignalMan, SignalManType, SignalSendAsReturn, SignalsRecord, askListeners, callListeners, createContexts, mixinDataBoy, mixinDataMan, mixinSignalBoy, mixinSignalMan };

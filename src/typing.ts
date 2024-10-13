@@ -19,11 +19,15 @@ export interface NodeJSTimeout {
 
 // Common JS/TS things.
 /** Awaits the value from a promise. */
-export type Awaited<T> = T extends PromiseLike<infer U> ? U : T
+export type AwaitedOnce<T> = T extends PromiseLike<infer U> ? U : T
 /** Type for holding keys as a dictionary, array or set. Useful for name checking. */
 export type SetLike<K extends string> = Partial<Record<K, any>> | Array<K> | Set<K>;
 /** Returns true if type is `any`, otherwise false. */
 export type IsAny<T> = (any extends T ? true : false) extends true ? true : false;
+/** Get keys of a object that have partial values. */
+export type GetPartialKeys<T> = { [Key in keyof T & string]: {[K in Key]?: T[Key]; } extends Pick<T, Key> ? Key : never; }[keyof T & string];
+/** Omit keys that are partial, resulting in a dictionary that only contains the required properties. */
+export type OmitPartial<T> = Omit<T, GetPartialKeys<T>>;
 
 // // Intersect.
 // /** Convert union to intersection. */

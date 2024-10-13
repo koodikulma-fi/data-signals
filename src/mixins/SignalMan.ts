@@ -3,8 +3,7 @@
 
 // Dependency.
 import { ClassType, AsClass, ReClass } from "mixin-types";
-// Library.
-import { Awaited } from "../typing";
+import { AwaitedOnce } from "../typing";
 // Base class.
 import { callListeners, SignalBoy, mixinSignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalsRecord } from "./SignalBoy";
 
@@ -17,7 +16,7 @@ export type SignalSendAsReturn<
     HasAwait extends boolean,
     IsSingle extends boolean,
     // Figured out.
-    RetVal = true extends HasAwait ? Awaited<OrigReturnVal> : OrigReturnVal,
+    RetVal = true extends HasAwait ? AwaitedOnce<OrigReturnVal> : OrigReturnVal,
     ReturnVal = true extends IsSingle ? RetVal | undefined : RetVal[]
 > = true extends HasAwait ? Promise<ReturnVal> : ReturnVal;
 

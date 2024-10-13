@@ -1,5 +1,12 @@
 # CHANGES
 
+## v1.1.1
+
+### Typing refines
+- Renames `Awaited` to `AwaitedOnce` to clarify and to distinguish from TypeScript's own `Awaited` (that awaits all nested).
+- Adds `OmitPartial` and `GetPartialKeys` utility types.
+- Accordingly refines optionality of `DataMan`'s 1st constructor arg (to allow skipping if data has no _required_ properties).
+
 ## v1.1.0
 
 ### Additions & refines
