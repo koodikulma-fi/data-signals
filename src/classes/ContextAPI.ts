@@ -41,7 +41,14 @@ export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string
 // - Class - //
 
 /** Class type of ContextAPI. */
-export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [contexts?: Partial<Contexts>]> { 
+export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
+    // Static.
+    DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>,
+    // Instance.
+    ContextAPI<Contexts>,
+    // Args.
+    [contexts?: Partial<Contexts>]>
+{ 
     // Re-type.
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.

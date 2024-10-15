@@ -13,8 +13,11 @@ import { DataBoy, DataBoyType, mixinDataBoy } from "./DataBoy";
 
 /** The static class side typing for DataMan. Includes the constructor arguments when used as a standalone class (or for the mixin in the flow). */
 export interface DataManType<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends AsClass<
+    // Static.
     DataBoyType<Data, InterfaceLevel>,
+    // Instance.
     DataMan<Data, InterfaceLevel>,
+    // Args.
     {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]
 > {
     /** Extendable static helper. The default implementation makes the path and copies all dictionaries along the way from the root down. */
@@ -37,7 +40,7 @@ export interface DataManType<Data extends Record<string, any> = {}, InterfaceLev
  */
 export class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends
     (mixinDataMan(Object) as any as ReClass<DataManType, {}>) {
-        constructor(...args: {} extends OmitPartial<Data> ? [data?: Data] : [data: Data]);
+        constructor(...args: ConstructorParameters<DataManType<Data, InterfaceLevel>>);
         constructor(data?: Data) {
             super(data);
         }
@@ -158,13 +161,11 @@ export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel e
  * 
  * ```
  */
-export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<
+export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): ReClass<
     // Static.
     DataManType<Data, InterfaceLevel> & BaseClass,
     // Instanced.
-    DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>,
-    // Constructor args.
-    {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]
+    DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>
 > {
     // For clarity of usage and avoid problems with deepness, we don't use the <Data, InterfaceLevel> here at all and return ClassType.
     return class DataMan extends (mixinDataBoy(Base) as DataBoyType) {

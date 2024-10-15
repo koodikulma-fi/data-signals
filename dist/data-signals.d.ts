@@ -272,7 +272,7 @@ declare const DataMan_base: ReClass<DataManType<{}, 0>, {}, [data?: {} | undefin
  *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
  */
 declare class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataMan_base {
-    constructor(...args: {} extends OmitPartial<Data> ? [data?: Data] : [data: Data]);
+    constructor(...args: ConstructorParameters<DataManType<Data, InterfaceLevel>>);
 }
 interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends DataBoy<Data, InterfaceLevel> {
     readonly data: Data;
@@ -365,7 +365,7 @@ interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends 
  *
  * ```
  */
-declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): AsClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>, {} extends OmitPartial<Data> ? [data?: Data, ...args: any[]] : [data: Data, ...args: any[]]>;
+declare function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0, BaseClass extends ClassType = ClassType>(Base: BaseClass): ReClass<DataManType<Data, InterfaceLevel> & BaseClass, DataMan<Data, InterfaceLevel> & InstanceType<BaseClass>>;
 
 /** All settings for RefreshCycle. */
 interface RefreshCycleSettings<PendingInfo = undefined> {
@@ -473,7 +473,9 @@ type GetDataFromContexts<Ctxs extends ContextsAllType> = {
     [Key in string & keyof Ctxs]: Ctxs[Key]["data"];
 };
 /** Class type of ContextAPI. */
-interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [contexts?: Partial<Contexts>]> {
+interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [
+    contexts?: Partial<Contexts>
+]> {
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
@@ -680,7 +682,7 @@ interface ContextSettings {
     dataSetMode: "root" | "leaf" | "only";
 }
 /** Class type for Context class. */
-interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> {
+interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]> {
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
@@ -702,7 +704,7 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     runDelayFor(context: Context<any>, resolvePromise: () => void): void;
 }
-declare const Context_base: ReClass<ContextType<{}, SignalsRecord>, {}, [({} | undefined)?, (Partial<ContextSettings> | undefined)?]>;
+declare const Context_base: ReClass<ContextType<{}, SignalsRecord>, {}, [data?: {} | undefined, settings?: Partial<ContextSettings> | null | undefined]>;
 interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
 }
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
@@ -732,7 +734,7 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     delayCycle: RefreshCycle;
     /** The keys are the ContextAPIs this context is attached to with a name, and the values are the names (typically only one). They are used for refresh related purposes. */
     contextAPIs: Map<ContextAPI, string[]>;
-    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
+    constructor(...args: ConstructorParameters<ContextType<Data, Signals>>);
     /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     modifySettings(settings: Partial<ContextSettings>): void;
     /** Trigger a refresh in the context.

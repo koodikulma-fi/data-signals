@@ -45,7 +45,14 @@ export interface ContextSettings {
 // - Class - //
 
 /** Class type for Context class. */
-export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, [Data?, Partial<ContextSettings>?]> {
+export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<
+    // Static.
+    DataManType<Data> & SignalManType<Signals>,
+    // Instance.
+    Context<Data, Signals>,
+    // Args.
+    {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]
+> {
     // Re-type.
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
@@ -114,7 +121,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     // - Construct - //
 
-    constructor(...args: {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]);
+    constructor(...args: ConstructorParameters<ContextType<Data, Signals>>);
     constructor(data: Data, settings?: Partial<ContextSettings> | null | undefined) {
         // Base.
         super(data);

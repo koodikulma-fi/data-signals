@@ -3,6 +3,7 @@
 ## v1.1.2 (unreleased)
 
 ### Package refines
+- Refines how typing for constructor args is read (end result is the same).
 - Updates comments, README, and adds "types" specifically to package.json.
 - In imports, refines that dependency is to `"mixin-types/types"` (only the typing as of `mixin-types@v1.1.1`).
 
