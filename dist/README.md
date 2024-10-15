@@ -74,21 +74,25 @@ signalBoy.sendSignal("doIt", 5);
 ```typescript
 
 // Prepare signal typing.
-type Signals = { doIt: (what: number) => void; whatIsLife: (whoAsks: string) => Promise<number>; };
+type Signals = {
+    doIt: (what: number) => void;
+    whatIsLife: (whoAsks: string) => Promise<number>;
+};
 
 // Create a SignalMan instance.
 const signalMan = new SignalMan<Signals>();
 
 // Listen to signals.
 signalMan.listenTo("doIt", (what) => { console.log(what); });
-signalMan.listenTo("whatIsLife", (whoAsks) => new Promise(res => res(whoAsks === "me" ? 0 : -1)));
+signalMan.listenTo("whatIsLife", (whoAsks) =>
+    new Promise(res => res(whoAsks === "me" ? 0 : -1)));
 
 // Send a simple signal.
 signalMan.sendSignal("doIt", 5);
 
-// Send a more complex signal.
-const livesAre = await signalMan.sendSignalAs("await", "whatIsLife", "me"); // number[]
-const lifeIsAfterAll = await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // number | undefined
+// Send a more complex signal - let's assume we're in async scope.
+await signalMan.sendSignalAs("await", "whatIsLife", "me"); // number[]
+await signalMan.sendSignalAs(["await", "first"], "whatIsLife", "me"); // number | undefined
 
 ```
 
@@ -219,8 +223,8 @@ myContext.refreshData(true, null); // Just refresh everything, and do it now (wi
 myContext.sendSignal("doIt", 5);
 
 // Send a more complex signal.
-const livesAre = await myContext.sendSignalAs("await", "whatIsLife", "me"); // number[]
-const lifeIsAfterAll = await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // number | undefined
+await myContext.sendSignalAs("await", "whatIsLife", "me"); // number[]
+await myContext.sendSignalAs(["delay", "await", "first"], "whatIsLife", "me"); // number | undefined
 //
 // <-- Using "pre-delay" ties to context's refresh cycle, while "delay" ties to once all related contextAPIs have refreshed.
 
@@ -442,7 +446,7 @@ mainCycle.pending; // Will just have have empty "sources" set and "infos" array.
 ```typescript
 
 // Imports.
-import { ReMixin } from "mixin-types";
+import { ReMixin } from "mixin-types"; // Or from "mixin-types/types".
 import { mixinSignalMan, SignalManType } from "data-signals";
 
 // Let's define some custom class.
@@ -476,7 +480,7 @@ cMix.listenTo("doSomething", (...things) => { });
 ```typescript
 
 // Imports.
-import { AsMixin, ReMixin } from "mixin-types";
+import { AsMixin, ReMixin } from "mixin-types"; // Or from "mixin-types/types".
 import { DataMan, DataManType, mixinDataMan } from "./mixins/DataMan";
 
 // Let's define a custom class with constructor args.
@@ -519,7 +523,7 @@ cMix.someMember; // boolean (as type), false (as JS value)
 ```typescript
 
 // Imports.
-import { mixinsWith, ReMixin } from "mixin-types";
+import { mixinsWith, ReMixin } from "mixin-types"; // Or from "mixin-types/types".
 import { mixinDataMan, mixinSignalMan, DataMan, DataManType, SignalManType } from "data-signals";
 
 // Base and types from above.
@@ -575,7 +579,7 @@ myMultiMix_Incorrect.sendSignal("test", 5); // sendSignal is red-undlined, not f
 ```typescript
 
 // Imports.
-import { ClassType, AsClass, AsInstance } from "mixin-types";
+import { ClassType, AsClass, AsInstance } from "mixin-types"; // Or from "mixin-types/types".
 import { SignalsRecord, mixinSignalMan, SignalMan, SignalManType, DataMan, mixinDataMan, DataManType } from "data-signals";
 
 // Mix DataMan and SignalMan upon CustomBase with generic + own args.

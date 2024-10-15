@@ -1,4 +1,4 @@
-import { IterateBackwards, ClassType, AsClass, ReClass, GetConstructorArgs } from 'mixin-types';
+import { IterateBackwards, ClassType, AsClass, ReClass, GetConstructorArgs } from 'mixin-types/types';
 
 /** Typing for NodeJS side timers. */
 interface NodeJSTimeout {

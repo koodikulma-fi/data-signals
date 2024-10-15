@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, AsClass, ReClass } from "mixin-types";
+import { ClassType, AsClass, ReClass } from "mixin-types/types";
 import { AwaitedOnce } from "../typing";
 // Base class.
 import { callListeners, SignalBoy, mixinSignalBoy, SignalBoyType, SignalListener, SignalListenerFlags, SignalsRecord } from "./SignalBoy";

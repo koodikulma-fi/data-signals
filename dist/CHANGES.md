@@ -1,5 +1,11 @@
 # CHANGES
 
+## v1.1.2 (unreleased)
+
+### Package refines
+- Updates comments, README, and adds "types" specifically to package.json.
+- In imports, refines that dependency is to `"mixin-types/types"` (only the typing as of `mixin-types@v1.1.1`).
+
 ## v1.1.1
 
 ### Typing refines

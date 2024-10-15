@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, AsClass, ReClass } from "mixin-types";
+import { ClassType, AsClass, ReClass } from "mixin-types/types";
 // Library.
 import { PropType, GetJoinedDataKeysFrom, OmitPartial } from "../typing";
 // Base.

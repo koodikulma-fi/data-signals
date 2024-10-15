@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { AsClass, GetConstructorArgs } from "mixin-types";
+import { AsClass, GetConstructorArgs } from "mixin-types/types";
 // Mixins.
 import { SignalBoy, SignalBoyType, SignalsRecord } from "../mixins/SignalBoy";
 // Typing.

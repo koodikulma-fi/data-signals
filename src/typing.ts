@@ -2,7 +2,7 @@
 // - Imports - //
 
 // Dependency.
-import { ClassType, IterateBackwards } from "mixin-types";
+import { ClassType, IterateBackwards } from "mixin-types/types";
 
 
 // - General - //
