@@ -477,7 +477,7 @@ type GetPartialDataFromContexts<Ctxs extends ContextsAllType> = {
     [Key in string & keyof Ctxs]?: Ctxs[Key]["data"];
 };
 /** Class type of ContextAPI. */
-interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetPartialDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [
+interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<GetPartialDataFromContexts<Contexts>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [
     contexts?: Partial<Contexts>,
     inheritedContexts?: Partial<Contexts>
 ]> {
@@ -501,7 +501,7 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
 declare const ContextAPI_base: ReClass<ContextAPIType<{}>, {}, [contexts?: Partial<{}> | undefined, inheritedContexts?: Partial<{}> | undefined]>;
-interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<Partial<GetPartialDataFromContexts<Contexts>>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> {
+interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetPartialDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> {
 }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:

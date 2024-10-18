@@ -45,7 +45,7 @@ export type GetPartialDataFromContexts<Ctxs extends ContextsAllType> = { [Key in
 /** Class type of ContextAPI. */
 export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     // Static.
-    DataBoyType<Partial<GetPartialDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>,
+    DataBoyType<GetPartialDataFromContexts<Contexts>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>,
     // Instance.
     ContextAPI<Contexts>,
     // Args.
@@ -75,7 +75,7 @@ export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends A
     /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
-export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<Partial<GetPartialDataFromContexts<Contexts>>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> { }
+export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetPartialDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> { }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:
  *      * SignalMan: Send and listen to signals in the named contexts.
