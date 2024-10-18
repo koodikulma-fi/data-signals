@@ -34,6 +34,8 @@ export type GetJoinedSignalKeysFromContexts<Contexts extends ContextsAllType> = 
 export type GetSignalsFromContexts<Ctxs extends ContextsAllType> = { [CtxSignalName in GetJoinedSignalKeysFromContexts<Ctxs> & string]: CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? (Ctxs[CtxName]["_Signals"] & {})[SignalName] : never; };
 /** Combine the data part of the named contexts, keeping the same naming structure. */
 export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string & keyof Ctxs]: Ctxs[Key]["data"]; };
+export type GetPartialDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string & keyof Ctxs]?: Ctxs[Key]["data"]; };
+// export type GetPartialDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string & keyof Ctxs]: Partial<Ctxs[Key]["data"]>; };
 // /** Combine the data part of the named contexts, keeping the same naming structure. Enforces the data declaration of each context to `type` like from `interface` like, so that it's not cut out. */
 // export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string & keyof Ctxs]: Ctxs[Key]["data"] & { [y: number]: never; }; }; // Let's make interfaces look like types here at the 1st level.
 
@@ -43,7 +45,7 @@ export type GetDataFromContexts<Ctxs extends ContextsAllType> = { [Key in string
 /** Class type of ContextAPI. */
 export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     // Static.
-    DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>,
+    DataBoyType<Partial<GetPartialDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>,
     // Instance.
     ContextAPI<Contexts>,
     // Args.
@@ -73,7 +75,7 @@ export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends A
     /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
-export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> { }
+export interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetPartialDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> { }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:
  *      * SignalMan: Send and listen to signals in the named contexts.
@@ -299,35 +301,6 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
         }
     }
     
-    // // Extend.
-    // public callDataBy(refreshKeys: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>[] = true, onlyDirect?: boolean): void {
-    //     // Use external flow.
-    //     if (!onlyDirect && (this.constructor as DataBoyType).callDataListenersFor) {
-    //         (this.constructor as DataBoyType).callDataListenersFor!(this as any, refreshKeys as any);
-    //         return;
-    //     }
-    //     // Loop each callback, and call if needs to.
-    //     for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
-    //         if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-    //             callback(...this.getDataArgsBy(needs as any, fallbackArgs));
-    //     }
-    // }
-    // public getDataArgsBy<
-    //     DataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>,
-    //     Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?],
-    //     Fallbacks extends Record<string, any> | [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]
-    // >(needs: Params, fallbackArgs?: Fallbacks): Fallbacks extends any[] ? PropTypeArray<GetDataFromContexts<Contexts>, Params, Fallbacks> : [valueDictionary: PropTypesFromDictionary<GetDataFromContexts<Contexts>, Fallbacks>];
-    // public getDataArgsBy(needs: string[], fallbackArgs?: any[] | Record<string, any>): any[] {
-    //     // Has fallback.
-    //     return fallbackArgs ?
-    //         // Array.
-    //         Array.isArray(fallbackArgs) ? needs.map((need, i) => this.getInData(need, fallbackArgs[i])) :
-    //         // Dictionary.
-    //         [needs.reduce((cum, need) => { cum[need] = this.getInData(need, fallbackArgs[need]); return cum; }, {} as Record<string, any>)] :
-    //     // No fallback.
-    //     needs.map((need, i) => this.getInData(need));
-    // }
-
 
     // - Mangle contexts - //
 
