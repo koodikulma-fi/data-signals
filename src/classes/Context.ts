@@ -4,7 +4,7 @@
 // Dependency.
 import { AsClass, ReClass } from "mixin-types/types";
 // Library.
-import { GetJoinedDataKeysFrom } from "../typing";
+import { GetJoinedDataKeysFrom, OmitPartial } from "../typing";
 // Mixins.
 import { mixinSignalMan, SignalMan } from "../mixins/SignalMan";
 import { mixinDataMan, DataMan } from "../mixins/DataMan";
@@ -51,7 +51,7 @@ export interface ContextType<Data extends Record<string, any> = {}, Signals exte
     // Instance.
     Context<Data, Signals, InterfaceLevel>,
     // Args.
-    {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]
+    {} extends OmitPartial<Data> ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]
 > {
     // Re-type.
     /** Assignable getter to call more data listeners when callDataBy is used.

@@ -682,7 +682,7 @@ interface ContextSettings {
     dataSetMode: "root" | "leaf" | "only";
 }
 /** Class type for Context class. */
-interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, InterfaceLevel extends number | never = 0> extends AsClass<DataManType<Data, InterfaceLevel> & SignalManType<Signals>, Context<Data, Signals, InterfaceLevel>, {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]> {
+interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, InterfaceLevel extends number | never = 0> extends AsClass<DataManType<Data, InterfaceLevel> & SignalManType<Signals>, Context<Data, Signals, InterfaceLevel>, {} extends OmitPartial<Data> ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]> {
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
