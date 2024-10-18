@@ -634,7 +634,7 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
      */
     setContexts(contextMods: Partial<{
-        [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
+        [CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined;
     }>, callDataIfChanged?: boolean, setAsInherited?: boolean): Array<string & keyof Contexts>;
     /** Manage the inheritedContexts as a whole. Automatically updates the situation from the previous set of contexts.
      * @param newContexts The new named contexts as a whole state. If wanting to only apply mods, set param extend to `true`.

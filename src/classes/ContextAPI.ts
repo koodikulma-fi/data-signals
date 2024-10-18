@@ -368,7 +368,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
      * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
      */
-    public setContexts(contextMods: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, setAsInherited: boolean = false): Array<string & keyof Contexts> {
+    public setContexts(contextMods: Partial<{[CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, setAsInherited: boolean = false): Array<string & keyof Contexts> {
         return this.constructor.modifyContexts(this, contextMods, callDataIfChanged, setAsInherited) as Array<string & keyof Contexts>;
     }
 
