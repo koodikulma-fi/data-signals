@@ -260,7 +260,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
         if (!ctxDataKeys)
             return;
         // Prepare a temp dictionary.
-        const contexts: Record<string, Context | null | undefined> = {};
+        const contexts: Partial<Record<string, Context | null>> = {};
         // Loop each data key.
         for (const ctxDataKey of ctxDataKeys === true ? Object.keys(this.getContexts()) : typeof ctxDataKeys === "string" ? [ctxDataKeys] : ctxDataKeys) {
             // Get context.
