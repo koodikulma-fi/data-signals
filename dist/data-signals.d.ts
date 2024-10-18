@@ -474,7 +474,8 @@ type GetDataFromContexts<Ctxs extends ContextsAllType> = {
 };
 /** Class type of ContextAPI. */
 interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<DataBoyType<Partial<GetDataFromContexts<Contexts>>, 1> & SignalManType<GetSignalsFromContexts<Contexts>>, ContextAPI<Contexts>, [
-    contexts?: Partial<Contexts>
+    contexts?: Partial<Contexts>,
+    inheritedContexts?: Partial<Contexts>
 ]> {
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
@@ -486,6 +487,8 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     onListener?(contextAPI: ContextAPI<any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
     getListenersFor?(contextAPI: ContextAPI<any>, signalName: string): SignalListener[] | undefined;
+    /** Extendable static method to handle modifying contexts. Modifies the named context assignments by the given contextMods. To totally remove a context set its value as `undefined`. */
+    modifyContexts(contextAPI: ContextAPI<any>, contextMods: Partial<ContextsAllTypeWith<{}, null>>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
     parseContextDataKey(ctxDataSignalKey: string): [ctxName: string, dataSignalKey: string];
     /** Read context names from contextual data keys or signals. */
@@ -493,7 +496,7 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     /** Converts array of context data keys or signals `${ctxName}.${dataSignalKey}` to a dictionary `{ [ctxName]: dataSignalKey[] | true }`, where `true` as value means all in context. */
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
-declare const ContextAPI_base: ReClass<ContextAPIType<{}>, {}, [contexts?: Partial<{}> | undefined]>;
+declare const ContextAPI_base: ReClass<ContextAPIType<{}>, {}, [contexts?: Partial<{}> | undefined, inheritedContexts?: Partial<{}> | undefined]>;
 interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> {
 }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
@@ -513,7 +516,12 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      *      * But `undefined` will never be found in here - if gives to the setContext, it means deleting the entry from the record.
      */
     contexts: Partial<Record<string, Context<Record<string, any>, SignalsRecord> | null>>;
-    constructor(contexts?: Partial<Contexts>);
+    /** Optionally set inherited contexts that will be automatically hooked up and connected just like normal contexts.
+     * - For example, if you have a common source of inheritance, only change it once it changes, treating the contexts as dictionary as if immutable.
+     *      * The immutable nature is important in order to correctly manage connections to contexts.
+     */
+    inheritedContexts?: Partial<Record<string, Context<Record<string, any>, SignalsRecord> | null>>;
+    constructor(contexts?: Partial<Contexts>, inheritedContexts?: Partial<Contexts>);
     /** This (triggers a refresh and) returns a promise that is resolved when the "pre-delay" or "delay" cycle is completed.
      * - At the level of ContextAPI there's nothing to refresh (no data held, just read from contexts).
      *      * Actually the point is the opposite: to optionally delay the "delay" cycle of the connected contexts by overriding the `awaitDelay` method.
@@ -591,10 +599,10 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * - Returns undefined if not found, otherwise Context or null if specifically set to null.
      * - This method can be extended to get contexts from elsewhere in addition. (It's used internally all around ContextAPI, except in getContexts and setContext.)
      */
-    getContext<Name extends keyof Contexts & string>(name: Name): Contexts[Name] | null | undefined;
+    getContext<Name extends keyof Contexts & string>(name: Name, includeInherited?: boolean): Contexts[Name] | null | undefined;
     /** Gets the contexts by names. If name not found, not included in the returned dictionary, otherwise the values are Context | null. */
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
+    getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
     /** Create a new context.
      * - If settings given uses it, otherwise default context settings.
      * - If overrideWithName given, then calls setContext automatically with the given name. If empty (default), functions like a simple static function just instantiating a new context with given data.
@@ -619,14 +627,24 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
      */
-    setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged?: boolean): boolean;
+    setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged?: boolean, setAsInherited?: boolean): boolean;
     /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
+     * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
      */
-    setContexts(contexts: Partial<{
+    setContexts(contextMods: Partial<{
         [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
-    }>, callDataIfChanged?: boolean): boolean;
+    }>, callDataIfChanged?: boolean, setAsInherited?: boolean): Array<string & keyof Contexts>;
+    /** Manage the inheritedContexts as a whole. Automatically updates the situation from the previous set of contexts.
+     * @param newContexts The new named contexts as a whole state. If wanting to only apply mods, set param extend to `true`.
+     * @param callDataIfChanged Calls data changes for each change in contextAPI's context assignments.
+     * @param extend Defaults to `false`. If set to `true`, then param newContexts functions as if partial modifications - instead of a full state. Essentially controls whether removes all old that are not found in newContexts (false) or not (true).
+     * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
+     */
+    setInheritedContexts(newContexts: Partial<{
+        [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
+    }>, callDataIfChanged?: boolean, extend?: boolean): Array<string & keyof Contexts>;
     /** Trigger a refresh in a specific context.
      * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
      */
@@ -637,6 +655,8 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
      */
     refreshContexts(contextNames?: Array<keyof Contexts & string>[] | Partial<Record<keyof Contexts & string, number | null | undefined>> | null, forceTimeout?: number | null): void;
+    /** Extendable helper to modify contexts for a contextAPI instance. Returns keys for changed context names (if the actual hook up was changed). */
+    static modifyContexts(cAPI: ContextAPI<any>, contextMods: Partial<ContextsAllTypeWith<{}, null>>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
     /** Converts contextual data or signal key to a tuple: `[ctxName: string, dataSignalKey: string]`
      * @param ctxDataSignalKey The string representing `${ctxName}.${dataKeyOrSignalName}`.
      *      - In case refers to a deep data key, looks like this: `${ctxName}.${dataKey1}.${dataKey2}.${dataKey3}`.

@@ -47,7 +47,7 @@ export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends A
     // Instance.
     ContextAPI<Contexts>,
     // Args.
-    [contexts?: Partial<Contexts>]>
+    [contexts?: Partial<Contexts>, inheritedContexts?: Partial<Contexts>]>
 { 
     // Re-type.
     /** Assignable getter to call more data listeners when callDataBy is used.
@@ -60,6 +60,10 @@ export interface ContextAPIType<Contexts extends ContextsAllType = {}> extends A
     onListener?(contextAPI: ContextAPI<any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
     getListenersFor?(contextAPI: ContextAPI<any>, signalName: string): SignalListener[] | undefined;
+
+    // Extendable.
+    /** Extendable static method to handle modifying contexts. Modifies the named context assignments by the given contextMods. To totally remove a context set its value as `undefined`. */
+    modifyContexts(contextAPI: ContextAPI<any>, contextMods: Partial<ContextsAllTypeWith<{}, null>>, callDataIfChanged: boolean, setAsInherited: boolean): string[];
 
     // Static simple-typed helpers.
     /** Converts contextual data or signal key to `[ctxName: string, dataSignalKey: string]` */
@@ -93,13 +97,20 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      *      * But `undefined` will never be found in here - if gives to the setContext, it means deleting the entry from the record.
      */
     public contexts: Partial<Record<string, Context<Record<string, any>, SignalsRecord> | null>>;
+    /** Optionally set inherited contexts that will be automatically hooked up and connected just like normal contexts.
+     * - For example, if you have a common source of inheritance, only change it once it changes, treating the contexts as dictionary as if immutable.
+     *      * The immutable nature is important in order to correctly manage connections to contexts.
+     */
+    public inheritedContexts?: Partial<Record<string, Context<Record<string, any>, SignalsRecord> | null>>;
 
 
     // - Initialize - //
 
-    constructor(contexts?: Partial<Contexts>) {
+    constructor(contexts?: Partial<Contexts>, inheritedContexts?: Partial<Contexts>) {
         super();
         this.contexts = { ...contexts };
+        if (inheritedContexts)
+            this.inheritedContexts = inheritedContexts;
         this.dataListeners = new Map();
     }
 
@@ -291,22 +302,24 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      * - Returns undefined if not found, otherwise Context or null if specifically set to null.
      * - This method can be extended to get contexts from elsewhere in addition. (It's used internally all around ContextAPI, except in getContexts and setContext.)
      */
-    public getContext<Name extends keyof Contexts & string>(name: Name): Contexts[Name] | null | undefined {
-        return this.contexts[name] as Contexts[Name] | null | undefined;
+    public getContext<Name extends keyof Contexts & string>(name: Name, includeInherited: boolean = true): Contexts[Name] | null | undefined {
+        return this.contexts[name] !== undefined ? this.contexts[name] as Contexts[Name] | null : includeInherited && this.inheritedContexts ? this.inheritedContexts[name] as Contexts[Name] | undefined : undefined;
     }
 
     /** Gets the contexts by names. If name not found, not included in the returned dictionary, otherwise the values are Context | null. */
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
-    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
-        // Base.
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: true): Partial<ContextsAllTypeWith<Contexts, never, Name>>;
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited?: boolean, skipNulls?: boolean | never): Partial<ContextsAllTypeWith<Contexts, null, Name>>;
+    public getContexts<Name extends keyof Contexts & string>(onlyNames?: SetLike<Name> | null, includeInherited: boolean = true, skipNulls: boolean = false): Partial<Contexts> | Partial<ContextsAllTypeWith<Contexts, null>> {
+        // All.
         if (!onlyNames)
-            return { ...this.contexts } as Contexts;
+            return { ...includeInherited ? this.inheritedContexts : undefined, ...this.contexts } as Contexts;
+        // Collect.
         const okNames = onlyNames.constructor === Set ? onlyNames : onlyNames.constructor === Array ? new Set(onlyNames) : new Set(Object.keys(onlyNames));
         const contexts: Partial<ContextsAllTypeWith<{}, null>> = {};
-        for (const name in this.contexts)
-            if (okNames.has(name) && this.contexts[name] !== undefined && (!skipNulls || this.contexts[name] !== null))
-                contexts[name] = this.contexts[name];
+        const srcCtxs = includeInherited && this.inheritedContexts ? { ...this.inheritedContexts, ...this.contexts} : this.contexts;
+        for (const name in srcCtxs)
+            if (okNames.has(name) && srcCtxs[name] !== undefined && (!skipNulls || srcCtxs[name] !== null))
+                contexts[name] = srcCtxs[name];
         // Mixed.
         return contexts;
     }
@@ -346,50 +359,35 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
      */
-    public setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged: boolean = true): boolean { 
-        // Nothing to do.
-        const oldContext = this.contexts[name];
-        if (oldContext === context)
-            return false;
-        // Remove from old context.
-        if (oldContext) {
-            const ctxNames = oldContext.contextAPIs.get(this as ContextAPI);
-            if (ctxNames) {
-                const newNames = ctxNames.filter(ctxName => ctxName !== name);
-                newNames.length ? oldContext.contextAPIs.set(this as ContextAPI, newNames) : oldContext.contextAPIs.delete(this as ContextAPI);
-            }
-        }
-        // Add to new context.
-        if (context) {
-            // Add to new context.
-            const ctxNames = context.contextAPIs.get(this as ContextAPI) || [];
-            if (!ctxNames.includes(name))
-                ctxNames.push(name);
-            context.contextAPIs.set(this as ContextAPI, ctxNames);
-        }
-        // Handle local bookkeeping.
-        if (context !== undefined)
-            this.contexts[name] = context;
-        else
-            delete this.contexts[name];
-        // Refresh.
-        if (callDataIfChanged)
-            this.callDataBy([name] as any);
-        return true;
+    public setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged: boolean = true, setAsInherited: boolean = false): boolean { 
+        return this.constructor.modifyContexts(this, { [name]: context }, callDataIfChanged, setAsInherited)[0] !== undefined;
     }
 
     /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
      * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
+     * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
      */
-    public setContexts(contexts: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true): boolean {
-        // Override each - don't refresh.
-        let didChange = false;
-        for (const name in contexts)
-            didChange = this.setContext(name, contexts[name] as any, false) || didChange;
+    public setContexts(contextMods: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, setAsInherited: boolean = false): Array<string & keyof Contexts> {
+        return this.constructor.modifyContexts(this, contextMods, callDataIfChanged, setAsInherited) as Array<string & keyof Contexts>;
+    }
+
+    /** Manage the inheritedContexts as a whole. Automatically updates the situation from the previous set of contexts.
+     * @param newContexts The new named contexts as a whole state. If wanting to only apply mods, set param extend to `true`.
+     * @param callDataIfChanged Calls data changes for each change in contextAPI's context assignments.
+     * @param extend Defaults to `false`. If set to `true`, then param newContexts functions as if partial modifications - instead of a full state. Essentially controls whether removes all old that are not found in newContexts (false) or not (true).
+     * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
+     */
+    public setInheritedContexts(newContexts: Partial<{[CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined; }>, callDataIfChanged: boolean = true, extend: boolean = false): Array<string & keyof Contexts> {
+        // Find old to remove.
+        const oldContexts = extend ? {} : { ...this.inheritedContexts };
+        for (const ctxName in oldContexts)
+            oldContexts[ctxName] = undefined;
+        // Set as inherited.
+        const didChange = this.setContexts({ ...oldContexts, ...newContexts }, false, true);
         // Refresh.
         if (callDataIfChanged && didChange)
-            this.callDataBy(Object.keys(contexts) as any);
+            this.callDataBy(Object.keys(newContexts) as any);
         return didChange;
     }
 
@@ -397,7 +395,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
      */
     public refreshContext(name: keyof Contexts & string, forceTimeout?: number | null): void {
-        this.contexts[name]?.triggerRefresh(forceTimeout);
+        this.getContext(name)?.triggerRefresh(forceTimeout);
     }
 
     /** Refresh all or named contexts with the given forceTimeout.
@@ -408,13 +406,61 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
     public refreshContexts(contextNames?: Array<keyof Contexts & string>[] | Partial<Record<keyof Contexts & string, number | null | undefined>> | null, forceTimeout?: number | null): void {
         // Refresh all / named with the given forceTimeout.
         if (!contextNames || Array.isArray(contextNames)) {
-            for (const ctxName of contextNames || Object.keys(this.contexts))
+            for (const ctxName of contextNames || Object.keys(this.getContexts()))
                 this.refreshContext(ctxName as keyof Contexts & string, forceTimeout);
         }
         // Refresh by specific timeouts.
         else
             for (const ctxName in contextNames)
                 this.refreshContext(ctxName, contextNames[ctxName] === undefined ? forceTimeout : contextNames[ctxName]);
+    }
+
+
+    // - Static context helpers - //
+
+    /** Extendable helper to modify contexts for a contextAPI instance. Returns keys for changed context names (if the actual hook up was changed). */
+    public static modifyContexts(cAPI: ContextAPI<any>, contextMods: Partial<ContextsAllTypeWith<{}, null>>, callDataIfChanged: boolean, setAsInherited: boolean): string[] {
+        // Nothing to do.
+        let changed: string[] = [];
+        for (const name in contextMods) {
+            // Get.
+            const context = contextMods[name];
+            const oldContext = cAPI.getContext(name);
+            const ctxs = setAsInherited ? cAPI.inheritedContexts || (cAPI.inheritedContexts = {}) : cAPI.contexts;
+            // Nothing changed in the final hook-ups.
+            if (oldContext === context) {
+                // Just local bookkeeping.
+                if (setAsInherited ? (cAPI.inheritedContexts && cAPI.inheritedContexts[name]) !== context : cAPI.contexts[name] !== context)
+                    context !== undefined ? ctxs[name] = context : delete ctxs[name];
+                // Nothing more to do.
+                break;
+            }
+            // Remove from old context.
+            if (oldContext) {
+                const ctxNames = oldContext.contextAPIs.get(cAPI as ContextAPI);
+                if (ctxNames) {
+                    const newNames = ctxNames.filter(ctxName => ctxName !== name);
+                    newNames.length ? oldContext.contextAPIs.set(cAPI as ContextAPI, newNames) : oldContext.contextAPIs.delete(cAPI as ContextAPI);
+                }
+            }
+            // Add to new context.
+            if (context) {
+                // Add to new context.
+                const ctxNames = context.contextAPIs.get(cAPI as ContextAPI) || [];
+                if (!ctxNames.includes(name))
+                    ctxNames.push(name);
+                context.contextAPIs.set(cAPI as ContextAPI, ctxNames);
+            }
+            // Handle local bookkeeping.
+            context !== undefined ? ctxs[name] = context : delete ctxs[name];
+            // Add to changed.
+            changed.push(name);
+        }
+        // Refresh.
+        if (callDataIfChanged && changed[0] !== undefined)
+            cAPI.callDataBy(changed);
+        // Return changed names.
+        return changed;
     }
 
 
