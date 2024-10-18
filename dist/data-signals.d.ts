@@ -689,15 +689,18 @@ interface ContextSettings {
      *      * For example, on the next code line (after say, setting data in context) the context have already updated and triggered refreshes all around the app. Maybe instance you called from has alredy unmounted.
      */
     refreshTimeout: number | null;
-    /** How sets nested data when using "setInData" method. The default is "leaf".
-     * - "root": In this mode takes shallow copies of all parenting dictionaries - from the root down to the target leaf.
-     *      * This mode is particularly suitable with data selector concept (eg. see "data-memo" npm package).
-     * - "leaf": In this mode only sets the target leaf data without copying parenting structure.
-     *      * However, if a parenting object does not exist, creates an empty dictionary for it (unlike the "only" mode).
-     *      * This mode is recommended, if immutable-like renewal of the parenting dictionaries is not needed.
-     * - "only": Like "leaf", but only sets the data if the parenting structure exists - ie. stops if it doesn't.
+    /** How sets nested data when using "setInData" method. The default is "immutable".
+     * - "immutable": In this mode takes shallow copies of all parenting dictionaries - from the root down to the target leaf.
+     *      * Effectively, this mode makes the data structure _immutable_: instead of _mutating_ the dictionaries, new shallow copies are taken at every level and they are modified instead.
+     *      * This mode is particularly suitable with data selector concept (eg. see "data-memo" npm package), but also when the context data is often listened to by parenting data - instead of specific leaves.
+     * - "mutable": In this mode only sets the target leaf data without copying parenting structure.
+     *      * Effectively, this mode _mutates_ the existing data structure dictionaries at the given locations.
+     *      * However, if a parenting object does not exist, then creates an empty dictionary for it (unlike the "existing" mode).
+     *      * This mode is recommended if immutable-like renewal of the parenting dictionaries is not needed.
+     * - "existing": Like "mutable", but only sets the data if the parenting structure exists - ie. stops if it doesn't.
+     *      * Allows to set leaf values that didn't previously exist, as long as the parent structure exists.
      */
-    dataSetMode: "root" | "leaf" | "only";
+    dataMode: "immutable" | "mutable" | "existing";
 }
 /** Class type for Context class. */
 interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, {} extends OmitPartial<Data> ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]> {
@@ -711,7 +714,7 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
     onListener?(context: Context<any, any>, name: string, index: number, wasAdded: boolean): void;
     /** Optional method to get the listeners for the given signal. If used it determines the listeners, if not present then uses this.signals[name] instead. Return undefined to not call anything. */
     getListenersFor?(context: Context<any, any>, signalName: string): SignalListener[] | undefined;
-    /** Extendable static helper. At the level of Context, this is tied to the context's dataSetMode setting. */
+    /** Extendable static helper. At the level of Context, this is tied to the context's dataMode setting. */
     createPathTo(context: Context<any, any>, dataKeys: string[]): Record<string, any> | undefined;
     /** Extendable static default settings getter. */
     getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings;

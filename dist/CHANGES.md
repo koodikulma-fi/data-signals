@@ -1,6 +1,17 @@
 # CHANGES
 
-## v1.1.2 (2024-10-20)
+## v1.2.0 (2024-10-20)
+
+### Renames context setting
+- Renames the context setting `dataSetMode` -> `dataMode` in `ContextSettings` and changes its value names and default. The values are:
+    * `immutable` (<- `root`): Shallow copies the data from root down to respect immutability.
+    * `mutable` (<- `leaf`): Mutates the target data at the leaf, and creates structure to the leaf if needed.
+    * `existing` (<- `only`): Mutates the target data at the leaf only if the parenting structure exists.
+- The new default is `immutable`, instead of earlier `mutable`. The main reasons are:
+    1. `immutable` mode directly reflects the data listener refreshes. (So more consistent as a whole.)
+    2. This way the setting makes the usage of contexts more robust (by default) in external applications.
+        * In context with a small data tree, `leaf` might be a better default, but on the other hand the feature makes little difference with small trees.
+    3. It's perhaps more expectable that contexts would run in immutable-like mode by default.
 
 ### Enhances typing
 - Refine typing for `ContextAPI` data listeners in that for ContextAPI the data can always have `undefined` union (unless specific fallback given).

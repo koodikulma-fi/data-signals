@@ -179,7 +179,7 @@ dataMan.refreshData(["something.deep", "simple"], 5); // Trigger a refresh after
 - The `Context` class also provides extendable methods on the static side (to keep public instance API clean):
     * `getDefaultSettings<Settings extends ContextSettings = ContextSettings>(): Settings`
         - Extendable static default settings getter.
-        - The settings are `{ refreshTimeout: number | null; dataSetMode: "root" | "leaf" | "only"; }`.
+        - The settings are `{ refreshTimeout: number | null; dataMode: "immutable" | "mutable" | "existing"; }`.
     * `initializeCyclesFor(context: Context): void`
         - Extendable static helper to hook up context refresh cycles together.
     * `runPreDelayFor(context: Context): void`
