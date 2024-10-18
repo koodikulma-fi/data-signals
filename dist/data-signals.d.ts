@@ -28,7 +28,7 @@ type PropType<T extends Record<string, any> | undefined, Path extends string, Un
  * - If the Fallback is not `undefined`, then it can cut partiality away and represents itself as an union type for the deep data.
  * - If the Fallback is `undefined`, then only adds `undefined` if the data was actually partial. Otherwise doesn't.
  */
-type PropTypeFallback<T extends Record<string, any> | undefined, Path extends string, Fallback extends any = void> = Fallback extends undefined ? PropType<T, Path, never> : PropType<T, Path, never, never> | Fallback;
+type PropTypeFallback<T extends Record<string, any> | undefined, Path extends string, Fallback extends any = undefined> = Fallback extends undefined ? PropType<T, Path, never> : PropType<T, Path, never, never> | Fallback;
 /** Get deep props by a dictionary whose keys are dotted data keys and values are fallbacks (to be used when data is not found on the JS side).
  * - The outputted type is likewise a flat dictionary with the same keys, but values are fetched deeply for each.
  */
@@ -36,7 +36,7 @@ type PropTypesFromDictionary<T extends Record<string, any>, Fallbacks extends Re
     [Key in keyof Fallbacks & string]: PropTypeFallback<T, Key, Fallbacks[Key]>;
 };
 /** Get deep props for an array of dotted data keys. */
-type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined | void | never>, Fallbacks extends Array<any | void> = [], Index extends number = Paths["length"]> = Index extends 0 ? [] : number | never extends Index ? [] : [
+type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = undefined[], Index extends number = Paths["length"]> = Index extends 0 ? [] : number | never extends Index ? [] : [
     ...PropTypeArray<T, Paths, Fallbacks, IterateBackwards[Index]>,
     PropTypeFallback<T, Paths[IterateBackwards[Index]] & string, Fallbacks[IterateBackwards[Index]]>
 ];
@@ -699,7 +699,7 @@ interface ContextSettings {
     dataSetMode: "root" | "leaf" | "only";
 }
 /** Class type for Context class. */
-interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, InterfaceLevel extends number | never = 0> extends AsClass<DataManType<Data, InterfaceLevel> & SignalManType<Signals>, Context<Data, Signals, InterfaceLevel>, {} extends OmitPartial<Data> ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]> {
+interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<DataManType<Data> & SignalManType<Signals>, Context<Data, Signals>, {} extends OmitPartial<Data> ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]> {
     /** Assignable getter to call more data listeners when callDataBy is used.
      * - If dataKeys is true (or undefined), then should refresh all data.
      * - Note. To use the default callDataBy implementation from the static side put 2nd arg to true: `contextAPI.callDataBy(dataKeys, true)`.
@@ -721,8 +721,8 @@ interface ContextType<Data extends Record<string, any> = {}, Signals extends Sig
     /** Extendable static helper to run "delay" cycle - default implementation is empty. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
     runDelayFor(context: Context<any>, resolvePromise: () => void): void;
 }
-declare const Context_base: ReClass<ContextType<{}, SignalsRecord, 0>, {}, [data?: {} | undefined, settings?: Partial<ContextSettings> | null | undefined]>;
-interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, InterfaceLevel extends number | never = 0> extends SignalMan<Signals>, DataMan<Data, InterfaceLevel> {
+declare const Context_base: ReClass<ContextType<{}, SignalsRecord>, {}, [data?: {} | undefined, settings?: Partial<ContextSettings> | null | undefined]>;
+interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> {
 }
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
  * - Contexts provide data listening and signalling features.
@@ -741,17 +741,17 @@ interface Context<Data extends Record<string, any> = {}, Signals extends Signals
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-declare class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, InterfaceLevel extends number | never = 0> extends Context_base {
+declare class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends Context_base {
     /** This is only provided for typing related technical reasons (so that can access signals typing easier externally). There's no actual _Signals member on the javascript side. */
     _Signals?: Signals;
-    ["constructor"]: ContextType<Data, Signals, InterfaceLevel>;
+    ["constructor"]: ContextType<Data, Signals>;
     settings: ContextSettings;
     /** Handle for refresh cycles. */
     preDelayCycle: RefreshCycle;
     delayCycle: RefreshCycle;
     /** The keys are the ContextAPIs this context is attached to with a name, and the values are the names (typically only one). They are used for refresh related purposes. */
     contextAPIs: Map<ContextAPI, string[]>;
-    constructor(...args: ConstructorParameters<ContextType<Data, Signals, InterfaceLevel>>);
+    constructor(...args: ConstructorParameters<ContextType<Data, Signals>>);
     /** Update settings with a dictionary. If any value is `undefined` then uses the existing or default setting. */
     modifySettings(settings: Partial<ContextSettings>): void;
     /** Trigger a refresh in the context.
@@ -778,7 +778,7 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     /** Trigger refresh of the context and optionally add data keys.
      * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
      */
-    refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
+    refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     /** Overridden to support getting signal listeners from related contextAPIs - in addition to direct listeners (which are put first). */
     static getListenersFor(context: Context, signalName: string): SignalListener[] | undefined;
     /** Overriden to take into account our context settings. */
@@ -793,7 +793,7 @@ declare class Context<Data extends Record<string, any> = {}, Signals extends Sig
     static runDelayFor(context: Context, resolvePromise: () => void): void;
 }
 /** Create multiple named Contexts as a dictionary. Useful for attaching them to a ContextAPI, eg. to feed them to the root host (or a specific component if you like). */
-declare const createContexts: <Contexts extends Partial<Record<string, Context<any, any, 0>>>, AllData extends Partial<Record<string, Record<string, any>>> = { [Name in keyof Contexts & string]: (Contexts[Name] & {
+declare const createContexts: <Contexts extends Partial<Record<string, Context<any, any>>>, AllData extends Partial<Record<string, Record<string, any>>> = { [Name in keyof Contexts & string]: (Contexts[Name] & {
     data: {};
 })["data"]; }>(contextsData: AllData, settings?: Partial<ContextSettings> | null) => Contexts;
 

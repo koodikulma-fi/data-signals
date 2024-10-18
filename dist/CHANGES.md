@@ -5,9 +5,6 @@
 ### Enhances typing
 - Refine typing for `ContextAPI` data listeners in that for ContextAPI the data can always have `undefined` union (unless specific fallback given).
     * Note that for direct `Context` data listening, this is not the case, since it's known that the context exists - so only provides `undefined` union if data is actually partial.
-- Adds `InterfaceLevel` (3rd) type arg to `Context`, eg. `Context<Data, Signals, 2>`.
-    * The type arg defaults to `0` like in `DataMan`. Note that in `ContextAPI` it defaults to `1`.
-    * Note that you can alternatively control the typing depth by using `type` vs. `interface`.
 
 ### Package refines
 - Refines how typing for constructor args is read (end result is the same).

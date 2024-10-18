@@ -78,7 +78,7 @@ export type PropType<T extends Record<string, any> | undefined, Path extends str
  * - If the Fallback is not `undefined`, then it can cut partiality away and represents itself as an union type for the deep data.
  * - If the Fallback is `undefined`, then only adds `undefined` if the data was actually partial. Otherwise doesn't.
  */
-export type PropTypeFallback<T extends Record<string, any> | undefined, Path extends string, Fallback extends any = void> =
+export type PropTypeFallback<T extends Record<string, any> | undefined, Path extends string, Fallback extends any = undefined> =
     Fallback extends undefined ? PropType<T, Path, never> : PropType<T, Path, never, never> | Fallback;
 
 /** Get deep props by a dictionary whose keys are dotted data keys and values are fallbacks (to be used when data is not found on the JS side).
@@ -89,7 +89,7 @@ export type PropTypesFromDictionary<T extends Record<string, any>, Fallbacks ext
 };
 
 /** Get deep props for an array of dotted data keys. */
-export type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined | void | never>, Fallbacks extends Array<any | void> = [], Index extends number = Paths["length"]> =
+export type PropTypeArray<T extends Record<string, any>, Paths extends Array<string | undefined>, Fallbacks extends any[] = undefined[], Index extends number = Paths["length"]> =
     // Nothing more to do.
     Index extends 0 ? [] :
     // Cut deepness away.
