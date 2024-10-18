@@ -14,12 +14,16 @@
 - Updates comments, README, and adds "types" specifically to package.json.
 - In imports, refines that dependency is to `"mixin-types/types"` (only the typing as of `mixin-types@v1.1.1`).
 
+---
+
 ## v1.1.1 (2024-10-13)
 
 ### Typing refines
 - Renames `Awaited` to `AwaitedOnce` to clarify and to distinguish from TypeScript's own `Awaited` (that awaits all nested).
 - Adds `OmitPartial` and `GetPartialKeys` utility types.
 - Refines optionality of `DataMan`'s 1st constructor arg (to allow skipping if data has no _required_ properties).
+
+---
 
 ## v1.1.0 (2024-09-30)
 
