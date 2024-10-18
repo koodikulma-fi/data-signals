@@ -2,6 +2,11 @@
 
 ## v1.1.2 (unreleased)
 
+### Enhances typing
+- Adds `InterfaceLevel` (3rd) type arg to `Context`, eg. `Context<Data, Signals, 2>`.
+    * The type arg defaults to `0` like in `DataMan`. Note that in `ContextAPI` it defaults to `1`.
+    * Note that you can alternatively control the typing depth by using `type` vs. `interface`.
+
 ### Package refines
 - Refines how typing for constructor args is read (end result is the same).
 - Updates comments, README, and adds "types" specifically to package.json.

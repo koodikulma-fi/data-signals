@@ -45,11 +45,11 @@ export interface ContextSettings {
 // - Class - //
 
 /** Class type for Context class. */
-export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord> extends AsClass<
+export interface ContextType<Data extends Record<string, any> = {}, Signals extends SignalsRecord = SignalsRecord, InterfaceLevel extends number | never = 0> extends AsClass<
     // Static.
-    DataManType<Data> & SignalManType<Signals>,
+    DataManType<Data, InterfaceLevel> & SignalManType<Signals>,
     // Instance.
-    Context<Data, Signals>,
+    Context<Data, Signals, InterfaceLevel>,
     // Args.
     {} extends Data ? [data?: Data, settings?: Partial<ContextSettings> | null | undefined] : [data: Data, settings?: Partial<ContextSettings> | null | undefined]
 > {
@@ -78,7 +78,7 @@ export interface ContextType<Data extends Record<string, any> = {}, Signals exte
     runDelayFor(context: Context<any>, resolvePromise: () => void): void;
 }
 
-export interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}> extends SignalMan<Signals>, DataMan<Data> { }
+export interface Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, InterfaceLevel extends number | never = 0> extends SignalMan<Signals>, DataMan<Data, InterfaceLevel> { }
 
 /** Context provides signal and data listener features (extending `SignalMan` and `DataMan` basis).
  * - Contexts provide data listening and signalling features.
@@ -97,7 +97,7 @@ export interface Context<Data extends Record<string, any> = {}, Signals extends 
  * - Contexts are designed to function stand alone, but also to work with ContextAPI instances to sync a bigger whole together.
  *      * The contextAPIs can be connected to multiple named contexts, and listen to data and signals in all of them in sync.
  */
-export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}>
+export class Context<Data extends Record<string, any> = {}, Signals extends SignalsRecord = {}, InterfaceLevel extends number | never = 0>
     extends (mixinDataMan(mixinSignalMan(Object)) as any as ReClass<ContextType, {}>) {
 
 
@@ -106,7 +106,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     // Typing.
     /** This is only provided for typing related technical reasons (so that can access signals typing easier externally). There's no actual _Signals member on the javascript side. */
     _Signals?: Signals;
-    ["constructor"]: ContextType<Data, Signals>;
+    ["constructor"]: ContextType<Data, Signals, InterfaceLevel>;
     
     // Settings.
     public settings: ContextSettings;
@@ -121,7 +121,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
     // - Construct - //
 
-    constructor(...args: ConstructorParameters<ContextType<Data, Signals>>);
+    constructor(...args: ConstructorParameters<ContextType<Data, Signals, InterfaceLevel>>);
     constructor(data: Data, settings?: Partial<ContextSettings> | null | undefined) {
         // Base.
         super(data);
@@ -200,7 +200,7 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
     /** Trigger refresh of the context and optionally add data keys.
      * - This triggers calling pending data keys and delayed signals (when the refresh cycle is executed).
      */
-    public refreshData<DataKey extends GetJoinedDataKeysFrom<Data>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
+    public refreshData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKeys: DataKey | DataKey[] | boolean | null, forceTimeout?: number | null): void;
     public refreshData(dataKeys: string | string[] | boolean | null, forceTimeout?: number | null): void {
         // Add keys.
         dataKeys && this.addRefreshKeys(dataKeys);
