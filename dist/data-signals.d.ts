@@ -468,10 +468,11 @@ type GetJoinedSignalKeysFromContexts<Contexts extends ContextsAllType> = {
 type GetSignalsFromContexts<Ctxs extends ContextsAllType> = {
     [CtxSignalName in GetJoinedSignalKeysFromContexts<Ctxs> & string]: CtxSignalName extends `${infer CtxName}.${infer SignalName}` ? (Ctxs[CtxName]["_Signals"] & {})[SignalName] : never;
 };
-/** Combine the data part of the named contexts, keeping the same naming structure. */
+/** Combine the data part of the named contexts, keeping the same naming structure without partiality. */
 type GetDataFromContexts<Ctxs extends ContextsAllType> = {
     [Key in string & keyof Ctxs]: Ctxs[Key]["data"];
 };
+/** Combine the data part of the named contexts, keeping the same naming structure, and using partial contexts. (This is the default used in the methods for ContextAPI.) */
 type GetPartialDataFromContexts<Ctxs extends ContextsAllType> = {
     [Key in string & keyof Ctxs]?: Ctxs[Key]["data"];
 };
@@ -500,7 +501,7 @@ interface ContextAPIType<Contexts extends ContextsAllType = {}> extends AsClass<
     readContextDictionaryFrom(ctxDataKeys: string[]): Record<string, string[] | true>;
 }
 declare const ContextAPI_base: ReClass<ContextAPIType<{}>, {}, [contexts?: Partial<{}> | undefined, inheritedContexts?: Partial<{}> | undefined]>;
-interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<GetPartialDataFromContexts<Contexts>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> {
+interface ContextAPI<Contexts extends ContextsAllType = {}> extends DataBoy<Partial<GetPartialDataFromContexts<Contexts>>, 1>, SignalMan<GetSignalsFromContexts<Contexts>> {
 }
 /** ContextAPI extends SignalMan and DataBoy mixins to provide features for handling multiple named Contexts.
  * - According to its mixin basis, ContextAPI allows to:
@@ -577,8 +578,8 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      * - If the context exists uses the getInData method from the context (or getData if no sub prop), otherwise returns undefined or the fallback.
      * - If context found, the fallback is passed to it and also used in case the data is not found at the data key location.
      */
-    getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
-    getInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
+    getInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
+    getInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
     /** Set in contextual data by dotted key: eg. `"someCtxName.someData.someProp"`.
      * - Sets the data in the context, if context found, and triggers refresh (by default).
      * - Note that if the context is found, using this triggers the contextual data listeners (with default or forced timeout).
@@ -587,10 +588,10 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
     */
-    setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
     /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. Only uses forceTimeout for the contexts implie by ctxDataKeys (`true` for all). */
-    refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
+    refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetPartialDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
     /** Manually trigger refresh by a dictionary with multiple refreshKeys for multiple contexts.
      * - Note that unlike the other data methods in the ContextAPI, this one separates the contextName and the keys: `{ [contextName]: dataKeys }` instead of `${contextName}.${dataKeyOrSignal}`.
      * - The values (= data keys) can be `true` to refresh all in that context, or a dotted string or an array of dotted strings to refresh multiple separate portions simultaneously.
