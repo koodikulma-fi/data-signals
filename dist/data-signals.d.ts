@@ -628,23 +628,17 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
      */
     setContext<Name extends keyof Contexts & string>(name: Name, context: Contexts[Name] | null | undefined, callDataIfChanged?: boolean, setAsInherited?: boolean): boolean;
-    /** Set multiple named contexts in one go. Returns true if did changes, false if didn't. This will only modify the given keys.
-     * - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
-     *      * This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
+    /** Set multiple named contexts in one go by partial changes. Returns true if did changes, false if didn't. This will only modify the given keys.
+     * @param contextMods The modifications to the existing contexts.
+     *  - Note that if the context is `null`, it will be kept in the bookkeeping. If it's `undefined`, it will be removed.
+     *  - This only makes difference when uses one ContextAPI to inherit its contexts from another ContextAPI.
+     * @param callDataIfChanged Defaults to `true`. If `true` calls the related data listeners for any changes.
+     * @param setAsInherited Defaults to `false`. If `true` then uses the `inheritedContexts` member, instead of `contexts`.
      * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
      */
     setContexts(contextMods: Partial<{
         [CtxName in keyof Contexts & string]: Contexts[CtxName] | null | undefined;
     }>, callDataIfChanged?: boolean, setAsInherited?: boolean): Array<string & keyof Contexts>;
-    /** Manage the inheritedContexts as a whole. Automatically updates the situation from the previous set of contexts.
-     * @param newContexts The new named contexts as a whole state. If wanting to only apply mods, set param extend to `true`.
-     * @param callDataIfChanged Calls data changes for each change in contextAPI's context assignments.
-     * @param extend Defaults to `false`. If set to `true`, then param newContexts functions as if partial modifications - instead of a full state. Essentially controls whether removes all old that are not found in newContexts (false) or not (true).
-     * @returns Array of context names that were disconnected/connected. If only modified inherited vs context bookkeeping, without actual changes in connections, does not add it to the returned names.
-     */
-    setInheritedContexts(newContexts: Partial<{
-        [CtxName in keyof Contexts]: Contexts[CtxName] | null | undefined;
-    }>, callDataIfChanged?: boolean, extend?: boolean): Array<string & keyof Contexts>;
     /** Trigger a refresh in a specific context.
      * @param forceTimeout Refers to the timing of the context's "pre-delay" cycle.
      */
