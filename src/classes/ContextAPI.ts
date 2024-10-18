@@ -110,7 +110,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
         super();
         this.contexts = { ...contexts };
         if (inheritedContexts)
-            this.inheritedContexts = inheritedContexts;
+            this.inheritedContexts = { ...inheritedContexts };
         this.dataListeners = new Map();
     }
 
@@ -253,24 +253,28 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
             context.setInData(ctxDataKey.slice(iSplit + 1), data as never, extend, refresh, forceTimeout);
     }
 
-    /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. */
-    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>>(ctxDataKeys: CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
-    public refreshData(ctxDataKeys: string | string[], forceTimeout?: number | null): void {
+    /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. Only uses forceTimeout for the contexts implie by ctxDataKeys (`true` for all). */
+    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
+    public refreshData(ctxDataKeys: boolean | string | string[], forceTimeout?: number | null): void {
+        // Nothing to do.
+        if (!ctxDataKeys)
+            return;
         // Prepare a temp dictionary.
         const contexts: Record<string, Context | null | undefined> = {};
         // Loop each data key.
-        for (const ctxDataKey of typeof ctxDataKeys === "string" ? [ctxDataKeys] : ctxDataKeys) {
+        for (const ctxDataKey of ctxDataKeys === true ? Object.keys(this.getContexts()) : typeof ctxDataKeys === "string" ? [ctxDataKeys] : ctxDataKeys) {
             // Get context.
             const iSplit = ctxDataKey.indexOf(".");
             const ctxName = iSplit === -1 ? ctxDataKey : ctxDataKey.slice(0, iSplit);
-            if (contexts[ctxName] !== undefined)
-                contexts[ctxName] = this.getContext(ctxName);
+            let ctx = contexts[ctxName];
+            if (ctx === undefined)
+                ctx = contexts[ctxName] = this.getContext(ctxName) || null;
             // Add refresh keys, if context found.
-            contexts[ctxName]?.addRefreshKeys(iSplit === -1 ? true : ctxDataKey.slice(ctxName.length + 1));
+            ctx && ctx.addRefreshKeys(iSplit === -1 ? true : ctxDataKey.slice(ctxName.length + 1));
         }
         // Refresh each.
         for (const ctxName in contexts)
-            contexts[ctxName]?.refreshData(null as never, forceTimeout);
+            contexts[ctxName] && contexts[ctxName]!.refreshData(null, forceTimeout);
     }
 
     /** Manually trigger refresh by a dictionary with multiple refreshKeys for multiple contexts.
@@ -294,6 +298,35 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
                 context.refreshData(namedRefreshes[name] as never, forceTimeout);
         }
     }
+    
+    // // Extend.
+    // public callDataBy(refreshKeys: true | GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>[] = true, onlyDirect?: boolean): void {
+    //     // Use external flow.
+    //     if (!onlyDirect && (this.constructor as DataBoyType).callDataListenersFor) {
+    //         (this.constructor as DataBoyType).callDataListenersFor!(this as any, refreshKeys as any);
+    //         return;
+    //     }
+    //     // Loop each callback, and call if needs to.
+    //     for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+    //         if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
+    //             callback(...this.getDataArgsBy(needs as any, fallbackArgs));
+    //     }
+    // }
+    // public getDataArgsBy<
+    //     DataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>,
+    //     Params extends [DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?, DataKey?],
+    //     Fallbacks extends Record<string, any> | [any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?, any?]
+    // >(needs: Params, fallbackArgs?: Fallbacks): Fallbacks extends any[] ? PropTypeArray<GetDataFromContexts<Contexts>, Params, Fallbacks> : [valueDictionary: PropTypesFromDictionary<GetDataFromContexts<Contexts>, Fallbacks>];
+    // public getDataArgsBy(needs: string[], fallbackArgs?: any[] | Record<string, any>): any[] {
+    //     // Has fallback.
+    //     return fallbackArgs ?
+    //         // Array.
+    //         Array.isArray(fallbackArgs) ? needs.map((need, i) => this.getInData(need, fallbackArgs[i])) :
+    //         // Dictionary.
+    //         [needs.reduce((cum, need) => { cum[need] = this.getInData(need, fallbackArgs[need]); return cum; }, {} as Record<string, any>)] :
+    //     // No fallback.
+    //     needs.map((need, i) => this.getInData(need));
+    // }
 
 
     // - Mangle contexts - //
