@@ -293,8 +293,8 @@ interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends 
      * - By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      * - Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
      */
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: false, refresh?: boolean, forceTimeout?: number | null): void;
-    setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: boolean | undefined, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(dataKey: DataKey, subData: Partial<SubData>, extend?: true | undefined | never, refresh?: boolean, forceTimeout?: number | null): void;
     /** Note that this only adds the refresh keys but will not refresh. */
     addRefreshKeys(refreshKeys?: string | string[] | boolean): void;
 }
@@ -588,8 +588,8 @@ declare class ContextAPI<Contexts extends ContextsAllType = {}> extends ContextA
      *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
     */
-    setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true, refresh?: boolean, forceTimeout?: number | null): void;
     setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
+    setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true | undefined | never, refresh?: boolean, forceTimeout?: number | null): void;
     /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. Only uses forceTimeout for the contexts implie by ctxDataKeys (`true` for all). */
     refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetPartialDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
     /** Manually trigger refresh by a dictionary with multiple refreshKeys for multiple contexts.

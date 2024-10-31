@@ -1,6 +1,6 @@
 # CHANGES
 
-## v1.2.0 (2024-10-20)
+## v1.2.0 (2024-10-31)
 
 ### Renames context setting
 - Renames the context setting `dataSetMode` -> `dataMode` in `ContextSettings` and changes its value names and default. The values are:
