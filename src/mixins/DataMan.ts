@@ -33,10 +33,13 @@ export interface DataManType<Data extends Record<string, any> = {}, InterfaceLev
  *      * The actual values can be anything: static values, functions, arrays, maps, sets, custom classes (including Immutable maps and such).
  * - When the data is modified, the parenting data dictionaries are shallow copied all the way up to the root data.
  *      * Accordingly, the related data listeners are called (instantly at the level of DataMan).
- * - Note that the typing data key suggestions won't go inside any non-Object type nor custom classes, only dictionaries.
- *      * Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
- * - Note. The InterfaceLevel type argument can be used to define how many levels of interface types allows vs. strict types.
- *      * However, allowing interfaces also allows class instances to be included in the typed dotted data keys.
+ * - Notes about typing the data:
+ *      * Note that the data key type suggestions won't go inside any non-Object type nor custom classes - only dictionaries.
+ *          - Accordingly you should not refer deeper on the JS either, even thought it might work in practice since won't take a shallow copy of non-Objects.
+ *      * Prefer using `type` instead of `interface` for the data - both on the data root as well as within the data.
+ *          - Doing this allows to automatically cut away any interface like objects, like class instances and such.
+ *      * If you need to use `interface` for the root data, try setting the InterfaceLevel type argument to 1 (defaults to 0).
+ *          - This allows to iterate deeper into the interface like objects for dotted type strings.
  */
 export class DataMan<Data extends Record<string, any> = {}, InterfaceLevel extends number | never = 0> extends
     (mixinDataMan(Object) as any as ReClass<DataManType, {}>) {

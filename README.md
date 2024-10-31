@@ -135,6 +135,11 @@ dataBoy.setInData("something.deep", false);
 
 - `DataMan` extends `DataBoy` to complete the concept with `data` member and data set get methods.
     * Note that when nested data is set (with setInData), all the parenting data dictionaries are shallow copied.
+    * The behaviour can be modified by extending classes - eg. see the `{ dataMode }` setting for `Context`.
+- Prefer using `type` over `interface` when typing the data.
+    * Doing this automatically makes the dotted key suggestions work as you'd expect.
+    * Otherwise it cannot be determined whether the type object is a data dictionary or perhaps a class instance.
+    * See more notes in the comments for `DataMan` and `DataBoy` class interfaces.
 
 ```typescript
 
