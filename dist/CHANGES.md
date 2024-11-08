@@ -1,5 +1,12 @@
 # CHANGES
 
+## v1.2.1 (2024-11-09)
+
+### Refined typing
+- Refined typing for `listenToData` and `getInData` methods fallback arguments to correctly cull out `undefined` in certain special cases.
+
+---
+
 ## v1.2.0 (2024-10-31)
 
 ### Renames context setting

@@ -143,7 +143,7 @@ export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel e
         Key7 extends Keys,
         Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>, val2: PropTypeFallback<Data, Key2, Fallback[1]>, val3: PropTypeFallback<Data, Key3, Fallback[2]>, val4: PropTypeFallback<Data, Key4, Fallback[3]>, val5: PropTypeFallback<Data, Key5, Fallback[4]>, val6: PropTypeFallback<Data, Key6, Fallback[5]>, val7: PropTypeFallback<Data, Key7, Fallback[6]>) => void,
         Fallback extends [any?, any?, any?, any?, any?, any?, any?] = [undefined, undefined, undefined, undefined, undefined, undefined, undefined]
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key7, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     listenToData<
         Keys extends GetJoinedDataKeysFrom<Data, InterfaceLevel>,
         Key1 extends Keys,
@@ -156,7 +156,7 @@ export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel e
         Key8 extends Keys,
         Callback extends (val1: PropTypeFallback<Data, Key1, Fallback[0]>, val2: PropTypeFallback<Data, Key2, Fallback[1]>, val3: PropTypeFallback<Data, Key3, Fallback[2]>, val4: PropTypeFallback<Data, Key4, Fallback[3]>, val5: PropTypeFallback<Data, Key5, Fallback[4]>, val6: PropTypeFallback<Data, Key6, Fallback[5]>, val7: PropTypeFallback<Data, Key7, Fallback[6]>, val8: PropTypeFallback<Data, Key8, Fallback[7]>) => void,
         Fallback extends [any?, any?, any?, any?, any?, any?, any?, any?] = [undefined, undefined, undefined, undefined, undefined, undefined, undefined, undefined]
-    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key6, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
+    >(dataKey1: Key1, dataKey2: Key2, dataKey3: Key3, dataKey4: Key4, dataKey5: Key5, dataKey6: Key6, dataKey7: Key7, dataKey8: Key8, callback: Callback, fallbackArgs?: Fallback | null, callImmediately?: boolean): void;
     /** Remove a data listener manually. Returns true if did remove, false if wasn't attached. */
     unlistenToData(callback: DataListenerFunc): boolean;
 
@@ -164,8 +164,8 @@ export interface DataBoy<Data extends Record<string, any> = {}, InterfaceLevel e
     // - Get and set data (all should be extended) - //
 
     /** Should be extended. Default implementation returns fallback. */
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): Exclude<SubData, undefined> | FallbackData;
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>>(ctxDataKey: DataKey, fallback?: never | undefined): SubData | undefined;
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, SubData extends PropType<Data, DataKey, never>, FallbackData extends any>(ctxDataKey: DataKey, fallback: FallbackData): SubData | FallbackData;
 
     /** Should be extended. Default implementation does not do anything. */
     setInData(dataKey: string, subData: any, extend?: boolean, refresh?: boolean): void;

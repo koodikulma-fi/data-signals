@@ -69,7 +69,7 @@ export interface DataMan<Data extends Record<string, any> = {}, InterfaceLevel e
      */
     getData(): Data;
     /** Get a portion within the data using dotted string to point the location. For example: "themes.selected". */
-    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): PropType<Data, DataKey> | Fallback;
+    getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>, Fallback extends any>(dataKey: DataKey, fallback: Fallback): Exclude<PropType<Data, DataKey>, undefined> | Fallback;
     getInData<DataKey extends GetJoinedDataKeysFrom<Data, InterfaceLevel>>(dataKey: DataKey, fallback?: never | undefined): PropType<Data, DataKey>;
     /** Set the data and refresh. By default extends the data (only replaces if extend is set to false), and triggers a refresh. */
     setData(data: Data, extend: false, refresh?: boolean, forceTimeout?: number | null): void;
@@ -199,9 +199,6 @@ export function mixinDataMan<Data extends Record<string, any> = {}, InterfaceLev
         }
 
         public getInData(dataKey: string, fallback?: any): any {
-            // No data.
-            if (!this.data)
-                return fallback;
             // No data key - get the whole data.
             if (!dataKey)
                 return this.data;

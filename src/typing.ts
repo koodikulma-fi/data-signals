@@ -59,17 +59,20 @@ export type OmitPartial<T> = Omit<T, GetPartialKeys<T>>;
 // - Get deep value - //
 
 // Thanks to: https://github.com/microsoft/TypeScript/pull/40336
-/** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`. If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path. */
-export type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | never = false> =
+/** Get deep value type using a dotted data key, eg. `somewhere.deep.in.data`.
+ * - If puts Unknown (3rd arg) to `never`, then triggers error with incorrect path.
+ * - Use the IsPartial (4th arg) to control partial objects: if `false`, is never partial, if `true` always partial, if `null` (default) then is not yet partial, but can become partial.
+ */
+export type PropType<T extends Record<string, any> | undefined, Path extends string, Unknown = unknown, IsPartial extends boolean | null = null> =
     // Too generic.
     string extends Path ? Unknown :
     // Finished.
-    Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : T[Path] :
+    Path extends keyof T ? true extends IsPartial ? T[Path] | undefined : IsPartial extends false ? Exclude<T[Path], undefined> : T[Path] :
     // Should go deeper.
     Path extends `${infer K}.${infer R}` ?
         // Can go deeper.
         K extends keyof T ?
-            PropType<T[K] & {}, R, Unknown, IsPartial extends never ? never : undefined extends T[K] ? true : IsPartial> :
+            PropType<T[K] & {}, R, Unknown, IsPartial extends false ? false : undefined extends T[K] ? true : IsPartial> :
         Unknown :
     // Unfound path.
     Unknown;
@@ -79,7 +82,7 @@ export type PropType<T extends Record<string, any> | undefined, Path extends str
  * - If the Fallback is `undefined`, then only adds `undefined` if the data was actually partial. Otherwise doesn't.
  */
 export type PropTypeFallback<T extends Record<string, any> | undefined, Path extends string, Fallback extends any = undefined> =
-    Fallback extends undefined ? PropType<T, Path, never> : PropType<T, Path, never, never> | Fallback;
+    Fallback extends undefined ? PropType<T, Path, never> : PropType<T, Path, never, false> | Fallback;
 
 /** Get deep props by a dictionary whose keys are dotted data keys and values are fallbacks (to be used when data is not found on the JS side).
  * - The outputted type is likewise a flat dictionary with the same keys, but values are fetched deeply for each.

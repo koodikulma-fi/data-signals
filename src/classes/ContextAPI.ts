@@ -218,8 +218,8 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      * - If the context exists uses the getInData method from the context (or getData if no sub prop), otherwise returns undefined or the fallback.
      * - If context found, the fallback is passed to it and also used in case the data is not found at the data key location.
      */
+    public getInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): Exclude<SubData, undefined> | FallbackData;
     public getInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, fallback?: never | undefined): SubData | undefined;
-    public getInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>, FallbackData extends any>(ctxDataKey: CtxDataKey, fallback: FallbackData): SubData | FallbackData;
     public getInData(ctxDataKey: string, fallback: any = undefined): any {
         // Context not found.
         const iSplit = ctxDataKey.indexOf(".");
@@ -239,8 +239,8 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
      *      * By default extends the value at the leaf, but supports automatically checking if the leaf value is a dictionary (with Object constructor) - if not, just replaces the value.
      *      * Finally, if the extend is set to false, the typing requires to input full data at the leaf, which reflects JS behaviour - won't try to extend.
     */
-    public setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
-    public setInData<CtxDatas extends GetPartialDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData> & Record<string, any>, extend?: true | undefined | never, refresh?: boolean, forceTimeout?: number | null): void;
+    public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: SubData, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void;
+    public setInData<CtxDatas extends GetDataFromContexts<Contexts>, CtxDataKey extends GetJoinedDataKeysFrom<CtxDatas, 1>, SubData extends PropType<CtxDatas, CtxDataKey, never>>(ctxDataKey: CtxDataKey, data: Partial<SubData>, extend?: true | undefined | never, refresh?: boolean, forceTimeout?: number | null): void;
     public setInData(ctxDataKey: string, data: any, extend?: boolean, refresh?: boolean, forceTimeout?: number | null): void {
         // Get context.
         const iSplit = ctxDataKey.indexOf(".");
@@ -256,7 +256,7 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
     }
 
     /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. Only uses forceTimeout for the contexts implie by ctxDataKeys (`true` for all). */
-    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetPartialDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
+    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
     public refreshData(ctxDataKeys: boolean | string | string[], forceTimeout?: number | null): void {
         // Nothing to do.
         if (!ctxDataKeys)
