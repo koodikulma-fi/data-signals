@@ -229,6 +229,10 @@ export class RefreshCycle<
                 this.setState("");
                 this._resolve && this._resolve(); // Just in case for some funky synchronous situations.
             }
+            //
+            // <-- TODO: When says KEEPRESOLVING, then should really keep resolving. Should not resolve the promise yet.
+            // ......... Or then should change, how it works.
+            // ......... But in any case, we'd actually like a feature to HALT the updates. However, we've already taken pending....
         }
         s.onRefresh && (this as RefreshCycle<PendingInfo>).sendSignal("onRefresh", pending, resolvePromise);
         // Make sure the promise is resolved by now, and state cleared.

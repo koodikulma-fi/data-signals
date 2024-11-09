@@ -292,8 +292,10 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
             if (context.delayCycle.state === "waiting")
                 context.awaitDelay ? context.awaitDelay().then(() => context.delayCycle.resolve()) : context.delayCycle.resolve();
         });
-        // .. Make sure "pre-delay" is always resolved right before "delay".
-        context.delayCycle.listenTo("onResolve", () => context.preDelayCycle.resolve());
+        // // .. Make sure "pre-delay" is always resolved right before "delay".
+        // // .... Actually, let's not do this. This will actually result in a new delay cycle (if pre-delay triggered more delays), since the pending are collected _before_ resolving.
+        // // .... In other words, it won't really provide the originally intended benefit: of grouping multiple "delay" cycles together (even more - they are already grouped together by design).
+        // context.delayCycle.listenTo("onResolve", () => context.preDelayCycle.resolve());
     }
     
     /** Extendable static helper to run "pre-delay" cycle. Put as static so that doesn't pollute the public API of Context (nor prevent features of extending classes). */
