@@ -397,7 +397,8 @@ type RefreshCycleSignals<PendingInfo = undefined> = {
     /** Called right before resolving the promise. Perfect place to trigger resolve-dependencies (from other cycles). */
     onResolve: () => void;
     /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates.
-     * - Also contains resolvePromise(), which is called right after synchronously. But can be called earlier if wanted.
+     * - Also contains resolvePromise(keepResolving?), which is called right after synchronously. But can be called earlier if wanted.
+     *      * Note that if puts keepResolving arg to true, will only leave the state as "resolving", but still resolve and clear the promise.
      * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
     onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;

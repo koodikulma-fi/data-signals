@@ -2,7 +2,7 @@
 
 ---
 
-## v1.2.1 (2024-11-09)
+## v1.2.1 (2024-11-10)
 
 ### Tiny refines
 - Refined typing for `listenToData` and `getInData` methods fallback arguments to correctly cull out `undefined` in certain special cases.

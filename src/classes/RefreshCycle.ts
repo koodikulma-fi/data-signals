@@ -28,7 +28,8 @@ export type RefreshCycleSignals<PendingInfo = undefined> = {
     /** Called right before resolving the promise. Perfect place to trigger resolve-dependencies (from other cycles). */
     onResolve: () => void;
     /** Called right when the cycle has finished (without cancelling). Contains the pending info for executing the related updates.
-     * - Also contains resolvePromise(), which is called right after synchronously. But can be called earlier if wanted.
+     * - Also contains resolvePromise(keepResolving?), which is called right after synchronously. But can be called earlier if wanted.
+     *      * Note that if puts keepResolving arg to true, will only leave the state as "resolving", but still resolve and clear the promise.
      * - Note that if resolves early, should take into account that more pending could have accumulated during the call.
      */
     onRefresh: (pending: PendingInfo, resolvePromise: (keepResolving?: boolean) => void) => void;
@@ -229,10 +230,6 @@ export class RefreshCycle<
                 this.setState("");
                 this._resolve && this._resolve(); // Just in case for some funky synchronous situations.
             }
-            //
-            // <-- TODO: When says KEEPRESOLVING, then should really keep resolving. Should not resolve the promise yet.
-            // ......... Or then should change, how it works.
-            // ......... But in any case, we'd actually like a feature to HALT the updates. However, we've already taken pending....
         }
         s.onRefresh && (this as RefreshCycle<PendingInfo>).sendSignal("onRefresh", pending, resolvePromise);
         // Make sure the promise is resolved by now, and state cleared.
