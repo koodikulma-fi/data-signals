@@ -299,11 +299,17 @@ export function mixinDataBoy<Data extends Record<string, any> = {}, InterfaceLev
                 (this.constructor as DataBoyType).callDataListenersFor!(this as any, refreshKeys as any);
                 return;
             }
-            // Loop each callback, and call if needs to.
-            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+            // Collect.
+            // .. Note that we use .entries() below, but only collect callbacks to toCall array.
+            // .. So no problem if the entries are mutated - this is done, as they are actually still connected to the native map.
+            const toCall: Array<[callback: (...args: any[]) => void, needs: string[], args?: any[] | Record<string, any>]> = [];
+            for (const [callback, [fallbackArgs, ...needs]] of this.dataListeners.entries()) {
                 if (refreshKeys === true || refreshKeys.some((dataKey: string) => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                    callback(...this.getDataArgsBy(needs as any, fallbackArgs));
+                    toCall.push([callback, needs, fallbackArgs]);
             }
+            // Call.
+            for (const [callback, needs, fallbackArgs] of toCall)
+                callback(...this.getDataArgsBy(needs as any, fallbackArgs));
         }
 
 

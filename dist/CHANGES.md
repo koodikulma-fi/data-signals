@@ -4,8 +4,9 @@
 
 ## v1.2.1 (2024-11-09)
 
-### Refined typing
+### Tiny refines
 - Refined typing for `listenToData` and `getInData` methods fallback arguments to correctly cull out `undefined` in certain special cases.
+- Refined the internal use of `.entries()` and `.keys()` iteration to not make calls during the iteration (but after). This is to account for any rare changes in the iterable (as it's still connected to the native Map).
 
 ---
 

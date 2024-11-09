@@ -192,11 +192,8 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
         // .. Note that we don't specify which contextAPIs actually were refreshed in relation to the actions and pending data.
         // .... We simply await before all the contextAPIs attached to us have refreshed - they can return same promise if associated, then skipped here.
         // .... This way, the feature set and technical side is much simpler and feels more stable/predictable when actually used.
-        const toWait: Set<Promise<void>> = new Set();
-        for (const contextAPI of this.contextAPIs.keys())
-            toWait.add(contextAPI.afterRefresh(true));
-        // Wait.
-        await Promise.all(toWait);
+        // .. Note that we take a shallow copy of the .keys() iterable to account for any mutable changes in the Map during the afterRefresh calls.
+        await Promise.all([...this.contextAPIs.keys()].map(contextAPI => contextAPI.afterRefresh(true)));
     }
     
     // Overridden to handle data refreshes.
@@ -311,15 +308,22 @@ export class Context<Data extends Record<string, any> = {}, Signals extends Sign
 
         // Call data listeners.
         if (refreshKeys) {
-            // Call direct.
-            for (const [callback, [fallbackArgs, ...needs]] of context.dataListeners.entries()) { // Note that we use .entries() to take a copy of the situation.
+            // Collect.
+            // .. Note that we use .entries() below, but only collect callbacks to toCall array.
+            // .. So no problem if the entries are mutated - this is done, as they are actually still connected to the native map.
+            const toCall: Array<[callback: (...args: any[]) => void, needs: string[], args?: any[] | Record<string, any>]> = [];
+            for (const [callback, [fallbackArgs, ...needs]] of context.dataListeners.entries()) {
                 if (refreshKeys === true || refreshKeys.some(dataKey => needs.some(need => need === dataKey || need.startsWith(dataKey + ".") || dataKey.startsWith(need + ".")))) 
-                    callback(...context.getDataArgsBy(needs as any, fallbackArgs as any));
+                    toCall.push([callback, needs, fallbackArgs]);
             }
-            // Call on related contextAPIs.
-            // .. Only call the ones not colliding with our direct, or call all.
-            for (const [contextAPI, ctxNames] of context.contextAPIs.entries())
-                // Call method.
+            // .. Take a shallow copy to avoid mutation surprises. (It works even with deleted keys, the value is still there.)
+            const cApiEntries = [...context.contextAPIs.entries()];
+            // Call.
+            // .. Direct.
+            for (const [callback, needs, fallbackArgs] of toCall)
+                callback(...context.getDataArgsBy(needs as any, fallbackArgs));
+            // .. For related contextAPIs.
+            for (const [contextAPI, ctxNames] of cApiEntries)
                 contextAPI.callDataBy((refreshKeys === true ? ctxNames : ctxNames.reduce((cum, ctxName) => cum.concat(refreshKeys.map(rKey => rKey ? ctxName + "." + rKey : ctxName)), [] as string[])) as any);
         }
     }
