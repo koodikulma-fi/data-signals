@@ -255,8 +255,9 @@ export class ContextAPI<Contexts extends ContextsAllType = {}> extends (mixinDat
             context.setInData(ctxDataKey.slice(iSplit + 1), data as never, extend, refresh, forceTimeout);
     }
 
+    // Note. For symmetry with base class, we actually use GetPartialDataFromContexts in the type.
     /** Manually trigger refresh without setting any data using a dotted key (or an array of them) with context name prepended: eg. `"someCtxName.someData.someProp"`. Only uses forceTimeout for the contexts implie by ctxDataKeys (`true` for all). */
-    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
+    public refreshData<CtxDataKey extends GetJoinedDataKeysFrom<GetPartialDataFromContexts<Contexts>, 1>>(ctxDataKeys: boolean | CtxDataKey | CtxDataKey[], forceTimeout?: number | null): void;
     public refreshData(ctxDataKeys: boolean | string | string[], forceTimeout?: number | null): void {
         // Nothing to do.
         if (!ctxDataKeys)

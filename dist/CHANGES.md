@@ -1,5 +1,7 @@
 # CHANGES
 
+---
+
 ## v1.2.1 (2024-11-09)
 
 ### Refined typing
